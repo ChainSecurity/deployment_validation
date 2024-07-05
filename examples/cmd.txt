@@ -1,0 +1,35 @@
+Initially put example_config.json at ~/.dv_config.json
+
+
+// Permit2
+cargo run --bin dv -- --config examples/example_config.json init --contractname Permit2 --address 0x000000000022D473030F116dDEE9F6B43aC78BA3 --project examples/permit2 --initblock 15986851 examples/dvfs/permit2_out.dvf.json
+
+
+// FrxETH
+cargo run --bin dv -- --config examples/example_config.json init --address 0x5e8422345238f34275888049021821e8e08caa1f --contractname frxETH --project examples/frxETH-public --initblock 15728402 --chainid 1 examples/dvfs/frx_out.dvf.json
+cargo run --bin dv -- --config examples/example_config.json sign examples/dvfs/frxETH_filtered.dvf.json 
+cargo run --bin dv -- --config examples/example_config.json validate --validationblock  15740402  examples/dvfs/frxETH_filtered.dvf.json
+
+// cDAI
+cargo run --bin fetch -- --project /tmp/cdai --address 0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643 
+
+
+// cDAI - Update
+cargo run --bin dv -- validate --validationblock 9993577 examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json // should fail
+cargo run --bin dv -- update --validationblock 9993577 examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json
+
+
+// fetch
+cargo run --bin fetch -- --config examples/example_config.json --project /tmp/testdir --address 0xa2327a938Febf5FEC13baCFb16Ae10EcBc4cbDCF
+
+
+// Goerli
+cargo run --bin fetch -- --config examples/example_config.json --project /tmp/zeta --address 0xCc7bb2D219A0FC08033E130629C2B854b7bA9195 --chainid 5 
+dv init --address 0xCc7bb2D219A0FC08033E130629C2B854b7bA9195 --project /tmp/test2 --chainid 5 --contractname ZetaEth ZetaEth_0xCc7bb2D219A0FC08033E130629C2B854b7bA9195.dvf.json
+
+---- 
+
+// Test undecoded events
+cargo run --bin fetch -- -v --project /tmp/tapio --address 0xA33a79c5Efadac7c07693c3ce32Acf9a1Fc5A387 --chainid 5 
+dv init --address 0xA33a79c5Efadac7c07693c3ce32Acf9a1Fc5A387 --project /tmp/tapio --chainid 5 --contractname TransparentUpgradeableProxy TransparentUpgradeableProxy_0xA33a79c5Efadac7c07693c3ce32Acf9a1Fc5A387.dvf.json
+

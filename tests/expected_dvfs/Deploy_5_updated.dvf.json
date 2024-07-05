@@ -1,0 +1,60 @@
+{
+  "version": "0.9.1",
+  "contract_name": "NestedMapping",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 2,
+  "deployment_tx": "0x50bb38f92b0019a4223dec8daa2fbece6c15ee663038cbc3d49ee01d475aeb03",
+  "codehash": "0xb90589f7f813485c98adfbd6f20b54f4a3a71dfe251e7794215f347c2c34f120",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [
+    {
+      "var_name": "b",
+      "value": "0x00",
+      "value_hint": "false"
+    }
+  ],
+  "critical_storage_variables": [
+    {
+      "slot": "0x59ddd120475e147f8702cb8a770930d245a85b520e2e162e93bb0709fb03bb2c",
+      "offset": 0,
+      "var_name": "mp[0x0000000000000000000000000000000000000000][0x5fbdb2315678afecb367f032d93f642f64180aa3]",
+      "var_type": "t_int128",
+      "value": "0xfffffffffffffffffffffffffffffffb",
+      "value_hint": "-5",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xaeaa4766fab0139a99f9040cba20e61c0d910021e2af6e62c0e4ae73be96aa43",
+      "offset": 0,
+      "var_name": "mp[0x5fbdb2315678afecb367f032d93f642f64180aa3][0x1111111254eeb25477b68fb85ed929f73a960582]",
+      "var_type": "t_int128",
+      "value": "0x00000000000000000000000005f5e100",
+      "value_hint": "1. * 10^8",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "x",
+      "var_type": "t_int8",
+      "value": "0xfe",
+      "value_hint": "-2",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

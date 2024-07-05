@@ -1,0 +1,114 @@
+[
+  {
+    "slot": "0x0",
+    "offset": 0,
+    "var_name": "dynamicStatic.length",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "value_hint": "2",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "offset": 0,
+    "var_name": "dynamicStatic[0][0]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000001",
+    "value_hint": "1",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "offset": 8,
+    "var_name": "dynamicStatic[0][1]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000002",
+    "value_hint": "2",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "offset": 16,
+    "var_name": "dynamicStatic[0][2]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000003",
+    "value_hint": "3",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    "offset": 24,
+    "var_name": "dynamicStatic[0][3]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000004",
+    "value_hint": "4",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e564",
+    "offset": 0,
+    "var_name": "dynamicStatic[0][4]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000005",
+    "value_hint": "5",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e564",
+    "offset": 8,
+    "var_name": "dynamicStatic[0][5]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000006",
+    "value_hint": "6",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e565",
+    "offset": 0,
+    "var_name": "dynamicStatic[1][0]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e565",
+    "offset": 8,
+    "var_name": "dynamicStatic[1][1]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e565",
+    "offset": 16,
+    "var_name": "dynamicStatic[1][2]",
+    "var_type": "t_uint64",
+    "value": "0x0de0b6b3a7640000",
+    "value_hint": "1. * 10^18",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e565",
+    "offset": 24,
+    "var_name": "dynamicStatic[1][3]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e566",
+    "offset": 0,
+    "var_name": "dynamicStatic[1][4]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e566",
+    "offset": 8,
+    "var_name": "dynamicStatic[1][5]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  }
+]

@@ -1,0 +1,64 @@
+{
+  "version": "0.9.1",
+  "id": "0xb9fb1269ea24f84f405e2e72ab7c6477ffed035568f05cf5a61da34b65dc6947",
+  "contract_name": "frxETH",
+  "address": "0x5e8422345238f34275888049021821e8e08caa1f",
+  "chain_id": 1,
+  "deployment_block_num": 15686046,
+  "init_block_num": 15686046,
+  "deployment_tx": "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d",
+  "codehash": "0x030c096222e8746193408e3a8fa65f7bc051c4f680bcd589ee5b476401fcb951",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [
+    {
+      "var_name": "_creator_address",
+      "value": "0xb1748c79709f4ba2dd82834b8c82d4a505003f27"
+    },
+    {
+      "var_name": "_timelock_address",
+      "value": "0x8412ebf45bac1b340bbe8f318b928c466c4e39ca",
+      "value_hint": "Frax Finance: Time Lock"
+    }
+  ],
+  "critical_storage_variables": [
+    {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "_name (length=10)",
+      "var_type": "t_string_storage",
+      "value": "0x4672617820457468657200000000000000000000000000000000000000000014",
+      "value_hint": "Frax Ether",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4",
+      "offset": 0,
+      "var_name": "_symbol (length=6)",
+      "var_type": "t_string_storage",
+      "value": "0x667278455448000000000000000000000000000000000000000000000000000c",
+      "value_hint": "frxETH",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9",
+      "offset": 0,
+      "var_name": "timelock_address",
+      "var_type": "t_address",
+      "value": "0x8412ebf45bac1b340bbe8f318b928c466c4e39ca",
+      "value_hint": "Frax Finance: Time Lock",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "TimelockChanged(address)",
+      "topic0": "0xf02fdf7b40fb25784d39342249bbb15cee2bc0288f75ded1cf8ad2e63d4d91aa",
+      "occurrences": []
+    }
+  ],
+  "signature": {
+    "sig_data": "0x1d1c608df0afb54bb56e6c2f01b060151822550d9df6450fece5bbda51f83d1a79eddcd09a176529af3cb8b2ec3dd3a31bac73df6c9afd370c748007fb9df0721b",
+    "signer": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+  }
+}

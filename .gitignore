@@ -1,0 +1,10 @@
+/target
+/cache
+/todo
+/cargo
+.vscode
+compiled_bytecode.txt
+on_chain_bytecode.txt
+**/*.swp
+/*.dvf.json
+.env

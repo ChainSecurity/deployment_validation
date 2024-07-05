@@ -1,0 +1,547 @@
+{
+  "version": "0.9.1",
+  "contract_name": "CrazyHiddenStruct",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 4,
+  "deployment_tx": "0x63940866317040d31a0739fe1bbf6199eed3bddc5ae96e0944c00620fa3bbf60",
+  "codehash": "0xc5f9a009f6b4fe853fa6d949876dedd2594d797a7aa57fcf9c58031f7911dfe5",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x35651ad27f3aefbb385b9ec8083a43fa66a530f8d5c595761b795067f1e74a1e",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.slot.Struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000033",
+      "value_hint": "51",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x35651ad27f3aefbb385b9ec8083a43fa66a530f8d5c595761b795067f1e74a1f",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.slot.Struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000034",
+      "value_hint": "52",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x15a25abce1e290903dfb3bf850cde568a79974bd708fad6773051983c8f32392",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.[_getStorage4].Struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000035",
+      "value_hint": "53",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x15a25abce1e290903dfb3bf850cde568a79974bd708fad6773051983c8f32393",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.[_getStorage4].Struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000036",
+      "value_hint": "54",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x23a5f7cc72e23cdd4f1db53ce1b03f6dc7fc47aeb7fdbce350f3d3985d8279ce",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.KeccakStorageLocation1.Struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000003b",
+      "value_hint": "59",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x23a5f7cc72e23cdd4f1db53ce1b03f6dc7fc47aeb7fdbce350f3d3985d8279cf",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.KeccakStorageLocation1.Struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x00000000000000000000000000000000000000000000003c",
+      "value_hint": "60",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9791306d36f884f84fb67051679efcfc2826c7a42c194c1ea63f58f3d1d1a1d4",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.KeccakStorageLocation2.Struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000003d",
+      "value_hint": "61",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9791306d36f884f84fb67051679efcfc2826c7a42c194c1ea63f58f3d1d1a1d5",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.KeccakStorageLocation2.Struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x00000000000000000000000000000000000000000000003e",
+      "value_hint": "62",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8a",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._uint192",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000014",
+      "value_hint": "20",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8b",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint8[0]",
+      "var_type": "t_uint8",
+      "value": "0x15",
+      "value_hint": "21",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8b",
+      "offset": 1,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint8[1]",
+      "var_type": "t_uint8",
+      "value": "0x16",
+      "value_hint": "22",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8b",
+      "offset": 2,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint8[2]",
+      "var_type": "t_uint8",
+      "value": "0x17",
+      "value_hint": "23",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8c",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._int192",
+      "var_type": "t_int192",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffe8",
+      "value_hint": "-24",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8c",
+      "offset": 24,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._bool",
+      "var_type": "t_bool",
+      "value": "0x01",
+      "value_hint": "true",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8d",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._dynArrayUint40.length",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "value_hint": "3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5b1dc9b27b9505294a9eec7abe23dbfc1a1b1453a90ad80e89410fd965346456",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._dynArrayUint40[0]",
+      "var_type": "t_uint40",
+      "value": "0x0000000019",
+      "value_hint": "25",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5b1dc9b27b9505294a9eec7abe23dbfc1a1b1453a90ad80e89410fd965346456",
+      "offset": 5,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._dynArrayUint40[1]",
+      "var_type": "t_uint40",
+      "value": "0x000000001a",
+      "value_hint": "26",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5b1dc9b27b9505294a9eec7abe23dbfc1a1b1453a90ad80e89410fd965346456",
+      "offset": 10,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._dynArrayUint40[2]",
+      "var_type": "t_uint40",
+      "value": "0x000000001b",
+      "value_hint": "27",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8e",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._address",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8f",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._contract",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec90",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint256[0]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000001c",
+      "value_hint": "28",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec91",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint256[1]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000001d",
+      "value_hint": "29",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec92",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._arrayUint256[2]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000001e",
+      "value_hint": "30",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9aaec34ad20a36f142849df84dc18f6cca8d9667522d7459cee106efd7f1ebe8",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._mapping[0x5fbdb2315678afecb367f032d93f642f64180aa3]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000020",
+      "value_hint": "32",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec94",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._string (length=4)",
+      "var_type": "t_string_storage_ptr",
+      "value": "0x7465737400000000000000000000000000000000000000000000000000000008",
+      "value_hint": "test",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec95",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._bytes (length=9)",
+      "var_type": "t_bytes_storage_ptr",
+      "value": "0x7465737469746573740000000000000000000000000000000000000000000012",
+      "value_hint": "746573746974657374",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec96",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._enum",
+      "var_type": "t_uint8",
+      "value": "0x01",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec97",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000021",
+      "value_hint": "33",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec98",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000022",
+      "value_hint": "34",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec99",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation1.Struct1._type",
+      "var_type": "Type",
+      "value": "0x00000000000000000000000000000023",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7ae8",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._uint192",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000024",
+      "value_hint": "36",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7ae9",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint8[0]",
+      "var_type": "t_uint8",
+      "value": "0x25",
+      "value_hint": "37",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7ae9",
+      "offset": 1,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint8[1]",
+      "var_type": "t_uint8",
+      "value": "0x26",
+      "value_hint": "38",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7ae9",
+      "offset": 2,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint8[2]",
+      "var_type": "t_uint8",
+      "value": "0x27",
+      "value_hint": "39",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aea",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._int192",
+      "var_type": "t_int192",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffd8",
+      "value_hint": "-40",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aea",
+      "offset": 24,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._bool",
+      "var_type": "t_bool",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aeb",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._dynArrayUint40.length",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "value_hint": "3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x729d4e87c26acdd3d89aba983a003ca2c8c8a63969ac31180cb88ef645276a20",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._dynArrayUint40[0]",
+      "var_type": "t_uint40",
+      "value": "0x0000000029",
+      "value_hint": "41",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x729d4e87c26acdd3d89aba983a003ca2c8c8a63969ac31180cb88ef645276a20",
+      "offset": 5,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._dynArrayUint40[1]",
+      "var_type": "t_uint40",
+      "value": "0x000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x729d4e87c26acdd3d89aba983a003ca2c8c8a63969ac31180cb88ef645276a20",
+      "offset": 10,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._dynArrayUint40[2]",
+      "var_type": "t_uint40",
+      "value": "0x000000002b",
+      "value_hint": "43",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aec",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._address",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aed",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._contract",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aee",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint256[0]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002c",
+      "value_hint": "44",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aef",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint256[1]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002d",
+      "value_hint": "45",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af0",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._arrayUint256[2]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002e",
+      "value_hint": "46",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x236453792347cdd69067164d0e3b70a6cccb56abd581bf2f84ba13b07bf3c58d",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._mapping[0x5fbdb2315678afecb367f032d93f642f64180aa3]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002f",
+      "value_hint": "47",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af2",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._string (length=5)",
+      "var_type": "t_string_storage_ptr",
+      "value": "0x746573743200000000000000000000000000000000000000000000000000000a",
+      "value_hint": "test2",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af3",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._bytes (length=10)",
+      "var_type": "t_bytes_storage_ptr",
+      "value": "0x7465737469746573743200000000000000000000000000000000000000000014",
+      "value_hint": "74657374697465737432",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af4",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._enum",
+      "var_type": "t_uint8",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af5",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._struct2.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000030",
+      "value_hint": "48",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af6",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._struct2.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000031",
+      "value_hint": "49",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af7",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._type",
+      "var_type": "Type",
+      "value": "0x00000000000000000000000000000032",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9482765040f1c978ae595e69b3ad0e4697ca0d1e0581a09be85cfb4a8462e752",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation3.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xe82aa111a62567be9a414850f7168d2e6c9f9d61a82b90598df0a59035cd53a6",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.StorageLocation4.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xa83659c989cfe332581a2ed207e0e6d23d9199b0de773442a1e23a9b8c5138f0",
+      "offset": 0,
+      "var_name": "CrazyHiddenStruct.[_setOwner].AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xbfbceebbfa6e5996c6a04ac6db0e347528756a4f073935304cc6139dcc2fb653",
+      "offset": 0,
+      "var_name": "DirectStorageLocation1",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000037",
+      "value_hint": "55",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x42d0407cb447148fd182bf527909ab1ba2fbaefe3f25cbe9851153586910b294",
+      "offset": 0,
+      "var_name": "DirectStorageLocation2",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000038",
+      "value_hint": "56",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xd63cda19032c797bc0681e2077ae95a9a76af0fdb8f771b8f1cfcdf6578aca6c",
+      "offset": 0,
+      "var_name": "slot",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000039",
+      "value_hint": "57",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4a7aec098045e3d96a6592c68c6dbd22bd3358e23bcaa52ab70d20bef4f890ef",
+      "offset": 0,
+      "var_name": "[_setDirect4].unnamed",
+      "var_type": "t_uint128",
+      "value": "0x0000000000000000000000000000003a",
+      "value_hint": "58",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

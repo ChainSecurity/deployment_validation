@@ -1,0 +1,53 @@
+[
+  {
+    "slot": "0xe0372278de572bbd5d63248f2b77bfb55ce05ca08cd67fd2db16096cd1520943",
+    "offset": 0,
+    "var_name": "static_in_mapping[0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6][0]",
+    "var_type": "t_uint128",
+    "value": "0xffffffffffffffffffffffffffffffff",
+    "value_hint": "3.40282366920938463463374607431768211455 * 10^38",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xe0372278de572bbd5d63248f2b77bfb55ce05ca08cd67fd2db16096cd1520943",
+    "offset": 16,
+    "var_name": "static_in_mapping[0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6][1]",
+    "var_type": "t_uint128",
+    "value": "0x00000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xe0372278de572bbd5d63248f2b77bfb55ce05ca08cd67fd2db16096cd1520944",
+    "offset": 0,
+    "var_name": "static_in_mapping[0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6][2]",
+    "var_type": "t_uint128",
+    "value": "0xffffffffffffffffffffffffffffffff",
+    "value_hint": "3.40282366920938463463374607431768211455 * 10^38",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x723077b8a1b173adc35e5f0e7e3662fd1208212cb629f9c128551ea7168da722",
+    "offset": 0,
+    "var_name": "static_in_mapping[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266][0]",
+    "var_type": "t_uint128",
+    "value": "0x00000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x723077b8a1b173adc35e5f0e7e3662fd1208212cb629f9c128551ea7168da722",
+    "offset": 16,
+    "var_name": "static_in_mapping[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266][1]",
+    "var_type": "t_uint128",
+    "value": "0x00000000000000000000000000000005",
+    "value_hint": "5",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x723077b8a1b173adc35e5f0e7e3662fd1208212cb629f9c128551ea7168da723",
+    "offset": 0,
+    "var_name": "static_in_mapping[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266][2]",
+    "var_type": "t_uint128",
+    "value": "0x00000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  }
+]

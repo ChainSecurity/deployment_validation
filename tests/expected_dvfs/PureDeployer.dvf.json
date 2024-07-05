@@ -1,0 +1,36 @@
+{
+  "version": "0.9.1",
+  "contract_name": "PureDeployer",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 3,
+  "deployment_tx": "0x6eb47896d68f12f29c9ccbedac5ff3490195cb9d47606d2ff3db92c9093e5b80",
+  "codehash": "0xb4bd419689374d181bf6d99bfe21966c11dbb528a6714672ada87bc05cd66e24",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "x",
+      "var_type": "t_address",
+      "value": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

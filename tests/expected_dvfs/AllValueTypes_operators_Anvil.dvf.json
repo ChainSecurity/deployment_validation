@@ -1,0 +1,199 @@
+{
+  "version": "0.9.1",
+  "contract_name": "AllValueTypes",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 4,
+  "deployment_tx": "0x4c0eda23fa858c9ec88a7004c80c78a606561025d2d8b2c85f825957cab8fc9b",
+  "codehash": "0xc5f9a009f6b4fe853fa6d949876dedd2594d797a7aa57fcf9c58031f7911dfe5",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000021",
+      "value_hint": "33",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "value_hint": "0",
+      "comparison_operator": "NotEqual"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000020",
+      "value_hint": "32",
+      "comparison_operator": "GreaterThan"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000022",
+      "value_hint": "34",
+      "comparison_operator": "LessThan"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000021",
+      "value_hint": "33",
+      "comparison_operator": "GreaterThanOrEqual"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000020",
+      "value_hint": "32",
+      "comparison_operator": "GreaterThanOrEqual"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000021",
+      "value_hint": "33",
+      "comparison_operator": "LessThanOrEqual"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "_uint256",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000022",
+      "value_hint": "34",
+      "comparison_operator": "LessThanOrEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbd",
+      "value_hint": "-67",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "value_hint": "0",
+      "comparison_operator": "NotEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc",
+      "value_hint": "-68",
+      "comparison_operator": "GreaterThan"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbe",
+      "value_hint": "-66",
+      "comparison_operator": "LessThan"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "value_hint": "0",
+      "comparison_operator": "LessThan"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbd",
+      "value_hint": "-67",
+      "comparison_operator": "GreaterThanOrEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc",
+      "value_hint": "-68",
+      "comparison_operator": "GreaterThanOrEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbd",
+      "value_hint": "-67",
+      "comparison_operator": "LessThanOrEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbe",
+      "value_hint": "-66",
+      "comparison_operator": "LessThanOrEqual"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int256",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbc",
+      "value_hint": "-68",
+      "comparison_operator": "GreaterThan"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "_int256",
+      "var_type": "t_int256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbd",
+      "value_hint": "-67",
+      "comparison_operator": "GreaterThanOrEqual"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

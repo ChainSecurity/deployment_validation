@@ -1,0 +1,64 @@
+[profile.default]
+solc_version = "0.8.21"
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+remappings = []
+auto_detect_remappings = true
+libraries = []
+cache = true
+cache_path = "cache"
+broadcast = "broadcast"
+allow_paths = []
+include_paths = []
+force = false
+evm_version = "paris"
+gas_reports = ["*"]
+gas_reports_ignore = []
+auto_detect_solc = true
+offline = false
+optimizer = true
+optimizer_runs = 200
+verbosity = 0
+ignored_error_codes = [
+    "license",
+    "code-size",
+    "init-code-size",
+    "transient-storage",
+]
+ignored_warnings_from = []
+deny_warnings = false
+isolate = false
+disable_block_gas_limit = false
+ffi = false
+always_use_create_2_factory = false
+prompt_timeout = 120
+sender = "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38"
+tx_origin = "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38"
+initial_balance = "0xffffffffffffffffffffffff"
+block_number = 1
+gas_limit = 9223372036854775807
+block_base_fee_per_gas = 0
+block_coinbase = "0x0000000000000000000000000000000000000000"
+block_timestamp = 1
+block_difficulty = 0
+block_prevrandao = "0x0000000000000000000000000000000000000000000000000000000000000000"
+memory_limit = 134217728
+extra_output = []
+extra_output_files = []
+names = false
+sizes = false
+via_ir = false
+ast = false
+no_storage_caching = false
+no_rpc_rate_limit = false
+use_literal_content = false
+bytecode_hash = "none"
+cbor_metadata = true
+sparse_mode = false
+build_info = false
+create2_library_salt = "0x0000000000000000000000000000000000000000000000000000000000000000"
+unchecked_cheatcode_artifacts = false
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

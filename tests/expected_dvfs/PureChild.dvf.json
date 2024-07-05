@@ -1,0 +1,55 @@
+{
+  "version": "0.9.1",
+  "contract_name": "PureChild",
+  "address": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 3,
+  "deployment_tx": "0x6eb47896d68f12f29c9ccbedac5ff3490195cb9d47606d2ff3db92c9093e5b80",
+  "codehash": "0xc5eec0d383cb629c5a5259e04cc18b18293b04ce07dc5fca488e7edb3bc8e007",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "very_important",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "some_function",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000017",
+      "value_hint": "23",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x59dd4b18488d12f51eda69757a0ed42a2010c14b564330cc74a06895e60c077b",
+      "offset": 0,
+      "var_name": "some_map[6]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000007",
+      "value_hint": "7",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

@@ -1,0 +1,177 @@
+use actix_web::{web, web::get, web::post, App, HttpRequest, HttpServer, Responder};
+use clap::{Arg, Command};
+use ethers::utils::keccak256;
+use reqwest::{header::HeaderMap, Url};
+use serde_json::Value;
+use std::fs::{create_dir_all, File};
+use std::io::{Read, Write};
+use std::path::Path;
+use std::sync::Mutex;
+
+struct AppState {
+    url: String,
+    cachedir: String,
+    verbose: u8,
+}
+
+async fn generic_function(
+    data: web::Bytes,
+    req: HttpRequest,
+    state: web::Data<Mutex<AppState>>,
+) -> impl Responder {
+    let (url, cachedir, verbose) = {
+        let state = state.lock().unwrap();
+        (state.url.clone(), state.cachedir.clone(), state.verbose)
+    };
+    let method = req.method().clone();
+
+    if verbose > 1 {
+        println!(
+            "Request: {:?}, Data {:?}, Query: {:?}",
+            req,
+            data,
+            req.query_string()
+        );
+    }
+
+    // Capture headers from the incoming request
+    let mut headers = HeaderMap::new();
+    for (key, value) in req.headers().iter() {
+        if key.as_str().contains("api-key") || key.as_str().contains("content") {
+            headers.insert(key, value.clone());
+        }
+    }
+
+    let fname = get_fname(&data, req.query_string().as_bytes(), &cachedir);
+    if Path::new(&fname).exists() {
+        if verbose > 0 {
+            println!("Served {:?} from cache: {}", data, fname);
+        }
+        let mut file = File::open(fname).unwrap();
+        let mut saved = Vec::new();
+        file.read_to_end(&mut saved).unwrap();
+        let response: Value = serde_json::from_slice(&saved).unwrap();
+        return web::Json(response);
+    }
+
+    // If we are running in test mode, answer no non-cached queries
+    if url.len() < 2 {
+        return web::Json("".into());
+    }
+
+    // Generate Query Pairs out of query string
+    let mut dummyurl = Url::parse("https://example.com/api").unwrap();
+    dummyurl.set_query(Some(req.query_string()));
+
+    // Convert query pairs into a vector of tuples
+    let query_pairs: Vec<(String, String)> = dummyurl.query_pairs().into_owned().collect();
+    println!("Query Pairs: {:?}", query_pairs);
+
+    let client = reqwest::Client::new();
+    let response = match method.as_str() {
+        "GET" => client
+            .get(&url)
+            .headers(headers)
+            .query(&query_pairs)
+            .body(data.to_vec())
+            .send()
+            .await
+            .unwrap(),
+        "POST" => client
+            .post(&url)
+            .headers(headers)
+            .body(data.to_vec())
+            .send()
+            .await
+            .unwrap(),
+        _ => panic!("Unsupported HTTP method"),
+    };
+
+    let response_text = response.text().await.unwrap();
+    if verbose > 1 {
+        println!("Response: {:?}", response_text);
+    }
+    let response_json: Value = serde_json::from_str(&response_text).unwrap();
+
+    // Cache the response
+    let mut file = File::create(&fname).unwrap();
+    file.write_all(response_text.as_bytes()).unwrap();
+
+    if data.len() > 100 {
+        println!("Saved long data for {:?} in cache", data);
+    } else {
+        println!("Saved {:?} for {:?} in cache", response_json, data);
+    }
+
+    web::Json(response_json)
+}
+
+fn get_fname(data: &[u8], query: &[u8], cachedir: &str) -> String {
+    let mut vec3: Vec<u8> = data.to_vec();
+    vec3.extend(query);
+    let res = keccak256(vec3);
+    format!("{}/{}", cachedir, hex::encode(res))
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let matches = Command::new("rpcproxy")
+        .about("Cache RPC results")
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .action(clap::ArgAction::Count),
+        )
+        .arg(
+            Arg::new("port")
+                .short('p')
+                .long("port")
+                .value_name("PORT")
+                .default_value("5000")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("url")
+                .short('u')
+                .long("url")
+                .value_name("URL")
+                .default_value("")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("cachedir")
+                .short('d')
+                .long("cachedir")
+                .value_name("CACHEDIR")
+                .takes_value(true)
+                .required(true),
+        )
+        .get_matches();
+
+    let port: u16 = matches.value_of("port").unwrap().parse().unwrap();
+    let url = matches.value_of("url").unwrap().to_string();
+    let cachedir = matches.value_of("cachedir").unwrap().to_string();
+
+    create_dir_all(&cachedir)?;
+
+    println!("Port: {}", port);
+    println!("URL: {}", url);
+    println!("Cache Directory: {}", cachedir);
+
+    let state = web::Data::new(Mutex::new(AppState {
+        url,
+        cachedir,
+        verbose: matches.get_count("verbose"),
+    }));
+
+    HttpServer::new(move || {
+        App::new().app_data(state.clone()).service(
+            web::resource("/")
+                .route(get().to(generic_function))
+                .route(post().to(generic_function)),
+        )
+    })
+    .bind(("127.0.0.1", port))?
+    .run()
+    .await
+}

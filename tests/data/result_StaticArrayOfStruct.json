@@ -1,0 +1,132 @@
+[
+  {
+    "slot": "0x0",
+    "offset": 0,
+    "var_name": "buffer",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 0,
+    "var_name": "static_array_of_struct[0].A",
+    "var_type": "t_uint256",
+    "value": "0x00000000000000000000000000000000000000000000000000000000ffffffff",
+    "value_hint": "4.294967295 * 10^9",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2",
+    "offset": 0,
+    "var_name": "static_array_of_struct[0].B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2",
+    "offset": 20,
+    "var_name": "static_array_of_struct[0].C",
+    "var_type": "t_bool",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x3",
+    "offset": 0,
+    "var_name": "static_array_of_struct[1].A",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x4",
+    "offset": 0,
+    "var_name": "static_array_of_struct[1].B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x4",
+    "offset": 20,
+    "var_name": "static_array_of_struct[1].C",
+    "var_type": "t_bool",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x5",
+    "offset": 0,
+    "var_name": "static_array_of_struct[2].A",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "var_type": "t_uint256",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x6",
+    "offset": 0,
+    "var_name": "static_array_of_struct[2].B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x6",
+    "offset": 20,
+    "var_name": "static_array_of_struct[2].C",
+    "var_type": "t_bool",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x7",
+    "offset": 0,
+    "var_name": "static_array_of_struct[3].A",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x8",
+    "offset": 0,
+    "var_name": "static_array_of_struct[3].B",
+    "var_type": "t_address",
+    "value": "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x8",
+    "offset": 20,
+    "var_name": "static_array_of_struct[3].C",
+    "var_type": "t_bool",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x9",
+    "offset": 0,
+    "var_name": "static_array_of_struct[4].A",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xa",
+    "offset": 0,
+    "var_name": "static_array_of_struct[4].B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xa",
+    "offset": 20,
+    "var_name": "static_array_of_struct[4].C",
+    "var_type": "t_bool",
+    "value": "0x01",
+    "value_hint": "true",
+    "comparison_operator": "Equal"
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "version": "0.9.1",
+  "contract_name": "PullPayment",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 3,
+  "deployment_tx": "0x880b946acafe61dab514f83b0366a46a3a9b10c2e637704bcc5427e6f5653132",
+ "codehash": "0xccc1bca53ef158eb1ee9e98588e569e215b13adfac46a89ca920e1a57a973be5",
+  "insecure": false,
+  "immutables": [
+    {
+      "var_name": "imm_escrow",
+      "value": "0x000000000000000000000000a16e02e87b7454126e5e10d957a927a7f5b5d2be"
+    }
+  ],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "var_escrow",
+      "var_type": "t_address",
+      "value": "0x0000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

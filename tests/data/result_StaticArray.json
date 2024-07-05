@@ -1,0 +1,84 @@
+[
+  {
+    "slot": "0x0",
+    "offset": 0,
+    "var_name": "staticArray[0]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x0",
+    "offset": 8,
+    "var_name": "staticArray[1]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x0",
+    "offset": 16,
+    "var_name": "staticArray[2]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x0",
+    "offset": 24,
+    "var_name": "staticArray[3]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 0,
+    "var_name": "staticArray[4]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000064",
+    "value_hint": "100",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 8,
+    "var_name": "staticArray[5]",
+    "var_type": "t_uint64",
+    "value": "0x0000000000000020",
+    "value_hint": "32",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2",
+    "offset": 0,
+    "var_name": "addressArray[0]",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x3",
+    "offset": 0,
+    "var_name": "addressArray[1]",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000001",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x4",
+    "offset": 0,
+    "var_name": "addressArray[2]",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000002",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x5",
+    "offset": 0,
+    "var_name": "addressArray[3]",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000003",
+    "comparison_operator": "Equal"
+  }
+]

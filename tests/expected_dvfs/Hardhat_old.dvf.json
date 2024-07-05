@@ -1,0 +1,78 @@
+{
+  "version": "0.9.1",
+  "contract_name": "Hardhat",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 2,
+  "deployment_tx": "0xfb8d501fb2d885fdbae1046d57cf378c0b3b8b743ef6152860b0361a5181cce0",
+  "codehash": "0x5e0fc06717bc60a97fdd8e259e2898dba1db5323eb846a3318f0060991b32a70",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "_owner",
+      "var_type": "t_address",
+      "value": "0x0000000000000000000000000000000000000013",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "c",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000016",
+      "value_hint": "22",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8a",
+      "offset": 0,
+      "var_name": "Hardhat.StorageLocation1.Struct1.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000014",
+      "value_hint": "20",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8b",
+      "offset": 0,
+      "var_name": "Hardhat.StorageLocation1.Struct1.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000015",
+      "value_hint": "21",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "OwnershipTransferred(address,address)",
+      "topic0": "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "occurrences": [
+        {
+          "topics": [
+            "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x0000000000000000000000000000000000000000000000000000000000000013"
+          ],
+          "data": "0x"
+        }
+      ]
+    }
+  ],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "1": {
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
+      "name": "Wrapped Ether (WETH)",
+      "address_type": "Token"
+    },
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": {
+      "name": "Tether (USDT)",
+      "address_type": "Token"
+    },
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+      "name": "USD Coin (USDC)",
+      "address_type": "Token"
+    },
+    "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce": {
+      "name": "SHIBA INU (SHIB)",
+      "address_type": "Token"
+    },
+    "0x6b175474e89094c44da98b954eedeac495271d0f": {
+      "name": "Dai (DAI)",
+      "address_type": "Token"
+    },
+    "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": {
+      "name": "Wrapped Bitcoin (WBTC)",
+      "address_type": "Token"
+    },
+    "0x514910771af9ca656af840dff83e8264ecf986ca": {
+      "name": "Chainlink (LINK)",
+      "address_type": "Token"
+    },
+    "0x2af5d2ad76741191d15dfe7bf6ac92d4bd912ca3": {
+      "name": "UNUS SED LEO (LEO)",
+      "address_type": "Token"
+    },
+    "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984": {
+      "name": "Uniswap Token: UNI",
+      "address_type": "Token"
+    },
+    "0x4fabb145d64652a948d72533023f6e7a623c7c53": {
+      "name": "Binance USD (BUSD)",
+      "address_type": "Token"
+    },
+    "0x0000000000085d4780b73119b644ae5ecd22b376": {
+      "name": "TrueUSD (TUSD)",
+      "address_type": "Token"
+    },
+    "0x75231f58b43240c9718dd58b4967c5114342a86c": {
+      "name": "OKB (OKB)",
+      "address_type": "Token"
+    },
+    "0x5a98fcbea516cf06857215779fd812ca3bef1b32": {
+      "name": "Lido DAO Token (LDO)",
+      "address_type": "Token"
+    },
+    "0x3c3a81e81dc49a522a592e7622a7e711c06bf354": {
+      "name": "Mantle (MNT)",
+      "address_type": "Token"
+    },
+    "0xb50721bcf8d664c30412cfbc6cf7a15145234ad1": {
+      "name": "Arbitrum (ARB)",
+      "address_type": "Token"
+    },
+    "0xa0b73e1ff0b80914ab6fe0444e65848c4c34450b": {
+      "name": "Cronos (CRO)",
+      "address_type": "Token"
+    },
+    "0x4a220e6096b25eadb88358cb44068a3248254675": {
+      "name": "Quant (QNT)",
+      "address_type": "Token"
+    },
+    "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2": {
+      "name": "Maker (MKR)",
+      "address_type": "Token"
+    },
+    "0xc944e90c64b2c07662a292be6244bdf05cda44a7": {
+      "name": "The Graph (GRT)",
+      "address_type": "Token"
+    },
+    "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9": {
+      "name": "Aave (AAVE)",
+      "address_type": "Token"
+    },
+    "0xf164fc0ec4e93095b804a4795bbe1e041497b92a": {
+      "name": "Uniswap: UniswapV2Router01",
+      "address_type": "Contract"
+    },
+    "0x7a250d5630b4cf539739df2c5dacb4c659f2488d": {
+      "name": "Uniswap: UniswapV2Router02",
+      "address_type": "Contract"
+    },
+    "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad": {
+      "name": "Uniswap: UniversalRouter",
+      "address_type": "Contract"
+    },
+    "0x000000000022d473030f116ddee9f6b43ac78ba3": {
+      "name": "Uniswap: Permit2",
+      "address_type": "Contract"
+    },
+    "0xe592427a0aece92de3edee1f18e0157c05861564": {
+      "name": "Uniswap: SwapRouter",
+      "address_type": "Contract"
+    },
+    "0x3db52ce065f728011ac6732222270b3f2360d919": {
+      "name": "zkSync Era: ValidatorTimelock",
+      "address_type": "Contract"
+    },
+    "0x1c479675ad559dc151f6ec7ed3fbf8cee79582b6": {
+      "name": "Arbitrum: Sequencer Inbox",
+      "address_type": "Contract"
+    },
+    "0x881d40237659c251811cec9c364ef91dc08d300c": {
+      "name": "Metamask: Swap Router (MetaSwap)",
+      "address_type": "Contract"
+    },
+    "0xfd14567eaf9ba941cb8c8a94eec14831ca7fd1b4": {
+      "name": "StarkEx: SHARP",
+      "address_type": "Contract"
+    },
+    "0x1111111254eeb25477b68fb85ed929f73a960582": {
+      "name": "1inch v5: Aggregation Router",
+      "address_type": "Contract"
+    },
+    "0x32400084c286cf3e17e7b677ea9583e60a000324": {
+      "name": "zkSync Era: Diamond Proxy",
+      "address_type": "Contract"
+    },
+    "0x00000000000000adc04c56bf30ac9d3c0aaf14dc": {
+      "name": "Seaport 1.5",
+      "address_type": "Contract"
+    },
+    "0xd19d4b5d358258f05d7b411e21a1460d11b0876f": {
+      "name": "Linea: L1 Message Service",
+      "address_type": "Contract"
+    },
+    "0xae0ee0a63a2ce6baeeffe56e7714fb4efe48d419": {
+      "name": "StarkNet: StarkGate ETH Bridge",
+      "address_type": "Contract"
+    },
+    "0xbafa44efe7901e04e39dad13167d089c559c1138": {
+      "name": "Frax Finance: frxETHMinter",
+      "address_type": "Contract"
+    },
+    "0xac3e018457b222d93114458476f3e3416abbe38f": {
+      "name": "Frax Finance: sfrxETH",
+      "address_type": "Contract"
+    },
+    "0x8306300ffd616049fd7e4b0354a64da835c1a81c": {
+      "name": "Frax Finance: Frx ETH Multisig",
+      "address_type": "Contract"
+    },
+    "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f": {
+      "name": "Uniswap: UniswapV2Factory",
+      "address_type": "Contract"
+    },
+    "0x8412ebf45bac1b340bbe8f318b928c466c4e39ca": {
+      "name": "Frax Finance: Time Lock",
+      "address_type": "Contract"
+    }
+  }
+}
