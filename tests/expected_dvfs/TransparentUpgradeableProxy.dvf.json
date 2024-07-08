@@ -1,0 +1,936 @@
+{
+  "version": "0.9.1",
+  "contract_name": "TransparentUpgradeableProxy",
+  "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+  "chain_id": 31337,
+  "deployment_block_num": 2,
+  "init_block_num": 3,
+  "deployment_tx": "0x30d3bb8f5b22cab0ec6643f7bcbd69a3d2ead0af29e9cd28a2a583e3c3ad4efd",
+  "codehash": "0x39882c05f46981e5d43622ad2aa327df73cfad4fd1eb9fd85caece0871f8f84c",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [
+    {
+      "var_name": "_logic",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "value_hint": "MyToken"
+    },
+    {
+      "var_name": "admin_",
+      "value": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+    },
+    {
+      "var_name": "_data",
+      "value": "0x8129fc1c"
+    }
+  ],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "_initialized",
+      "var_type": "t_uint8",
+      "value": "0x01",
+      "value_hint": "1",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x0",
+      "offset": 1,
+      "var_name": "_initializing",
+      "var_type": "t_bool",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "__gap[0]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2",
+      "offset": 0,
+      "var_name": "__gap[1]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "__gap[2]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4",
+      "offset": 0,
+      "var_name": "__gap[3]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5",
+      "offset": 0,
+      "var_name": "__gap[4]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x6",
+      "offset": 0,
+      "var_name": "__gap[5]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x7",
+      "offset": 0,
+      "var_name": "__gap[6]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x8",
+      "offset": 0,
+      "var_name": "__gap[7]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9",
+      "offset": 0,
+      "var_name": "__gap[8]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xa",
+      "offset": 0,
+      "var_name": "__gap[9]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xb",
+      "offset": 0,
+      "var_name": "__gap[10]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xc",
+      "offset": 0,
+      "var_name": "__gap[11]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xd",
+      "offset": 0,
+      "var_name": "__gap[12]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xe",
+      "offset": 0,
+      "var_name": "__gap[13]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf",
+      "offset": 0,
+      "var_name": "__gap[14]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x10",
+      "offset": 0,
+      "var_name": "__gap[15]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x11",
+      "offset": 0,
+      "var_name": "__gap[16]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x12",
+      "offset": 0,
+      "var_name": "__gap[17]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x13",
+      "offset": 0,
+      "var_name": "__gap[18]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x14",
+      "offset": 0,
+      "var_name": "__gap[19]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x15",
+      "offset": 0,
+      "var_name": "__gap[20]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x16",
+      "offset": 0,
+      "var_name": "__gap[21]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x17",
+      "offset": 0,
+      "var_name": "__gap[22]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x18",
+      "offset": 0,
+      "var_name": "__gap[23]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x19",
+      "offset": 0,
+      "var_name": "__gap[24]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1a",
+      "offset": 0,
+      "var_name": "__gap[25]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1b",
+      "offset": 0,
+      "var_name": "__gap[26]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1c",
+      "offset": 0,
+      "var_name": "__gap[27]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1d",
+      "offset": 0,
+      "var_name": "__gap[28]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1e",
+      "offset": 0,
+      "var_name": "__gap[29]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1f",
+      "offset": 0,
+      "var_name": "__gap[30]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x20",
+      "offset": 0,
+      "var_name": "__gap[31]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x21",
+      "offset": 0,
+      "var_name": "__gap[32]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x22",
+      "offset": 0,
+      "var_name": "__gap[33]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x23",
+      "offset": 0,
+      "var_name": "__gap[34]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x24",
+      "offset": 0,
+      "var_name": "__gap[35]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x25",
+      "offset": 0,
+      "var_name": "__gap[36]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x26",
+      "offset": 0,
+      "var_name": "__gap[37]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x27",
+      "offset": 0,
+      "var_name": "__gap[38]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x28",
+      "offset": 0,
+      "var_name": "__gap[39]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x29",
+      "offset": 0,
+      "var_name": "__gap[40]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2a",
+      "offset": 0,
+      "var_name": "__gap[41]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2b",
+      "offset": 0,
+      "var_name": "__gap[42]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2c",
+      "offset": 0,
+      "var_name": "__gap[43]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2d",
+      "offset": 0,
+      "var_name": "__gap[44]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2e",
+      "offset": 0,
+      "var_name": "__gap[45]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2f",
+      "offset": 0,
+      "var_name": "__gap[46]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x30",
+      "offset": 0,
+      "var_name": "__gap[47]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x31",
+      "offset": 0,
+      "var_name": "__gap[48]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x32",
+      "offset": 0,
+      "var_name": "__gap[49]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf6d04bbe1a75429862aa97cc198c639a5559580c07ae94016a2b25986f2e3abd",
+      "offset": 0,
+      "var_name": "_balances[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+      "value_hint": "1. * 10^19",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x35",
+      "offset": 0,
+      "var_name": "_totalSupply",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+      "value_hint": "1. * 10^19",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x36",
+      "offset": 0,
+      "var_name": "_name (length=7)",
+      "var_type": "t_string_storage",
+      "value": "0x4d79546f6b656e0000000000000000000000000000000000000000000000000e",
+      "value_hint": "MyToken",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x37",
+      "offset": 0,
+      "var_name": "_symbol (length=3)",
+      "var_type": "t_string_storage",
+      "value": "0x4d544b0000000000000000000000000000000000000000000000000000000006",
+      "value_hint": "MTK",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x38",
+      "offset": 0,
+      "var_name": "__gap[0]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x39",
+      "offset": 0,
+      "var_name": "__gap[1]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3a",
+      "offset": 0,
+      "var_name": "__gap[2]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3b",
+      "offset": 0,
+      "var_name": "__gap[3]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3c",
+      "offset": 0,
+      "var_name": "__gap[4]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3d",
+      "offset": 0,
+      "var_name": "__gap[5]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3e",
+      "offset": 0,
+      "var_name": "__gap[6]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3f",
+      "offset": 0,
+      "var_name": "__gap[7]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x40",
+      "offset": 0,
+      "var_name": "__gap[8]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41",
+      "offset": 0,
+      "var_name": "__gap[9]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x42",
+      "offset": 0,
+      "var_name": "__gap[10]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x43",
+      "offset": 0,
+      "var_name": "__gap[11]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x44",
+      "offset": 0,
+      "var_name": "__gap[12]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x45",
+      "offset": 0,
+      "var_name": "__gap[13]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x46",
+      "offset": 0,
+      "var_name": "__gap[14]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x47",
+      "offset": 0,
+      "var_name": "__gap[15]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x48",
+      "offset": 0,
+      "var_name": "__gap[16]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x49",
+      "offset": 0,
+      "var_name": "__gap[17]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4a",
+      "offset": 0,
+      "var_name": "__gap[18]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4b",
+      "offset": 0,
+      "var_name": "__gap[19]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4c",
+      "offset": 0,
+      "var_name": "__gap[20]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4d",
+      "offset": 0,
+      "var_name": "__gap[21]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4e",
+      "offset": 0,
+      "var_name": "__gap[22]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4f",
+      "offset": 0,
+      "var_name": "__gap[23]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x50",
+      "offset": 0,
+      "var_name": "__gap[24]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x51",
+      "offset": 0,
+      "var_name": "__gap[25]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x52",
+      "offset": 0,
+      "var_name": "__gap[26]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x53",
+      "offset": 0,
+      "var_name": "__gap[27]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x54",
+      "offset": 0,
+      "var_name": "__gap[28]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x55",
+      "offset": 0,
+      "var_name": "__gap[29]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x56",
+      "offset": 0,
+      "var_name": "__gap[30]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x57",
+      "offset": 0,
+      "var_name": "__gap[31]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x58",
+      "offset": 0,
+      "var_name": "__gap[32]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x59",
+      "offset": 0,
+      "var_name": "__gap[33]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5a",
+      "offset": 0,
+      "var_name": "__gap[34]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5b",
+      "offset": 0,
+      "var_name": "__gap[35]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5c",
+      "offset": 0,
+      "var_name": "__gap[36]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5d",
+      "offset": 0,
+      "var_name": "__gap[37]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5e",
+      "offset": 0,
+      "var_name": "__gap[38]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5f",
+      "offset": 0,
+      "var_name": "__gap[39]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x60",
+      "offset": 0,
+      "var_name": "__gap[40]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x61",
+      "offset": 0,
+      "var_name": "__gap[41]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x62",
+      "offset": 0,
+      "var_name": "__gap[42]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x63",
+      "offset": 0,
+      "var_name": "__gap[43]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x64",
+      "offset": 0,
+      "var_name": "__gap[44]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "offset": 0,
+      "var_name": "StorageSlot._IMPLEMENTATION_SLOT.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+      "value_hint": "MyToken",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103",
+      "offset": 0,
+      "var_name": "StorageSlot._ADMIN_SLOT.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "AdminChanged(address,address)",
+      "topic0": "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f",
+      "occurrences": [
+        {
+          "topics": [
+            "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
+        }
+      ]
+    },
+    {
+      "sig": "BeaconUpgraded(address)",
+      "topic0": "0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e",
+      "occurrences": []
+    },
+    {
+      "sig": "Upgraded(address)",
+      "topic0": "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+      "occurrences": [
+        {
+          "topics": [
+            "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+            "0x0000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa3"
+          ],
+          "data": "0x"
+        }
+      ]
+    },
+    {
+      "sig": "Approval(address,address,uint256)",
+      "topic0": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+      "occurrences": []
+    },
+    {
+      "sig": "Initialized(uint8)",
+      "topic0": "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498",
+      "occurrences": [
+        {
+          "topics": [
+            "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000001"
+        }
+      ]
+    },
+    {
+      "sig": "Transfer(address,address,uint256)",
+      "topic0": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+      "occurrences": [
+        {
+          "topics": [
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000008ac7230489e80000"
+        }
+      ]
+    }
+  ],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org",
+    "implementation_name": "MyToken",
+    "implementation_address": "0x0000000000000000000000000000000000000000"
+  }
+}

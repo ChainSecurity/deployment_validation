@@ -1,0 +1,34 @@
+[
+  {
+    "slot": "0x0",
+    "offset": 0,
+    "var_name": "s",
+    "var_type": "t_uint8",
+    "value": "0x01",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 0,
+    "var_name": "a[0]",
+    "var_type": "t_uint8",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 1,
+    "var_name": "a[1]",
+    "var_type": "t_uint8",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 2,
+    "var_name": "a[2]",
+    "var_type": "t_uint8",
+    "value": "0x02",
+    "comparison_operator": "Equal"
+  }
+]

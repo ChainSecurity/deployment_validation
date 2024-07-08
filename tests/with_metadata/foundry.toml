@@ -1,0 +1,8 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+bytecode_hash = "ipfs"
+solc_version = "0.8.12"
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

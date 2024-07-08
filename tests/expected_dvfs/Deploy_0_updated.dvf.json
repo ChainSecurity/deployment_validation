@@ -1,0 +1,71 @@
+{
+  "version": "0.9.1",
+  "contract_name": "BytesMapping",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 2,
+  "deployment_tx": "0x59c8b137812162541e4fdcc68f3072ce16a5ed7793565af73af88cced3ce20e6",
+  "codehash": "0x3867a08d0f6ad7f18a522cb18383fa3eb688bbde257d84652a614fda9167b190",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x4a8918e67ba0b26637797e1472ee3d675d66efda39253f7139f8eabc58b20ffb",
+      "offset": 0,
+      "var_name": "x[0x41207665727976657279766572797665727976657279766572797665727976657279766572797665727976657279766572797665727976657279766572797665727976657279206c6f6e6720737472696e67]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5585ade74713b5d6d915d0f40534bd55231ae0a540289299fb117ed2c74ca466",
+      "offset": 0,
+      "var_name": "x[0x48656c6c6f207468697320697320612074657374]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "b (length=23)",
+      "var_type": "t_bytes_storage",
+      "value": "0x4a75737420736f6d65206e6f726d616c2062797465732e00000000000000002e",
+      "value_hint": "4a75737420736f6d65206e6f726d616c2062797465732e",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "X(bytes)",
+      "topic0": "0x4377c88da1dbd14b0519a449d8780c20f1e206aadc3a6acbbc466141ec26e77b",
+      "occurrences": []
+    },
+    {
+      "sig": "Y(bytes,uint256)",
+      "topic0": "0x69521b378c8e35653fada29a3083d5639bd9913a746c511b2d969eb238c87c2a",
+      "occurrences": [
+        {
+          "topics": [
+            "0x69521b378c8e35653fada29a3083d5639bd9913a746c511b2d969eb238c87c2a"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000002a00000000000000000000000000000000000000000000000000000000000000174a75737420736f6d65206e6f726d616c2062797465732e000000000000000000"
+        }
+      ]
+    }
+  ],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

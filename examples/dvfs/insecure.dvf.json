@@ -1,0 +1,87 @@
+{
+  "version": "0.9.1",
+  "id": "0xc39e6d3a211fe323baa8fda955a7d33b070c33676d128171c9923e2520bd32ea",
+  "contract_name": "AnyswapTokenAnycallClient",
+  "address": "0x1a61e85d7107c9207e1205F2f2D84Ea7A87b275d",
+  "chain_id": 1,
+  "author_name": "Author",
+  "description": "This deployment ...",
+  "deployment_block_num": 17572298, 
+  "deployment_tx": "0x2f5c5fc0d160539a7ffbb38883ce922a189bea2147c51729b5c50fee119fc783",
+  "codehash": "0xa62a4502f50e506946292177a6d1fae65b65f397f60cdd78b01d4c755cc4164e",
+  "insecure": true,
+  "immutables": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "offset": 0,
+      "var_name": "admin",
+      "value": "0xb80267ea7fa368374ee4d4bf10044778232adefe"
+    },
+    {
+      "slot": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "offset": 0,
+      "var_name": "callProxy",
+      "value": "0xc10ef9f491c9b59f936957026020c321651ac078"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "ChangeAdmin(address,address)",
+      "topic0": "0xcf9b665e0639e0b81a8db37b60ac7ddf45aeb1b484e11adeb7dff4bf4a3a6258",
+      "occurrences": [
+        {
+          "topics": [
+            "0xcf9b665e0639e0b81a8db37b60ac7ddf45aeb1b484e11adeb7dff4bf4a3a6258",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x000000000000000000000000b80267ea7fa368374ee4d4bf10044778232adefe"
+          ],
+          "data": "0x"
+        }
+      ]
+    }
+  ],
+  "user_functions": [
+    {
+      "sig": "anyExecute(bytes)",
+      "four_bytes": "0x9abaf479"
+    },
+    {
+      "sig": "applyAdmin()",
+      "four_bytes": "0x4e67428d"
+    },
+    {
+      "sig": "changeAdmin(address)",
+      "four_bytes": "0x8f283970"
+    },
+    {
+      "sig": "pause(bytes32)",
+      "four_bytes": "0xed56531a"
+    },
+    {
+      "sig": "setCallProxy(address)",
+      "four_bytes": "0x2b0d0a8b"
+    },
+    {
+      "sig": "setClientPeers(uint256[],address[])",
+      "four_bytes": "0x8d190370"
+    },
+    {
+      "sig": "setTokenPeers(address,uint256[],address[])",
+      "four_bytes": "0x4c1278b0"
+    },
+    {
+      "sig": "swapout(address,uint256,address,uint256,uint256)",
+      "four_bytes": "0xf1352f4d"
+    },
+    {
+      "sig": "unpause(bytes32)",
+      "four_bytes": "0x2f4dae9f"
+    }
+  ],
+  "references": null,
+  "signature": {
+    "sig_data": "0xbe9592e7528ca90f4aa4dca7a330b746c406d89b562e0753169c3f6eaae0ceac58cee898de51cf4b46867d031695979675a2c20b4759d437491e625c333ae52e1c",
+    "signer": "0x229F1a71262e4bE12215EE4648615D2bA0969682"
+  }
+}

@@ -1,0 +1,1938 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::Read;
+use std::time::Duration;
+
+use ethers::core::types::{Block, CallFrame, Transaction};
+use ethers::types::serde_helpers::{deserialize_stringified_numeric, StringifiedNumeric};
+use ethers::types::BigEndianHash;
+use ethers::types::Log;
+use ethers::types::{Action, DiffMode, Res, Trace, TransactionReceipt, TxHash};
+use ethers::types::{Address, Bytes};
+use ethers::types::{H256, U256};
+use indicatif::ProgressBar;
+use reqwest::blocking::get;
+use reqwest::blocking::Client;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{json, Value};
+use tiny_keccak::Hasher;
+use tiny_keccak::Keccak;
+use tracing::{debug, info};
+
+use crate::dvf::config::DVFConfig;
+use crate::dvf::parse::ValidationError;
+
+const NUM_STORAGE_QUERIES: u64 = 32;
+const LARGE_BLOCK_RANGE: u64 = 100000;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TraceWithAddress {
+    pub trace: DefaultFrame,
+    pub address: Address,
+    pub tx_id: String,
+}
+
+pub fn get_block_traces(config: &DVFConfig, block_num: u64) -> Result<Vec<Trace>, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "trace_block",
+        "params": [block_num],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let traces: Vec<Trace> = serde_json::from_value(result)?;
+    Ok(traces)
+}
+
+pub fn get_geth_block_traces(
+    config: &DVFConfig,
+    block_num: u64,
+) -> Result<Vec<CallFrame>, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceBlockByNumber",
+        "params": [block_num, {"tracer": "callTracer"}],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let traces: Vec<CallFrame> = serde_json::from_value(result)?;
+    Ok(traces)
+}
+
+pub fn get_eth_diff_trace(config: &DVFConfig, tx_id: &str) -> Result<DiffMode, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"tracer": "prestateTracer", "tracerConfig": {"diffMode": true}}],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let trace: DiffMode = serde_json::from_value(result)?;
+    Ok(trace)
+}
+
+pub fn get_many_diff_traces(
+    config: &DVFConfig,
+    tx_hashes: &Vec<String>,
+) -> Result<Vec<DiffMode>, ValidationError> {
+    let mut all_diffs: Vec<DiffMode> = vec![];
+    for tx_hash in tx_hashes {
+        all_diffs.push(get_eth_diff_trace(config, tx_hash)?);
+    }
+    Ok(all_diffs)
+}
+
+pub fn get_many_debug_traces(
+    config: &DVFConfig,
+    tx_hashes: &Vec<String>,
+) -> Result<Vec<TraceWithAddress>, ValidationError> {
+    let mut all_traces: Vec<TraceWithAddress> = vec![];
+    for tx_hash in tx_hashes {
+        all_traces.push(get_eth_debug_trace(config, tx_hash)?);
+    }
+    Ok(all_traces)
+}
+
+pub fn get_init_code(
+    config: &DVFConfig,
+    tx_id: &String,
+    address: &Address,
+) -> Result<String, ValidationError> {
+    info!("Get init code for is {}", address);
+
+    // create a mapping for failed traces
+    let mut failed_parity_traces: HashMap<Vec<usize>, bool> = HashMap::new();
+
+    match get_tx_trace(config, tx_id) {
+        Ok(trace) => {
+            for frame in &trace {
+                let trace_address = &frame.trace_address;
+
+                if frame.error.is_some()
+                    || (trace_address.len() > 1
+                        && failed_parity_traces
+                            .contains_key(&trace_address[..trace_address.len() - 1]))
+                {
+                    failed_parity_traces.insert(trace_address.clone(), true); // make subtraces fail
+                    continue;
+                }
+
+                if let (Action::Create(create_action), Some(Res::Create(create_res))) =
+                    (&frame.action, &frame.result)
+                {
+                    if &create_res.address == address {
+                        let init_code = format!("{:#x}", create_action.init);
+                        return Ok(init_code);
+                    }
+                }
+            }
+            Err(ValidationError::from(format!(
+                "Found no deployment trace for tx {:?} and contract {:?}",
+                tx_id, address
+            )))?
+        }
+        Err(_e) => {
+            let call_frame = get_eth_debug_call_trace(config, tx_id)?;
+
+            match extract_create_call_frame(&call_frame, address) {
+                Ok(call_frame) => {
+                    let init_code = format!("{:#x}", call_frame.input);
+                    Ok(init_code)
+                }
+                Err(e) => Err(e),
+            }
+        }
+    }
+}
+
+// Searches recursively for create call frame
+// Ignores reverting call frames
+fn extract_create_call_frame(
+    call_frame: &CallFrame,
+    address: &Address,
+) -> Result<CallFrame, ValidationError> {
+    if call_frame.typ.starts_with("CREATE")
+        && call_frame.error.is_none()
+        && call_frame.to.as_ref().and_then(|to| to.as_address()) == Some(address)
+    {
+        return Ok(call_frame.clone());
+    }
+
+    if let Some(calls) = &call_frame.calls {
+        for call in calls {
+            if call.error.is_none() {
+                if let Ok(call_frame) = extract_create_call_frame(call, address) {
+                    return Ok(call_frame);
+                }
+            }
+        }
+    }
+
+    Err(ValidationError::from("Cannot determine create addresses"))
+}
+pub fn get_eth_debug_call_trace(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<CallFrame, ValidationError> {
+    debug!("Searching debug trace for {tx_id}");
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"tracer": "callTracer"}],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let trace: CallFrame = serde_json::from_value(result)?;
+    Ok(trace)
+}
+
+pub fn get_eth_debug_trace(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<TraceWithAddress, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let trace: DefaultFrame = serde_json::from_value(result)?;
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionReceipt",
+        "params": [tx_id],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let receipt: TransactionReceipt = serde_json::from_value(result)?;
+
+    let tx_id = tx_id.to_string();
+    if let Some(address) = receipt.to {
+        Ok(TraceWithAddress {
+            trace,
+            address,
+            tx_id,
+        })
+    } else if let Some(address) = receipt.contract_address {
+        return Ok(TraceWithAddress {
+            trace,
+            address,
+            tx_id,
+        });
+    } else {
+        return Err(ValidationError::from(format!(
+            "Found no address for tx {}",
+            tx_id
+        )));
+    }
+}
+
+// Returns create addresses of internal calls, if the initial call is a create, then it is not included
+// Reverting creates are indicated with a Zero address
+fn extract_create_addresses_from_call_frame(
+    call_frame: &CallFrame,
+    addresses: &mut Vec<Address>,
+    is_first: bool,
+) -> Result<(), ValidationError> {
+    if !is_first && call_frame.typ.starts_with("CREATE") {
+        let rec = call_frame.to.as_ref().and_then(|to| to.as_address());
+        match rec {
+            Some(addr) => addresses.push(*addr),
+            None => {
+                // This is a reverting create
+                // We insert zero to keep it aligned with later parsing
+                addresses.push(Address::zero());
+            }
+        };
+    }
+    if let Some(calls) = &call_frame.calls {
+        for call in calls {
+            extract_create_addresses_from_call_frame(call, addresses, false)?;
+        }
+    }
+    Ok(())
+}
+
+// Returns create addresses of internal calls, if the initial call is a create, then it is not included
+pub fn get_internal_create_addresses(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<Vec<Address>, ValidationError> {
+    let mut addresses: Vec<Address> = vec![];
+    match get_tx_trace(config, tx_id) {
+        Ok(trace) => {
+            for frame in &trace[1..] {
+                if let Action::Create(_) = frame.action {
+                    if let Some(Res::Create(create_res)) = &frame.result {
+                        addresses.push(create_res.address);
+                    } else {
+                        return Err(ValidationError::from(format!(
+                            "Fatal: Trace for {tx_id} has a create without a create result."
+                        )));
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            debug!("Tracing failed with {:?}, trying backup.", e);
+            let call_frame = get_eth_debug_call_trace(config, tx_id)?;
+            extract_create_addresses_from_call_frame(&call_frame, &mut addresses, true)?;
+        }
+    };
+    debug!("Create addresses for {} are: {:?}", tx_id, addresses);
+    Ok(addresses)
+}
+
+fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<Trace>, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "trace_transaction",
+        "params": [tx_id],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let trace: Vec<Trace> = serde_json::from_value(result)?;
+    Ok(trace)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct EtherscanCreationTransaction {
+    #[serde(rename = "contractCreator")]
+    pub contract_creator: String,
+    #[serde(rename = "txHash")]
+    pub tx_hash: String,
+    // ... much more we don't care about: https://docs.etherscan.io/api-endpoints/contracts
+}
+
+fn get_deployment_tx_from_etherscan(
+    config: &DVFConfig,
+    address: &Address,
+) -> Result<EtherscanCreationTransaction, ValidationError> {
+    let url = format!(
+        "{}?module=contract&action=getcontractcreation&contractaddresses={:?}&apikey={}",
+        config.get_etherscan_api_url()?,
+        address,
+        config.get_etherscan_api_key()?
+    );
+    debug!("Etherscan URL: {}", url);
+
+    // Send the GET request
+    let mut response = get(&url)?;
+
+    // Read the response into a string
+    let mut buffer = String::new();
+    response.read_to_string(&mut buffer)?;
+
+    let result: EtherscanResult = serde_json::from_str(&buffer)?;
+    debug!("Etherscan contract creation response: {}", buffer);
+    // Parse the response as a JSON list
+    let mut transactions: Vec<EtherscanCreationTransaction> =
+        serde_json::from_value(result.result)?;
+    let transaction = transactions.remove(0);
+
+    Ok(transaction)
+}
+
+fn send_blocking_web3_post(
+    config: &DVFConfig,
+    request_body: &serde_json::Value,
+) -> Result<serde_json::Value, ValidationError> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(config.web3_timeout))
+        .build()
+        .unwrap();
+
+    let node_url = config.get_rpc_url()?;
+
+    let res = client
+        .post(node_url)
+        .json(&request_body)
+        .send()?
+        .json::<Web3Response>()?;
+
+    if let Some(error) = res.error {
+        return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
+    };
+
+    match res.result {
+        Some(result) => Ok(result),
+        None => Err(ValidationError::Error(
+            "No result for web3 request.".to_string(),
+        )),
+    }
+}
+
+pub fn get_block_number_for_tx(
+    config: &DVFConfig,
+    transaction_hash: &str,
+) -> Result<u64, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionByHash",
+        "params": [transaction_hash],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    if let Some(block_number) = result.get("blockNumber") {
+        let block_number =
+            u64::from_str_radix(block_number.as_str().unwrap().trim_start_matches("0x"), 16)?;
+        return Ok(block_number);
+    }
+    Err(ValidationError::Error(
+        "Invalid response from eth_getTransactionByHash".to_string(),
+    ))
+}
+
+fn get_deployment_tx_from_graphql(
+    config: &DVFConfig,
+    address: &Address,
+) -> Result<String, ValidationError> {
+    let current_block_num = get_eth_block_number(config)?;
+    // TODO: Only get first tx here
+    let tx_hashes: Vec<String> =
+        get_all_txs_for_contract_from_graphql(config, address, 0, current_block_num)?;
+    if tx_hashes.is_empty() {
+        return Err(ValidationError::from("Could not find deployment tx."));
+    }
+    Ok(tx_hashes[0].clone())
+}
+
+pub fn get_deployment_block(config: &DVFConfig, address: &Address) -> Result<u64, ValidationError> {
+    let deployment: Result<(u64, String), ValidationError> = get_deployment(config, address);
+    match deployment {
+        Ok((block_num, _tx_hash)) => Ok(block_num),
+        Err(e) => Err(e),
+    }
+}
+
+fn get_deployment_from_parity_trace(
+    config: &DVFConfig,
+    address: &Address,
+    current_block_num: u64,
+) -> Result<(u64, String), ValidationError> {
+    debug!("Searching parity traces for deployment tx");
+    for i in 1..current_block_num + 1 {
+        let block_traces = get_block_traces(config, i)?;
+        for trace in block_traces {
+            // Filter reverted
+            if trace.error.is_none() {
+                // Look Through creates
+                if let Some(Res::Create(create_res)) = &trace.result {
+                    if create_res.address == *address {
+                        if let Some(tx_hash) = trace.transaction_hash {
+                            debug!("Searched Deployment Tx: {:?}", tx_hash);
+                        }
+                        let tx_hash = format!("{:#x}", trace.transaction_hash.unwrap());
+                        return Ok((i, tx_hash));
+                    }
+                }
+            }
+        }
+    }
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
+}
+
+fn get_deployment_from_geth_trace(
+    config: &DVFConfig,
+    address: &Address,
+    current_block_num: u64,
+) -> Result<(u64, String), ValidationError> {
+    debug!("Searching geth traces for deployment tx of {:?}", address);
+    for i in 1..current_block_num + 1 {
+        let block = get_eth_block_by_num(config, i, true)?;
+        for tx in block.transactions {
+            let tx_hash = format!("{:#x}", tx.hash);
+            let call_frame = get_eth_debug_call_trace(config, &tx_hash)?;
+            let mut addresses: Vec<Address> = vec![];
+            extract_create_addresses_from_call_frame(&call_frame, &mut addresses, false)?;
+            debug!("Found {:?}", addresses);
+            if addresses.contains(address) {
+                return Ok((i, tx_hash));
+            }
+        }
+    }
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
+}
+
+pub fn get_deployment(
+    config: &DVFConfig,
+    address: &Address,
+) -> Result<(u64, String), ValidationError> {
+    // First try etherscan
+    if let Ok(deployment_tx) = get_deployment_tx_from_etherscan(config, address) {
+        let deployment_tx_hash = deployment_tx.tx_hash;
+        debug!("Etherscan Deployment Tx: {}", deployment_tx_hash);
+        let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+        return Ok((deployment_block_num, deployment_tx_hash));
+    } else if let Ok(deployment_tx_hash) = get_deployment_tx_from_graphql(config, address) {
+        debug!("GraphQL Deployment Tx: {}", deployment_tx_hash);
+        let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+        return Ok((deployment_block_num, deployment_tx_hash));
+    } else {
+        let current_block_num = get_eth_block_number(config)?;
+        if current_block_num < 100 {
+            if let Ok((deployment_block_num, deployment_tx_hash)) =
+                get_deployment_from_parity_trace(config, address, current_block_num)
+            {
+                return Ok((deployment_block_num, deployment_tx_hash));
+            }
+            if let Ok((deployment_block_num, deployment_tx_hash)) =
+                get_deployment_from_geth_trace(config, address, current_block_num)
+            {
+                return Ok((deployment_block_num, deployment_tx_hash));
+            }
+        }
+    }
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Web3Result {
+    pub jsonrpc: String,
+    pub id: u64,
+    pub result: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Web3Response {
+    pub jsonrpc: String,
+    pub id: u64,
+    pub result: Option<Value>,
+    pub error: Option<Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct EtherscanResult {
+    pub status: String,
+    pub message: String,
+    pub result: Value,
+    // ... much more we don't care about: https://docs.etherscan.io/api-endpoints/accounts
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct EtherscanTransaction {
+    pub hash: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct GraphQLNetworkRes {
+    #[serde(rename = "smartContractCalls")]
+    smart_contract_calls: Vec<GraphQLNetworkCall>,
+}
+
+#[derive(Deserialize, Debug)]
+struct GraphQLNetworkCall {
+    transaction: EtherscanTransaction,
+}
+
+#[derive(Deserialize, Debug)]
+struct GraphQLError {
+    message: String,
+    // include other fields as needed
+}
+
+#[derive(Deserialize, Debug)]
+struct GraphQLResponse {
+    data: Option<Value>,
+    errors: Option<Vec<GraphQLError>>,
+}
+
+// Inclusive for start_block and end_block
+pub fn get_all_txs_for_contract(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    if let Ok(all_txs) =
+        get_all_txs_for_contract_from_graphql(config, address, start_block, end_block)
+    {
+        return Ok(all_txs);
+    } else if end_block - start_block <= 100 {
+        if let Ok(all_txs) =
+            get_all_txs_for_contract_from_parity_traces(config, address, start_block, end_block)
+        {
+            return Ok(all_txs);
+        } else if let Ok(all_txs) =
+            get_all_txs_for_contract_from_geth_traces(config, address, start_block, end_block)
+        {
+            return Ok(all_txs);
+        }
+    }
+    Err(ValidationError::from(format!(
+        "Could not find transactions for {:?} from {} to {}.",
+        address, start_block, end_block
+    )))
+}
+
+// Checks if an address is used in this call frame (or subcalls)
+// Ignores reverting executions
+fn call_frame_contains(call_frame: &CallFrame, address: &Address) -> bool {
+    if call_frame.error.is_none()
+        && call_frame.to.as_ref().and_then(|to| to.as_address()) == Some(address)
+    {
+        return true;
+    }
+
+    if let Some(calls) = &call_frame.calls {
+        for call in calls {
+            if call_frame_contains(call, address) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn tx_geth_trace_contains(
+    config: &DVFConfig,
+    tx_hash: &str,
+    address: &Address,
+) -> Result<bool, ValidationError> {
+    let call_frame = get_eth_debug_call_trace(config, tx_hash)?;
+    Ok(call_frame_contains(&call_frame, address))
+}
+
+// Inclusive for start_block and end_block
+fn get_all_txs_for_contract_from_geth_traces(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    let mut res: Vec<String> = Vec::new();
+    for i in start_block..end_block + 1 {
+        let block = get_eth_block_by_num(config, i, true)?;
+        for tx in block.transactions {
+            let tx_hash = format!("{:#x}", tx.hash);
+            if tx_geth_trace_contains(config, &tx_hash, address)? {
+                res.push(tx_hash);
+            }
+        }
+    }
+    Ok(res)
+}
+
+// Inclusive for start_block and end_block
+fn get_all_txs_for_contract_from_parity_traces(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    let mut res: Vec<TxHash> = Vec::new();
+    // TODO: Use trace_filter
+    for block_num in start_block..end_block + 1 {
+        let block_traces = get_block_traces(config, block_num)?;
+        // Search for relevant traces
+        debug!("{:?}", block_traces);
+        for trace in block_traces {
+            // See if contract was created here
+            if let Some(Res::Create(create_res)) = &trace.result {
+                if create_res.address == *address {
+                    if let Some(tx_hash) = trace.transaction_hash {
+                        if !res.contains(&tx_hash) {
+                            res.push(tx_hash);
+                        }
+                    }
+                }
+            } else if let Action::Call(call) = &trace.action {
+                if call.to == *address {
+                    if let Some(tx_hash) = trace.transaction_hash {
+                        if !res.contains(&tx_hash) {
+                            res.push(tx_hash);
+                        }
+                    }
+                }
+            } else if let Action::Suicide(suicide) = &trace.action {
+                if suicide.refund_address == *address {
+                    if let Some(tx_hash) = trace.transaction_hash {
+                        if !res.contains(&tx_hash) {
+                            res.push(tx_hash);
+                        }
+                    }
+                }
+            } else if let Action::Reward(reward) = &trace.action {
+                if reward.author == *address {
+                    if let Some(tx_hash) = trace.transaction_hash {
+                        if !res.contains(&tx_hash) {
+                            res.push(tx_hash);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(res.iter().map(|tx| format!("{:?}", tx)).collect())
+}
+
+// Inclusive for start_block and end_block
+fn get_all_txs_for_contract_from_graphql(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    let client = Client::new();
+
+    let limit_per_query = 500;
+    let mut offset = 0;
+    let mut transactions: Vec<EtherscanTransaction> = vec![];
+    let mut transaction_present: HashSet<String> = HashSet::new();
+    loop {
+        // This GraphQL Query finds all internal transactions for a contract in between the specified block numbers
+        let request_body = json!({
+            "query":
+            "query ($network: EthereumNetwork!, $limit: Int!, $offset: Int!, $from: Int!, $till: Int!, $addr: String!) {
+            ethereum(network: $network) {
+                smartContractCalls(
+                options: {asc: \"block.height\", limit: $limit, offset: $offset}
+                height: {gteq: $from, lteq: $till}
+                smartContractAddress: {is: $addr}
+                ) {
+                block {
+                    height
+                }
+                transaction {
+                    hash
+                }
+                }
+            }
+            }
+            ",
+
+            "variables": {
+                "limit": limit_per_query, // this needs greater or equal to the number of internal transactions between `start_block`and `end_block`
+                "offset": offset,
+                "network": config.get_graphql_name()?,
+                "from": start_block,
+                "till": end_block,
+                "addr": address,
+            }
+        });
+
+        let res = client
+            .post(&config.bitquery_api_url)
+            .header("X-API-KEY", config.get_bitquery_api_key()?)
+            .json(&request_body)
+            .send()?
+            .json::<GraphQLResponse>()?;
+
+        match res.errors {
+            Some(errors) => {
+                let mut errors_str = String::new();
+                for error in errors {
+                    errors_str.push_str(&error.message);
+                }
+                return Err(ValidationError::from(format!(
+                    "Error in GraphQL: {}",
+                    errors_str
+                )));
+            }
+            None => debug!("No GraphQL errors"),
+        }
+
+        let res: HashMap<String, GraphQLNetworkRes> = match res.data {
+            Some(data) => serde_json::from_value::<HashMap<String, GraphQLNetworkRes>>(data)?,
+            None => {
+                return Err(ValidationError::from("No data received from GraphQL."));
+            }
+        };
+
+        debug!("Debug data: {:?}", res);
+        let mut num_new_res = 0;
+        match res.get("ethereum") {
+            Some(network_res) => {
+                for transaction in &network_res.smart_contract_calls {
+                    num_new_res += 1;
+                    if transaction_present.contains(&transaction.transaction.hash) {
+                        continue;
+                    }
+                    transactions.push(transaction.transaction.clone());
+                    transaction_present.insert(transaction.transaction.hash.clone());
+                }
+            }
+            None => {
+                return Err(ValidationError::from("Empty Response from GraphQL."));
+            }
+        };
+        if num_new_res < limit_per_query {
+            break;
+        } else {
+            offset += num_new_res;
+        }
+    }
+
+    debug!("Found {} transactions.", transactions.len());
+    Ok(transactions.iter().map(|tx| tx.hash.clone()).collect())
+}
+
+// Inclusive for start_block and end_block
+// WILL ACCEPT FAILURE AS IT ASSUMES THIS HAPPENS ONLY FOR MAPPING SLOTS
+// Failures are most likely due to timeouts in big TXs
+pub fn get_all_traces_for_contract(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<TraceWithAddress>, ValidationError> {
+    let tx_hashes: Vec<String> = get_all_txs_for_contract(config, address, start_block, end_block)?;
+    let mut traces: Vec<TraceWithAddress> = vec![];
+
+    let pb = ProgressBar::new(tx_hashes.len().try_into().unwrap());
+
+    let mut seen_transactions = HashSet::new();
+    for tx_hash in &tx_hashes {
+        if seen_transactions.contains(tx_hash) {
+            continue;
+        }
+        seen_transactions.insert(tx_hash);
+        info!("Getting trace for {}", tx_hash);
+        match get_eth_debug_trace(config, tx_hash){
+            Ok(trace) => traces.push(trace),
+            Err(_) => info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config."),
+        };
+        pb.inc(1);
+    }
+    pb.finish_and_clear();
+    debug!("Found {} traces.", traces.len());
+    Ok(traces)
+}
+
+pub fn get_eth_block_number(config: &DVFConfig) -> Result<u64, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_blockNumber",
+        "params": [],
+        "id": 1
+    });
+
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let block_num: u64 = u64::from_str_radix(result.as_str().unwrap().trim_start_matches("0x"), 16)
+        .expect("Couldn't parse hex from eth_blockNumber");
+
+    Ok(block_num)
+}
+
+pub fn get_eth_chain_id(config: &DVFConfig) -> Result<u64, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_chainId",
+        "params": [],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let chain_id: u64 =
+        u64::from_str_radix(result.as_str().unwrap().trim_start_matches("0x"), 16).unwrap();
+
+    Ok(chain_id)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Web3Event {
+    pub topics: Vec<String>,
+    pub data: String,
+    #[serde(rename = "blockNumber")]
+    pub block_number: String,
+    #[serde(rename = "transactionIndex")]
+    transaction_index: String,
+}
+
+// Fetches events, does multiple calls if necessary
+// Inclusive for from_block and to_block
+pub fn get_eth_events(
+    config: &DVFConfig,
+    address: &Address,
+    from_block: u64,
+    to_block: u64,
+    topics: &Vec<H256>,
+) -> Result<Vec<Log>, ValidationError> {
+    if to_block - from_block > config.max_blocks_per_event_query {
+        let pb = ProgressBar::new(to_block - from_block);
+        if to_block - from_block > LARGE_BLOCK_RANGE {
+            let mut num_events = String::new();
+            if topics.is_empty() {
+                num_events.push_str("all");
+            } else {
+                num_events.push_str(&topics.len().to_string());
+            }
+            info!(
+                "You are querying {} event(s) for a range of {} blocks. This will take some time.",
+                num_events,
+                to_block - from_block + 1
+            );
+        }
+        let mut last_block = from_block + config.max_blocks_per_event_query;
+        let mut events = get_eth_events(config, address, from_block, last_block, topics)?;
+        while last_block < to_block {
+            let next_last_block =
+                std::cmp::min(last_block + config.max_blocks_per_event_query - 1, to_block);
+            let mut next_events =
+                get_eth_events(config, address, last_block + 1, next_last_block, topics)?;
+            last_block = next_last_block;
+            pb.set_position(next_last_block - from_block);
+            events.append(&mut next_events);
+        }
+        pb.finish_and_clear();
+        return Ok(events);
+    }
+    let from_block_hex = format!("{:#x}", from_block);
+    let to_block_hex = format!("{:#x}", to_block);
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getLogs",
+        "params": [{"address": address, "fromBlock": from_block_hex, "toBlock": to_block_hex, "topics": topics}],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let events: Vec<Log> = serde_json::from_value(result)?;
+    debug!("Found {} events.", events.len());
+    debug!("{:?}", events);
+    Ok(events)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StorageRangeEntry {
+    pub key: H256,
+    pub value: H256,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StorageRange {
+    pub storage: HashMap<String, StorageRangeEntry>,
+    #[serde(rename = "nextKey")]
+    pub next_key: Value,
+}
+
+fn get_eth_storage_range_response(
+    config: &DVFConfig,
+    address: &Address,
+    init_block_hash: &str,
+    offset: String,
+) -> Result<StorageRange, ValidationError> {
+    debug!(
+        "Querying storage range of {:?} @ {} starting from {}.",
+        address, init_block_hash, offset
+    );
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_storageRangeAt",
+        "params": [init_block_hash, 0, address, offset, NUM_STORAGE_QUERIES],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let storage_range: StorageRange = serde_json::from_value(result)?;
+    debug!("Received storage range: {:?}", storage_range);
+    Ok(storage_range)
+}
+
+pub fn get_eth_code(
+    config: &DVFConfig,
+    address: &Address,
+    block_num: u64,
+) -> Result<String, ValidationError> {
+    let block_num_hex = format!("{:#x}", block_num);
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getCode",
+        "params": [address, block_num_hex],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let code: String = serde_json::from_value(result).unwrap_or_default();
+    Ok(code)
+}
+
+pub fn get_eth_storage_at(
+    config: &DVFConfig,
+    address: &Address,
+    slot: &U256,
+    block_num: u64,
+) -> Result<[u8; 32], ValidationError> {
+    let block_num_hex = format!("{:#x}", block_num);
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getStorageAt",
+        "params": [address, slot, block_num_hex],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let val: H256 = serde_json::from_value(result).unwrap_or_default();
+    debug!(
+        "The storage value of the contract {} at {} in {} is {}",
+        address, block_num, slot, val
+    );
+    Ok(val.0)
+}
+
+pub fn get_eth_block_timestamp(config: &DVFConfig, block_num: u64) -> Result<u64, ValidationError> {
+    Ok(get_eth_block_by_num(config, block_num, false)?
+        .timestamp
+        .low_u64())
+}
+
+fn get_eth_blockhash_by_num(config: &DVFConfig, block_num: u64) -> Result<String, ValidationError> {
+    Ok(format!(
+        "{:?}",
+        get_eth_block_by_num(config, block_num, false)?.hash
+    ))
+}
+
+fn get_eth_block_by_num(
+    config: &DVFConfig,
+    block_num: u64,
+    include_tx: bool,
+) -> Result<Block<Transaction>, ValidationError> {
+    let block_num_hex = format!("{:#x}", block_num);
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getBlockByNumber",
+        "params": [block_num_hex, include_tx],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let block: Block<Transaction> = serde_json::from_value(result)?;
+
+    Ok(block)
+}
+
+pub fn get_eth_codehash(
+    config: &DVFConfig,
+    address: &Address,
+    block_num: u64,
+) -> Result<String, ValidationError> {
+    let code = get_eth_code(config, address, block_num)?;
+    let code_bytes = hex::decode(code.trim_start_matches("0x"))?;
+
+    // Hashing the contract code
+    let mut hasher = Keccak::v256();
+    let mut output = [0u8; 32];
+    hasher.update(&code_bytes);
+    hasher.finalize(&mut output);
+
+    let code_hash = format!("0x{}", hex::encode(output));
+
+    info!("The codehash of the contract is {}", code_hash);
+
+    Ok(code_hash)
+}
+
+fn u256_to_bytes(u: &U256) -> [u8; 32] {
+    let mut res = [0u8; 32];
+    u.to_big_endian(&mut res);
+    res
+}
+fn commit_storage_to_snapshot(
+    last_storage: &HashMap<u64, HashMap<U256, U256>>,
+    depth: u64,
+    snapshot: &mut HashMap<U256, [u8; 32]>,
+) {
+    if let Some(storage) = last_storage.get(&depth) {
+        // Commit when execution ended successfully
+        debug!("Last Storage found: {:?}", storage);
+        for (slot, value) in storage.iter() {
+            if value.is_zero() {
+                snapshot.remove(slot);
+            } else {
+                snapshot.insert(*slot, u256_to_bytes(value));
+            }
+        }
+    }
+}
+
+pub struct UnusedStoragePart {
+    pub slot: U256,
+    pub offset: usize,
+    pub value: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StorageSnapshot {
+    pub snapshot: HashMap<U256, [u8; 32]>,
+    // Remember which parts have been used
+    unused_parts: HashMap<U256, [bool; 32]>,
+}
+
+impl StorageSnapshot {
+    pub fn from_api(
+        config: &DVFConfig,
+        address: &Address,
+        deployment_block_num: u64,
+        init_block_num: u64,
+    ) -> Result<Self, ValidationError> {
+        // First try special call
+        let snapshot: HashMap<U256, [u8; 32]> = if let Ok(storage_snapshot) =
+            get_eth_storage_snapshot(config, address, init_block_num)
+        {
+            storage_snapshot
+        } else {
+            // Alternatively, get all txs
+            let tx_hashes =
+                get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)?;
+            debug!("Tx Hashes: {:?}", tx_hashes);
+            // And diffs for all txs
+            if let Ok(all_diffs) = get_many_diff_traces(config, &tx_hashes) {
+                // And compute snapshot from there
+                Self::snapshot_from_diff_traces(&all_diffs, address)
+            } else {
+                Self::snapshot_from_tx_ids(config, address, &tx_hashes)?
+            }
+        };
+        debug!("Storage Snapshot: {:?}", snapshot);
+        let unused_parts = Self::init_unused_parts(&snapshot);
+        Ok(StorageSnapshot {
+            snapshot,
+            unused_parts,
+        })
+    }
+
+    fn init_unused_parts(snapshot: &HashMap<U256, [u8; 32]>) -> HashMap<U256, [bool; 32]> {
+        let mut unused_parts: HashMap<U256, [bool; 32]> = HashMap::new();
+        for slot in snapshot.keys() {
+            unused_parts.insert(*slot, [true; 32]);
+        }
+        unused_parts
+    }
+
+    fn snapshot_from_diff_traces(
+        diff_traces: &[DiffMode],
+        address: &Address,
+    ) -> HashMap<U256, [u8; 32]> {
+        let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+        for diff_trace in diff_traces.iter() {
+            if let Some(diff) = diff_trace.pre.get(address) {
+                if let Some(storage_diff) = &diff.storage {
+                    for (slot, value) in storage_diff.iter() {
+                        // a non-zero value in the `pre` field means that the value will be 0 after
+                        // the transaction
+                        if !value.is_zero() {
+                            snapshot.remove(&slot.into_uint());
+                        }
+                    }
+                }
+            }
+            if let Some(diff) = diff_trace.post.get(address) {
+                if let Some(storage_diff) = &diff.storage {
+                    for (slot, value) in storage_diff.iter() {
+                        // a non-zero value in the `post` field means that the value will change after
+                        // the transaction
+                        if !value.is_zero() {
+                            snapshot.insert(slot.into_uint(), value.0);
+                        }
+                    }
+                }
+            }
+        }
+        snapshot
+    }
+
+    fn snapshot_from_tx_ids(
+        config: &DVFConfig,
+        address: &Address,
+        tx_hashes: &Vec<String>,
+    ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+        let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+        for tx_hash in tx_hashes {
+            let trace_w_a = get_eth_debug_trace(config, tx_hash)?;
+            Self::add_trace(&mut snapshot, config, address, &trace_w_a)?;
+        }
+        Ok(snapshot)
+    }
+
+    fn snapshot_from_traces(
+        config: &DVFConfig,
+        address: &Address,
+        traces_w_a: &Vec<TraceWithAddress>,
+    ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+        let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+        for trace_w_a in traces_w_a {
+            Self::add_trace(&mut snapshot, config, address, trace_w_a)?;
+        }
+        Ok(snapshot)
+    }
+
+    fn add_trace(
+        snapshot: &mut HashMap<U256, [u8; 32]>,
+        config: &DVFConfig,
+        address: &Address,
+        trace_w_a: &TraceWithAddress,
+    ) -> Result<(), ValidationError> {
+        if trace_w_a.trace.failed {
+            return Ok(());
+        }
+        // Track which contract we are in
+        let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
+        depth_to_address.insert(1, trace_w_a.address);
+        // depth -> last_storage
+        let mut last_storage: HashMap<u64, HashMap<U256, U256>> = HashMap::new();
+
+        let last_depth = 1_u64;
+
+        let mut create_addresses: Option<Vec<Address>> = None;
+
+        for log in &trace_w_a.trace.struct_logs {
+            // Boring state
+            if log.stack.is_none() {
+                continue;
+            }
+            // Fine because we checked
+            let stack = log.stack.clone().unwrap();
+
+            if log.op == "CREATE" || log.op == "CREATE2" {
+                if create_addresses.is_none() {
+                    // Fetch call trace lazily if we need it
+                    create_addresses =
+                        Some(get_internal_create_addresses(config, &trace_w_a.tx_id)?);
+                }
+                if let Some(ref mut create_ref) = create_addresses {
+                    depth_to_address.insert(log.depth + 1, create_ref.remove(0));
+                }
+            }
+
+            if log.op == "CALL" || log.op == "STATICCALL" {
+                let mut address_bytes = [0u8; 32];
+                stack[stack.len() - 2].to_big_endian(&mut address_bytes);
+                let mut a = Address::zero();
+                a.assign_from_slice(&address_bytes[12..]);
+                depth_to_address.insert(log.depth + 1, a);
+            }
+
+            // As we care about storage, the address stays the same during DELEGATECALL
+            if log.op == "DELEGATECALL" || log.op == "CALLCODE" {
+                depth_to_address.insert(log.depth + 1, depth_to_address[&log.depth]);
+            }
+
+            // We don't care about SELFDESTRUCT/SUICIDE here
+
+            if &depth_to_address[&log.depth] == address && log.op == "SSTORE" {
+                let last_store = last_storage.entry(log.depth).or_default();
+                let value = stack[stack.len() - 2];
+                let slot = stack[stack.len() - 1];
+                last_store.insert(slot, value);
+                //last_storage.insert(log.depth, last_store);
+            }
+
+            // Save upon successful return
+            if log.op == "STOP" || log.op == "RETURN" {
+                commit_storage_to_snapshot(&last_storage, log.depth, snapshot);
+            }
+            // Clean failed storages
+            if log.depth < last_depth {
+                for depth in log.depth..last_depth + 1 {
+                    if last_storage.contains_key(&depth) {
+                        last_storage.remove(&depth);
+                    }
+                }
+            }
+        }
+        // We know that depth 1 succeeded so write back depth 1 here
+        commit_storage_to_snapshot(&last_storage, 0u64, snapshot);
+
+        // Check that we used all addresses
+        if let Some(addrs) = create_addresses {
+            assert_eq!(addrs.len(), 0);
+        }
+
+        Ok(())
+    }
+
+    pub fn from_trace(
+        config: &DVFConfig,
+        address: &Address,
+        trace_w_a: &TraceWithAddress,
+    ) -> Result<Self, ValidationError> {
+        let snapshot = Self::snapshot_from_traces(config, address, &vec![trace_w_a.clone()])?;
+        let unused_parts = Self::init_unused_parts(&snapshot);
+        Ok(StorageSnapshot {
+            snapshot,
+            unused_parts,
+        })
+    }
+
+    pub fn from_tx_id(
+        config: &DVFConfig,
+        address: &Address,
+        tx_hash: &str,
+    ) -> Result<Self, ValidationError> {
+        let snapshot = Self::snapshot_from_tx_ids(config, address, &vec![tx_hash.to_string()])?;
+        let unused_parts = Self::init_unused_parts(&snapshot);
+        Ok(StorageSnapshot {
+            snapshot,
+            unused_parts,
+        })
+    }
+
+    /*
+        #[cfg(test)]
+        fn from_test_strings(slots: &Vec<String>, values: &Vec<String>) -> Self {
+            let mut u_s: Vec<U256> = vec![];
+            for s in slots {
+                u_s.push(U256::from_str_radix(s, 16).unwrap());
+            }
+            return Self::from_test_data(&u_s, values);
+        }
+    */
+
+    #[cfg(test)]
+    fn from_test_data(slots: &Vec<U256>, values: &Vec<[u8; 32]>) -> Self {
+        let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+        for i in 0..slots.len() {
+            snapshot.insert(slots[i], values[i]);
+        }
+        let unused_parts = Self::init_unused_parts(&snapshot);
+        StorageSnapshot {
+            snapshot,
+            unused_parts,
+        }
+    }
+
+    /*
+        #[cfg(test)]
+        fn helper_test_snapshot1_correctness(
+            config: &DVFConfig,
+            address: &Address,
+            init_block_num: u64,
+        ) {
+            let snapshot = get_eth_storage_snapshot(config, address, init_block_num).unwrap();
+            assert!(Self::check_snapshot_correct(
+                config,
+                address,
+                init_block_num,
+                snapshot
+            ));
+        }
+    */
+
+    #[cfg(test)]
+    fn helper_test_snapshot2_correctness(
+        config: &DVFConfig,
+        address: &Address,
+        deployment_block_num: u64,
+        init_block_num: u64,
+    ) {
+        let tx_hashes =
+            get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)
+                .unwrap();
+        // And diffs for all txs
+        let all_diffs = get_many_diff_traces(config, &tx_hashes).unwrap();
+        // And compute snapshot from there
+        let snapshot = Self::snapshot_from_diff_traces(&all_diffs, address);
+        assert!(Self::check_snapshot_correct(
+            config,
+            address,
+            init_block_num,
+            snapshot
+        ))
+    }
+
+    #[cfg(test)]
+    fn helper_test_snapshot3_correctness(
+        config: &DVFConfig,
+        address: &Address,
+        deployment_block_num: u64,
+        init_block_num: u64,
+    ) {
+        let tx_hashes =
+            get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)
+                .unwrap();
+        // Work with raw traces
+        let snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes).unwrap();
+        assert!(Self::check_snapshot_correct(
+            config,
+            address,
+            init_block_num,
+            snapshot,
+        ))
+    }
+
+    #[cfg(test)]
+    fn helper_test_snapshot_equality(
+        config: &DVFConfig,
+        address: &Address,
+        deployment_block_num: u64,
+        init_block_num: u64,
+    ) {
+        // TODO: Fix this
+        // let first_snapshot = get_eth_storage_snapshot(config, address, init_block_num).unwrap();
+        let tx_hashes =
+            get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)
+                .unwrap();
+        // And diffs for all txs
+        let all_diffs = get_many_diff_traces(config, &tx_hashes).unwrap();
+        // And compute snapshot from there
+        let second_snapshot = Self::snapshot_from_diff_traces(&all_diffs, address);
+        // Work with raw traces
+        let third_snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes).unwrap();
+        // assert_eq!(first_snapshot, second_snapshot);
+        assert_eq!(second_snapshot, third_snapshot);
+    }
+
+    // Returns true iff the snapshot provided conforms to the output of eth_getStorageAt
+    pub fn check_snapshot_correct(
+        config: &DVFConfig,
+        address: &Address,
+        init_block_num: u64,
+        snapshot: HashMap<U256, [u8; 32]>,
+    ) -> bool {
+        for (slot, value) in snapshot.iter() {
+            let expected_value =
+                &get_eth_storage_at(config, address, slot, init_block_num).unwrap();
+            if value != expected_value {
+                return false;
+            }
+        }
+        true
+    }
+
+    // Returns true iff entire area is set and unused
+    pub fn check_if_set_and_unused(&mut self, slot: &U256, offset: usize, size: usize) -> bool {
+        if !self.snapshot.contains_key(slot) {
+            return false;
+        }
+        self.check_all_unused(slot, offset, size)
+    }
+
+    // Get Storage entry and mark it as used
+    pub fn get_slot_and_mark(&mut self, slot: &U256, offset: usize, size: usize) -> Vec<u8> {
+        if self.snapshot.contains_key(slot) {
+            self.add_usage(slot, offset, size);
+        }
+        self.get_slot(slot, offset, size)
+    }
+
+    // Get Storage entry
+    pub fn get_slot(&self, slot: &U256, offset: usize, size: usize) -> Vec<u8> {
+        return match self.snapshot.get(slot) {
+            Some(val) => val[32 - offset - size..32 - offset].to_vec(),
+            None => vec![0; size],
+        };
+    }
+
+    // Get Storage entry
+    pub fn get_full_slot(&self, slot: &U256) -> [u8; 32] {
+        return match self.snapshot.get(slot) {
+            Some(val) => *val,
+            None => [0u8; 32],
+        };
+    }
+
+    // Get Storage entry
+    pub fn get_u8_from_slot(&self, slot: &U256, offset: usize) -> u8 {
+        return match self.snapshot.get(slot) {
+            Some(val) => val[32 - offset - 1],
+            None => 0u8,
+        };
+    }
+
+    fn check_all_unused(&mut self, slot: &U256, offset: usize, size: usize) -> bool {
+        if let Some(s) = self.unused_parts.get(slot) {
+            #[allow(clippy::needless_range_loop)]
+            for i in 32 - offset - size..32 - offset {
+                if !s[i] {
+                    return false;
+                }
+            }
+        };
+        true
+    }
+
+    fn add_usage(&mut self, slot: &U256, offset: usize, size: usize) {
+        if let Some(s) = self.unused_parts.get_mut(slot) {
+            #[allow(clippy::needless_range_loop)]
+            for i in 32 - offset - size..32 - offset {
+                s[i] = false;
+            }
+        };
+    }
+
+    // Related to: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#bytes-and-string
+    pub fn is_final_bit_set(&self, slot: &U256) -> bool {
+        return match self.snapshot.get(slot) {
+            Some(val) => {
+                let final_byte = val[31];
+                return final_byte % 2 == 1;
+            }
+            None => false,
+        };
+    }
+
+    // Collect all storage slots that have not previously been queried
+    pub fn get_unused_nonzero_storage_slots(&self) -> Vec<UnusedStoragePart> {
+        let mut unused_storage_parts: Vec<UnusedStoragePart> = vec![];
+
+        // Get a Vec of all keys
+        let mut keys: Vec<U256> = self.unused_parts.keys().cloned().collect();
+
+        // Sort the keys
+        keys.sort();
+
+        for slot in keys {
+            let unused = self.unused_parts[&slot];
+            let mut startindex: usize = 0;
+            let mut prev_unused: bool = false;
+            for (i, is_i_unused) in unused.iter().enumerate() {
+                if *is_i_unused && prev_unused {
+                    // Continue to collect unused part
+                } else if *is_i_unused && !prev_unused {
+                    // Start new unused part
+                    startindex = i;
+                    prev_unused = true;
+                } else if !is_i_unused && prev_unused {
+                    // Finish unused part
+                    let val = self.get_slot(&slot, 32 - i, i - startindex);
+                    if val != vec![0u8; i - startindex] {
+                        unused_storage_parts.push(UnusedStoragePart {
+                            slot,
+                            offset: 32 - i,
+                            value: val,
+                        });
+                    }
+                    prev_unused = false;
+                } else {
+                    // All used
+                    assert!(!is_i_unused && !prev_unused);
+                }
+            }
+            // Handle final one
+            if prev_unused {
+                // Finish unused part
+                let val = self.get_slot(&slot, 0, 32 - startindex);
+                if val.iter().any(|b| *b != 0u8) {
+                    unused_storage_parts.push(UnusedStoragePart {
+                        slot,
+                        offset: 0,
+                        value: val,
+                    });
+                }
+            }
+        }
+        unused_storage_parts
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn test_snapshots_correctness() {
+        let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let deployment_block_num = 19012544;
+        let block_num_with_tx = 19012829;
+
+        for init_block_num in block_num_with_tx - 3..block_num_with_tx {
+            // TODO: Fix this
+            // StorageSnapshot::helper_test_snapshot1_correctness(&config, &address, init_block_num);
+            StorageSnapshot::helper_test_snapshot2_correctness(
+                &config,
+                &address,
+                deployment_block_num,
+                init_block_num,
+            );
+            StorageSnapshot::helper_test_snapshot3_correctness(
+                &config,
+                &address,
+                deployment_block_num,
+                init_block_num,
+            );
+        }
+        // This is because it currently only works for recent blocks
+        // TODO: Also doesn't work, too slow...
+        // let current_block_num = get_eth_block_number(&config).unwrap();
+        // StorageSnapshot::helper_test_snapshot1_correctness(&config, &address, current_block_num);
+    }
+
+    #[test]
+    fn test_snapshot_equality() {
+        /*
+                tracing_subscriber::fmt()
+                    .with_max_level(tracing::Level::DEBUG)
+                    .init();
+        */
+        // TODO: add more traces with reverts and stuff
+        let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        /*
+            Since the API call `debug_storageRangeAt` only works on recent blocks, we will have to work with a recent init block number:
+            init_block_num = <current_block> - 1 (we remove 1, otherwise `get_eth_storage_snapshot` will fail because this method add 1 to init_block_num)
+        */
+        let deployment_block_num = 19012544;
+        let init_block_num = get_eth_block_number(&config).unwrap() - 1;
+
+        StorageSnapshot::helper_test_snapshot_equality(
+            &config,
+            &address,
+            deployment_block_num,
+            init_block_num,
+        );
+    }
+
+    #[test]
+    fn test_snapshot_get() {
+        let slots: Vec<U256> = vec![
+            U256::from_str_radix(
+                "0x0000000000000000000000000000000000000000000000000000000000000002",
+                16,
+            )
+            .unwrap(),
+            U256::from_str_radix(
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                16,
+            )
+            .unwrap(),
+            U256::from_str_radix(
+                "0x000000000000000000000000000000000000000000000000000000000000000a",
+                16,
+            )
+            .unwrap(),
+        ];
+        let mut val0 = [0u8; 32];
+        val0[31] = 42;
+        let mut val1 = [0u8; 32];
+        val1[0] = 0x2a;
+        val1[31] = 0x2b;
+        let mut val2 = [0u8; 32];
+        val2[0] = 0x11;
+        val2[31] = 0x22;
+        let values: Vec<[u8; 32]> = vec![val0, val1, val2];
+        let snapshot = StorageSnapshot::from_test_data(&slots, &values);
+        assert_eq!(snapshot.get_slot(&slots[0], 0, 32), values[0]);
+        assert_eq!(snapshot.get_slot(&slots[1], 0, 32), values[1]);
+        assert_eq!(snapshot.get_slot(&slots[2], 0, 32), values[2]);
+        assert_eq!(snapshot.get_slot(&slots[1], 0, 1), vec![0x2b]);
+        assert_eq!(snapshot.get_slot(&slots[1], 31, 1), vec![0x2a]);
+        // Check non-existing slot
+        assert_eq!(
+            snapshot.get_slot(
+                &U256::from_str_radix(
+                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    16
+                )
+                .unwrap(),
+                0,
+                32
+            ),
+            vec![0; 32]
+        );
+        assert_eq!(
+            snapshot.get_slot(
+                &U256::from_str_radix(
+                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    16
+                )
+                .unwrap(),
+                2,
+                30
+            ),
+            vec![0; 30]
+        );
+        assert_eq!(
+            snapshot.get_slot(
+                &U256::from_str_radix(
+                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    16
+                )
+                .unwrap(),
+                5,
+                2
+            ),
+            vec![0; 2]
+        );
+    }
+
+    #[test]
+    fn test_get_eth_debug_init_code_create_opcode() {
+        let tx = "0x495402df7d45fe36329b0bd94487f49baee62026d50f654600f6771bd2a596ab".to_string(); // dai deployment tx
+        let address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f").unwrap(); // dai address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let init_code = get_init_code(&config, &tx, &address).unwrap();
+
+        assert!(init_code.starts_with("0x608060405234801561001057600080fd5b506040516120d33803806120d38339818101604052602081101"))
+    }
+
+    #[test]
+    fn test_get_eth_debug_init_code_to_to_address_zero() {
+        let tx = "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d".to_string(); // frax deployment tx
+        let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let init_code = get_init_code(&config, &tx, &address).unwrap();
+
+        assert!(init_code.starts_with("0x61014060405234"))
+    }
+
+    /*
+        pub fn get_transaction_by_block(
+            config: &DVFConfig,
+            slot: &U256,
+            block_num: u64,
+        ) -> Result<String, ValidationError> {
+            let block_num_hex = format!("{:#x}", block_num);
+            let slot_hex = format!("{:#x}", slot);
+
+            let request_body = json!({
+                "jsonrpc": "2.0",
+                "method": "eth_getTransactionByBlockNumberAndIndex",
+                "params": [block_num_hex, slot_hex],
+                "id": 1
+            });
+
+            let result = send_blocking_web3_post(config, &request_body)?;
+            let val: Transaction = serde_json::from_value(result).unwrap_or_default();
+
+            let tx_hash = format!("{:#?}", val.hash);
+            debug!(
+                "The transaction hash of the first transaction of the last block is {} at {} in slot {}",
+                tx_hash, block_num, slot
+            );
+            Ok(tx_hash)
+        }
+    */
+
+    // #[derive(Debug, PartialEq)]
+    // enum Traces {
+    //     ParityAndGeth,
+    //     ParityOnly,
+    //     GethOnly,
+    //     None,
+    // }
+
+    // cargo test --package dv --lib -- web3::tests::test_debug_api --exact --show-output
+    // #[test]
+    // fn test_debug_api() {
+    //     let mut config = DVFConfig::from_path(Path::new("examples/rpc_testing.json")).unwrap();
+
+    //     const NETWORKS: &[(&str, u64)] = &[
+    //         ("Ethereum", 1),
+    //         ("Blast", 81457),
+    //         ("BSC", 56),
+    //         ("Polygon", 137),
+    //         ("Optimism", 10),
+    //         // ("Gnosis", 100), removed it
+    //         ("Arbitrum", 42161),
+    //         ("Base", 8453),
+    //         // Uncomment these if needed
+    //         // ("Avalanche", 43114),
+    //         // ("ZKSync", 324),
+    //         // ("Mantle", 5000),
+    //     ];
+    //     for (network_name, chain_id) in NETWORKS {
+    //         // set chain id
+    //         let _chain_id = chain_id.clone();
+    //         config.set_chain_id(_chain_id).unwrap();
+
+    //         // get first transaction one of the last blocks
+    //         let mut block_num = get_eth_block_number(&config).unwrap() - 10;
+    //         let tx_hash = loop {
+    //             let block = get_eth_block_by_num(&config, block_num, true).unwrap();
+    //             if block.transactions.len() > 0 {
+    //                 let tx_hash = format!("{:#x}", block.transactions[0].hash);
+    //                 break tx_hash;
+    //             }
+    //             block_num += 1;
+    //         };
+    //         // parity trace / geth trace api for last transaction
+    //         let parity_traces = get_tx_trace(&config, &tx_hash);
+    //         let geth_traces = get_eth_debug_call_trace(&config, &tx_hash);
+
+    //         let traces = match (parity_traces, geth_traces) {
+    //             (Ok(_), Ok(_)) => Traces::ParityAndGeth,
+    //             (Ok(_), Err(_)) => Traces::ParityOnly,
+    //             (Err(_), Ok(_)) => Traces::GethOnly,
+    //             (Err(_), Err(_)) => Traces::None,
+    //         };
+
+    //         println!(
+    //             "Network: {} with chain id {} supports traces {:?}",
+    //             network_name, chain_id, traces
+    //         );
+
+    //         assert_ne!(traces, Traces::None);
+    //     }
+    // }
+}
+
+pub fn get_eth_storage_snapshot(
+    config: &DVFConfig,
+    address: &Address,
+    init_block_num: u64,
+) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+    let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+
+    //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
+    let init_block_hash = get_eth_blockhash_by_num(config, init_block_num + 1)?;
+    debug!(
+        "Blockhash of {} is {}.",
+        init_block_num + 1,
+        init_block_hash
+    );
+
+    // Mapping of hash -> {'key': 0x00, 'value': 0x01}
+    let mut next_key: String =
+        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+    loop {
+        let storage_range =
+            get_eth_storage_range_response(config, address, &init_block_hash, next_key)?;
+        for hash in storage_range.storage.keys() {
+            let key: U256 = storage_range.storage[hash].key.into_uint();
+            let value: [u8; 32] = storage_range.storage[hash].value.0;
+            snapshot.insert(key, value);
+        }
+        if storage_range.next_key.is_null() {
+            break;
+        }
+        next_key = serde_json::from_value(storage_range.next_key).unwrap();
+    }
+    Ok(snapshot)
+}
+
+pub fn compute_topic_0(sig: &String) -> Result<String, ValidationError> {
+    keccak256(sig)
+}
+
+pub fn compute_four_bytes(sig: &String) -> Result<String, ValidationError> {
+    let hash = keccak256(sig).unwrap();
+    Ok(hash[..10].to_string())
+}
+
+pub fn keccak256(sig: &String) -> Result<String, ValidationError> {
+    // Create a new Sha3 object.
+    let mut hasher = Keccak::v256();
+
+    // Prepare the output array.
+    let mut output = [0u8; 32];
+
+    // Write the event data to the Sha3 object.
+    hasher.update(sig.as_bytes());
+
+    // Read the hash result into the output array.
+    hasher.finalize(&mut output);
+
+    // Convert the output array to a hex string.
+    let hex_output = "0x".to_string() + &hex::encode(output);
+    Ok(hex_output)
+}
+
+// copied from ethers::types to add a custom deserializer for StructLog.stack
+// because RPCs send decimal numbers instead of hex numbers in some cases
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DefaultFrame {
+    pub failed: bool,
+    #[serde(deserialize_with = "deserialize_stringified_numeric")]
+    pub gas: U256,
+    #[serde(rename = "returnValue")]
+    pub return_value: Bytes,
+    #[serde(rename = "structLogs")]
+    pub struct_logs: Vec<StructLog>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructLog {
+    pub depth: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub gas: u64,
+    #[serde(rename = "gasCost")]
+    pub gas_cost: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<Vec<String>>,
+    pub op: String,
+    pub pc: u64,
+    #[serde(default, rename = "refund", skip_serializing_if = "Option::is_none")]
+    pub refund_counter: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_stringified_numeric_opt_vec"
+    )]
+    pub stack: Option<Vec<U256>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storage: Option<BTreeMap<H256, H256>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mem_size: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_data: Option<String>,
+}
+
+pub fn deserialize_stringified_numeric_opt_vec<'de, D>(
+    deserializer: D,
+) -> Result<Option<Vec<U256>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    if let Some(nums) = Option::<Vec<StringifiedNumeric>>::deserialize(deserializer)? {
+        let mut output: Vec<U256> = vec![];
+        for num in nums {
+            match num.try_into() {
+                Ok(n) => output.push(n),
+                Err(e) => {
+                    return Err(serde::de::Error::custom(e));
+                }
+            };
+        }
+        Ok(Some(output))
+    } else {
+        Ok(None)
+    }
+}

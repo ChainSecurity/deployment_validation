@@ -1,0 +1,148 @@
+{
+  "version": "0.9.1",
+  "contract_name": "CrazyStruct",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 4,
+  "deployment_tx": "0x5a6550006fb9fc5467daec42babce931d5173a8b87433621060673a370c721ef",
+  "codehash": "0x05cf27f78795fdb5e5cb87e145da38afe64079436be6994397dc5567193c62e6",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "x",
+      "var_type": "t_uint256",
+      "value": "0x00000000000000000000000000000000000000000000000000000000000001c8",
+      "value_hint": "456",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "S.A",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000040",
+      "value_hint": "64",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2",
+      "offset": 0,
+      "var_name": "S.B",
+      "var_type": "t_address",
+      "value": "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x2",
+      "offset": 20,
+      "var_name": "S.C",
+      "var_type": "t_bool",
+      "value": "0x01",
+      "value_hint": "true",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "S.D[0]",
+      "var_type": "t_uint64",
+      "value": "0x0000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 8,
+      "var_name": "S.D[1]",
+      "var_type": "t_uint64",
+      "value": "0x000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 16,
+      "var_name": "S.D[2]",
+      "var_type": "t_uint64",
+      "value": "0x0000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x3",
+      "offset": 24,
+      "var_name": "S.D[3]",
+      "var_type": "t_uint64",
+      "value": "0x0000000000000003",
+      "value_hint": "3",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4",
+      "offset": 0,
+      "var_name": "S.D[4]",
+      "var_type": "t_uint64",
+      "value": "0x0000000000000000",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x4",
+      "offset": 8,
+      "var_name": "S.D[5]",
+      "var_type": "t_uint64",
+      "value": "0x000000000000007c",
+      "value_hint": "124",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x5",
+      "offset": 0,
+      "var_name": "S.E",
+      "var_type": "t_uint128",
+      "value": "0x00000000000000000000000000000080",
+      "value_hint": "128",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x64d803cfd34ed6462de60f7a4987a9bf8647eaa0ca308535776c1a20743b219b",
+      "offset": 0,
+      "var_name": "S.mp[0x5fbdb2315678afecb367f032d93f642f64180aa3][42]",
+      "var_type": "t_bool",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf79c4ea3fcaccaa9858f1e1ae44ae57949364f3287fbd2e7b1fe8c18c92e6bad",
+      "offset": 0,
+      "var_name": "S.mp[0x5fbdb2315678afecb367f032d93f642f64180aa3][uint256 Max Value]",
+      "var_type": "t_bool",
+      "value": "0x01",
+      "value_hint": "true",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x7",
+      "offset": 0,
+      "var_name": "S.F.length",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

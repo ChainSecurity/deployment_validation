@@ -1,0 +1,107 @@
+{
+  "version": "0.9.1",
+  "contract_name": "HardhatUp",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 2,
+  "deployment_tx": "0x068055e72febb8f4dde37707ea758c0be49ef0cf517fd023ad4a02e31583b53d",
+  "codehash": "0x7ea2d30e874b1bfec96ebbecacc1d6f60ffed3a94a3c452d9f08829c1f27348f",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "c",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000016",
+      "value_hint": "22",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9016d09d72d40fdae2fd8ceac6b6234c7706214fd39c1cd1e609a0528c199300",
+      "offset": 0,
+      "var_name": "OwnableUpgradeable.OwnableStorageLocation.OwnableStorage._owner",
+      "var_type": "t_address",
+      "value": "0x0000000000000000000000000000000000000017",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
+      "offset": 0,
+      "var_name": "Initializable.INITIALIZABLE_STORAGE.InitializableStorage._initialized",
+      "var_type": "t_uint64",
+      "value": "0x0000000000000001",
+      "value_hint": "1",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
+      "offset": 8,
+      "var_name": "Initializable.INITIALIZABLE_STORAGE.InitializableStorage._initializing",
+      "var_type": "t_bool",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8a",
+      "offset": 0,
+      "var_name": "HardhatUp.StorageLocation1.Struct1.a",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000014",
+      "value_hint": "20",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x41ef84cfd2398a02556624f13effd41aa790a48ce39e70d3a0dc298f7a4dec8b",
+      "offset": 0,
+      "var_name": "HardhatUp.StorageLocation1.Struct1.b",
+      "var_type": "t_uint192",
+      "value": "0x000000000000000000000000000000000000000000000015",
+      "value_hint": "21",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "Initialized(uint64)",
+      "topic0": "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2",
+      "occurrences": [
+        {
+          "topics": [
+            "0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000001"
+        }
+      ]
+    },
+    {
+      "sig": "OwnershipTransferred(address,address)",
+      "topic0": "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+      "occurrences": [
+        {
+          "topics": [
+            "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x0000000000000000000000000000000000000000000000000000000000000017"
+          ],
+          "data": "0x"
+        }
+      ]
+    }
+  ],
+  "expiry_in_epoch_seconds": null,
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

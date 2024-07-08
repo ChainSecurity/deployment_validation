@@ -1,0 +1,46 @@
+[
+  {
+    "slot": "0x0",
+    "offset": 0,
+    "var_name": "structInStructType.a",
+    "var_type": "t_uint256",
+    "value": "0x000000000000000000000000000000000000000000000000000000000000029a",
+    "value_hint": "666",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x1",
+    "offset": 0,
+    "var_name": "structInStructType.b",
+    "var_type": "t_address",
+    "value": "0x00000000000000adc04c56bf30ac9d3c0aaf14dc",
+    "value_hint": "Seaport 1.5",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2",
+    "offset": 0,
+    "var_name": "structInStructType.t.A",
+    "var_type": "t_uint256",
+    "value": "0x000000000000000000000000000000000000000000000000000000000000007b",
+    "value_hint": "123",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x3",
+    "offset": 0,
+    "var_name": "structInStructType.t.B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x3",
+    "offset": 20,
+    "var_name": "structInStructType.t.C",
+    "var_type": "t_bool",
+    "value": "0x01",
+    "value_hint": "true",
+    "comparison_operator": "Equal"
+  }
+]

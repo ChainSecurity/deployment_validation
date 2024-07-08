@@ -1,0 +1,65 @@
+[
+  {
+    "slot": "0x4a8918e67ba0b26637797e1472ee3d675d66efda39253f7139f8eabc58b20ffb",
+    "offset": 0,
+    "var_name": "x[A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string]",
+    "var_type": "t_uint256",
+    "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+    "value_hint": "42",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x5585ade74713b5d6d915d0f40534bd55231ae0a540289299fb117ed2c74ca466",
+    "offset": 0,
+    "var_name": "x[Hello this is a test]",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000005",
+    "value_hint": "5",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xb5cafab5b83d18303877bb912b2d66ca18ab7390cfd9be8a2e66cc5096e0ea02",
+    "offset": 0,
+    "var_name": "y[a].length",
+    "var_type": "t_uint256",
+    "value": "0x00000000000000000000000000000000000000000000000000000000000000a7",
+    "value_hint": "167",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2fccf76901d0aa8dbb54cf0f8d3d8db6b27e630b57020bc913d21efd33831cbc",
+    "offset": 0,
+    "var_name": "y[a][part_0]",
+    "var_type": "t_string_storage",
+    "value": "0x4120766572797665727976657279766572797665727976657279766572797665",
+    "value_hint": "A veryveryveryveryveryveryveryve",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2fccf76901d0aa8dbb54cf0f8d3d8db6b27e630b57020bc913d21efd33831cbd",
+    "offset": 0,
+    "var_name": "y[a][part_1]",
+    "var_type": "t_string_storage",
+    "value": "0x7279766572797665727976657279766572797665727976657279766572797665",
+    "value_hint": "ryveryveryveryveryveryveryveryve",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x2fccf76901d0aa8dbb54cf0f8d3d8db6b27e630b57020bc913d21efd33831cbe",
+    "offset": 13,
+    "var_name": "y[a][part_2]",
+    "var_type": "t_string_storage",
+    "value": "0x727976657279206c6f6e6720737472696e672e",
+    "value_hint": "ryvery long string.",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xac85c8cc1ac92e94a731b8df588044cbfd366c5ee08805d198cb1b094f3cacac",
+    "offset": 0,
+    "var_name": "y[abc] (length=14)",
+    "var_type": "t_string_storage",
+    "value": "0x612073686f727420737472696e6700000000000000000000000000000000001c",
+    "value_hint": "a short string",
+    "comparison_operator": "Equal"
+  }
+]

@@ -1,0 +1,81 @@
+[
+  {
+    "slot": "0xbdef9594e0de4a67b8ece76532e6cc04cc26a4451f475b42a9855b1e1a9114f0",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].a",
+    "var_type": "t_uint128",
+    "value": "0x00000000000000000000000000000001",
+    "value_hint": "1",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xbdef9594e0de4a67b8ece76532e6cc04cc26a4451f475b42a9855b1e1a9114f0",
+    "offset": 16,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].b",
+    "var_type": "t_uint128",
+    "value": "0x0000000000000000000000000000002a",
+    "value_hint": "42",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0xbdef9594e0de4a67b8ece76532e6cc04cc26a4451f475b42a9855b1e1a9114f1",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t.length",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000002",
+    "value_hint": "2",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c31",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[0].A",
+    "var_type": "t_uint256",
+    "value": "0x0000000000000000000000000000000000000000000000000000000000000017",
+    "value_hint": "23",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c32",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[0].B",
+    "var_type": "t_address",
+    "value": "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad",
+    "value_hint": "Uniswap: UniversalRouter",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c32",
+    "offset": 20,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[0].C",
+    "var_type": "t_bool",
+    "value": "0x00",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c33",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[1].A",
+    "var_type": "t_uint256",
+    "value": "0x000000000000000000000000000000000000000000000000000000000000007b",
+    "value_hint": "123",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c34",
+    "offset": 0,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[1].B",
+    "var_type": "t_address",
+    "value": "0x0000000000000000000000000000000000000000",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c34",
+    "offset": 20,
+    "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[1].C",
+    "var_type": "t_bool",
+    "value": "0x01",
+    "value_hint": "true",
+    "comparison_operator": "Equal"
+  }
+]

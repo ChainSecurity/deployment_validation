@@ -1,0 +1,59 @@
+{
+  "version": "0.9.1",
+  "contract_name": "Enum",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 2,
+  "deployment_tx": "0x5372999234f0c2ffdfaf3cf73831ee3d851f3e4a261f368b8d36c3a7c09b94a1",
+  "codehash": "0xaa85798b7052600bb0e89b6f6d2961d857c6838df3e7a653e5f6bba624ff20a5",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "s",
+      "var_type": "t_uint8",
+      "value": "0x03",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 0,
+      "var_name": "a[0]",
+      "var_type": "t_uint8",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 1,
+      "var_name": "a[1]",
+      "var_type": "t_uint8",
+      "value": "0x01",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x1",
+      "offset": 2,
+      "var_name": "a[2]",
+      "var_type": "t_uint8",
+      "value": "0x00",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

@@ -1,0 +1,10 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+evm_version = "london"
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@tokenized-strategy/=lib/tokenized-strategy/src/",
+    "@periphery/=lib/tokenized-strategy-periphery/src/",
+]

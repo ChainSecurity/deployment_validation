@@ -1,0 +1,29 @@
+[
+  {
+    "slot": "0xe0bdd3ceedec0f0607888598b5d4d681f1e4d116dc05d2d1ef51001a37dbe5dd",
+    "offset": 0,
+    "var_name": "mp[0x0000000000000000000000000000000000000000][0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9]",
+    "var_type": "t_int128",
+    "value": "0xfffffffffffffffffffffffffffffffb",
+    "value_hint": "-5",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x50c3ee70f4ae968d6c6c0aab154525a17abbc18f5f4e91ba551ada5fa7b60796",
+    "offset": 0,
+    "var_name": "mp[0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9][1inch v5: Aggregation Router]",
+    "var_type": "t_int128",
+    "value": "0x00000000000000000000000005f5e100",
+    "value_hint": "1. * 10^8",
+    "comparison_operator": "Equal"
+  },
+  {
+    "slot": "0x3",
+    "offset": 0,
+    "var_name": "x",
+    "var_type": "t_int8",
+    "value": "0xfe",
+    "value_hint": "-2",
+    "comparison_operator": "Equal"
+  }
+]

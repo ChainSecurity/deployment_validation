@@ -1,0 +1,87 @@
+{
+  "version": "0.9.1",
+  "id": "0xf41ebc4318b938e47efb34449e517a699f14ece0c5eb838be6b2205694bf970c",
+  "contract_name": "CErc20Delegator",
+  "address": "0x5d3a536e4d6dbd6114cc1ead35777bab948e3643",
+  "chain_id": 1,
+  "deployment_block_num": 8983575,
+  "init_block_num": 8983575, 
+  "deployment_tx": "0x090ce7d33359e5d288ce169f41bb3d2cb55ac17b026a10cf80b3fc4f0c85c827",
+  "codehash": "0x3f1d4a4e2a03855c7ee8f6f2477c1245752a5ca3ef28d59e8fd509efe59ef877",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [
+    {
+      "var_name": "underlying_",
+      "value": "0x6b175474e89094c44da98b954eedeac495271d0f",
+      "value_hint": "Dai (DAI)"
+    },
+    {
+      "var_name": "comptroller_",
+      "value": "0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b"
+    },
+    {
+      "var_name": "interestRateModel_",
+      "value": "0x5562024784cc914069d67d89a28e3201bf7b57e7"
+    },
+    {
+      "var_name": "initialExchangeRateMantissa_",
+      "value": "a56fa5b99019a5c8000000",
+      "value_hint": "2. * 10^26"
+    },
+    {
+      "var_name": "name_",
+      "value": "Compound Dai"
+    },
+    {
+      "var_name": "symbol_",
+      "value": "cDAI"
+    },
+    {
+      "var_name": "decimals_",
+      "value": "8",
+      "value_hint": "8"
+    },
+    {
+      "var_name": "admin_",
+      "value": "0x6d903f6003cca6255d85cca4d3b5e5146dc33925"
+    },
+    {
+      "var_name": "implementation_",
+      "value": "0x99ee778b9a6205657dd03b2b91415c8646d521ec"
+    },
+    {
+      "var_name": "becomeImplementationData",
+      "value": "00"
+    }
+  ],
+  "critical_storage_variables": [
+    {
+      "slot": "0x5",
+      "offset": 0,
+      "var_name": "unknown",
+      "value": "0x0000000000000000000000003d9819210a31b4961b30ef54be2aed79b9c9cd3b",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x12",
+      "offset": 0,
+      "var_name": "unknown",
+      "value": "0x00000000000000000000000099ee778b9a6205657dd03b2b91415c8646d521ec",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "unvalidated": {
+    "author_name": "Author",
+    "description": "System Description",
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org",
+    "implementation_name": "CErc20Delegate"
+  },
+  "signature": {
+    "sig_data": "0x7b29897431e5e7f1b8ed16564614a050ebbfef7a2848a702603fb4f06c2ae71475e19a968709d6fe696a66e0554c3eacc65062f8285f32a6ed6e3ffc12c015a41b",
+    "signer": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+  }
+}
