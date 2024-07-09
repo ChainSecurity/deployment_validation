@@ -249,11 +249,11 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     // Celo hotfix
     // TODO Fix this properly
     let client = Client::builder()
-            .with_api_key(config.get_etherscan_api_key()?)
-            .chain(chain)
-            .unwrap()
-            .build()
-            .unwrap();
+        .with_api_key(config.get_etherscan_api_key()?)
+        .chain(chain)
+        .unwrap()
+        .build()
+        .unwrap();
     let address: Address = address_str.parse().unwrap();
     // Type: https://docs.rs/ethers-etherscan/2.0.7/ethers_etherscan/contract/struct.Metadata.html
     // TODO: Handle  ContractCodeNotVerified here
