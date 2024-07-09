@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{exit, Command};
 use std::str::FromStr;
 
 use clap::ArgMatches;
@@ -74,7 +74,17 @@ fn main() {
             .with_max_level(tracing::Level::DEBUG)
             .init();
     }
-    fetch(&matches).unwrap();
+    match fetch(&matches) {
+        Ok(()) => exit(0),
+        Err(ValidationError::Error(e)) => {
+            println!("Error occurred: {}", e);
+            exit(1);
+        }
+        Err(e) => {
+            println!("Error: {:?}", e);
+            exit(1);
+        }
+    };
 }
 
 // Returns src folder if found
@@ -251,11 +261,25 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
         .unwrap()
         .block_on(client.contract_source_code(address))
         .unwrap();
-    Command::new("forge")
+    Command::new("sync").output().unwrap();
+    // Run forge init to initialize folder
+    let forge_init_out = Command::new("forge")
         .current_dir(foundry_path)
         .arg("init")
+        .arg("--no-commit")
         .output()
         .unwrap();
+    if !forge_init_out.status.success() {
+        println!(
+            "Error in forge init: {} {}",
+            String::from_utf8(forge_init_out.stdout).unwrap(),
+            String::from_utf8(forge_init_out.stderr).unwrap()
+        );
+        return Err(ValidationError::from(format!(
+            "Error. You cannot run 'forge init' in {:?}. Please select another folder.",
+            foundry_path
+        )));
+    };
     // Clean up
     Command::new("sh")
         .current_dir(foundry_path)
@@ -291,6 +315,7 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     let mut src_folder: Option<String> = None;
     let mut solc_settings: Option<Settings> = None;
     // Write sources
+    // Check what kind of Etherscan Response we have (Single file, Multi file, ...)
     match &metadata.items[0].source_code {
         ethers_etherscan::contract::SourceCodeMetadata::SourceCode(source_str) => {
             let sol_path = foundry_path
