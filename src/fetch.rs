@@ -6,14 +6,16 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 
 use clap::ArgMatches;
 use clap::{App, Arg, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
 use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION};
 use ethers_core::abi::Address;
-use ethers_core::types::Chain;
 use ethers_etherscan::contract::SourceCodeEntry;
+use ethers_etherscan::errors::EtherscanError;
 use ethers_etherscan::Client;
 use ethers_solc::artifacts::Settings;
 use semver::Version;
@@ -244,23 +246,59 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     };
     config.set_chain_id(chain_id)?;
 
-    let chain = Chain::try_from(chain_id).expect("Invalid chain id.");
-
-    // Celo hotfix
-    // TODO Fix this properly
     let client = Client::builder()
         .with_api_key(config.get_etherscan_api_key()?)
-        .chain(chain)
+        .with_url(config.get_etherscan_url()?)
+        .unwrap()
+        .with_api_url(config.get_etherscan_api_url()?)
         .unwrap()
         .build()
         .unwrap();
     let address: Address = address_str.parse().unwrap();
     // Type: https://docs.rs/ethers-etherscan/2.0.7/ethers_etherscan/contract/struct.Metadata.html
-    // TODO: Handle  ContractCodeNotVerified here
-    let metadata = Runtime::new()
-        .unwrap()
-        .block_on(client.contract_source_code(address))
-        .unwrap();
+    let max_attempts = 5;
+
+    let mut attempts = 0;
+
+    // Loop until we get an Ok result or reach the maximum attempts
+    let metadata = loop {
+        attempts += 1;
+
+        let result = Runtime::new()
+            .unwrap()
+            .block_on(client.contract_source_code(address));
+
+        match result {
+            Ok(data) => {
+                break Ok(data);
+            }
+            Err(EtherscanError::ContractCodeNotVerified(_)) => {
+                println!("Error: The given address has not been verified.");
+                exit(1);
+            }
+            // Sometimes Etherscan seems to fail
+            Err(err) => {
+                // Break the loop if we've reached the maximum number of attempts
+                if attempts >= max_attempts {
+                    break Err(err);
+                }
+                sleep(Duration::from_millis(500));
+            }
+        }
+    };
+
+    // Handle the final result
+    let metadata = match metadata {
+        Ok(data) => data,
+        Err(err) => {
+            println!(
+                "Failed to retrieve source code after {} attempts: {:?}",
+                max_attempts, err
+            );
+            exit(1);
+        }
+    };
+
     Command::new("sync").output().unwrap();
     // Run forge init to initialize folder
     let forge_init_out = Command::new("forge")

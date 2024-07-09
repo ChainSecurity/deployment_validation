@@ -18,20 +18,22 @@ cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
-RUST_BACKTRACE=1 cargo test
-cargo run --bin fetch-from-etherscan -- -c tests/test_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
-cargo run --bin dv --  --config tests/test_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
-cargo run --bin dv -- --config tests/test_config.json init --address 0x5e8422345238f34275888049021821e8e08caa1f --contractname frxETH --project examples/frxETH-public --initblock 15728402 examples/dvfs/frx_out.dvf.json
-cargo run --bin dv -- --config tests/test_config.json sign examples/dvfs/frxETH_filtered.dvf.json
-cargo run --bin dv -- --config tests/test_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
-cargo run --bin dv -- --config tests/test_config.json validate --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json || touch should_fail
+RUST_BACKTRACE=1 cargo test 
+# dotenv -e .env -- envsubst < tests/config.json > /tmp/eval_config.json
+envsubst < tests/config.json > /tmp/eval_config.json
+cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
+cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json init --address 0x5e8422345238f34275888049021821e8e08caa1f --contractname frxETH --project examples/frxETH-public --initblock 15728402 examples/dvfs/frx_out.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json sign examples/dvfs/frxETH_filtered.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json validate --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json || touch should_fail
 rm should_fail # Check that it failed
-cargo run --bin dv -- --config tests/test_config.json update --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json
-cargo run --bin dv -- --config tests/test_config.json sign examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643_updated.dvf.json
-cargo run --bin dv -- --config tests/test_config.json validate --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643_updated.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json update --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json sign examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643_updated.dvf.json
+cargo run --bin dv -- --config  /tmp/eval_config.json validate --validationblock  15740402  examples/dvfs/CErc20Delegator_0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643_updated.dvf.json
 # Make sure libraries work
-cargo run --bin fetch-from-etherscan -- --config tests/test_config.json --address 0x43506849D7C04F9138D1A2050bbF3A0c054402dd --project /tmp/usdc_implementation2
-cargo run --bin dv -- -c tests/test_config.json init --address 0x43506849D7C04F9138D1A2050bbF3A0c054402dd --project /tmp/usdc_implementation2 --chainid 1 --contractname FiatTokenV2_2 FiatTokenV2_2_0x43506849D7C04F9138D1A2050bbF3A0c054402dd.dvf.json
+cargo run --bin fetch-from-etherscan -- --config  /tmp/eval_config.json --address 0x43506849D7C04F9138D1A2050bbF3A0c054402dd --project /tmp/usdc_implementation2
+cargo run --bin dv -- -c  /tmp/eval_config.json init --address 0x43506849D7C04F9138D1A2050bbF3A0c054402dd --project /tmp/usdc_implementation2 --chainid 1 --contractname FiatTokenV2_2 FiatTokenV2_2_0x43506849D7C04F9138D1A2050bbF3A0c054402dd.dvf.json
 #    - echo "DAI Tests"
 #    - cargo run --bin fetch-from-etherscan -- --config tests/test_config.json --project /tmp/dai --address 0x6b175474e89094c44da98b954eedeac495271d0f
 #    - cargo run --bin dv -- --config tests/test_config.json init --address 0x6b175474e89094c44da98b954eedeac495271d0f --project /tmp/dai --chainid 1 --contractname Dai Dai_0x6b175474e89094c44da98b954eedeac495271d0f.dvf.json

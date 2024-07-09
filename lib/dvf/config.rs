@@ -19,7 +19,7 @@ use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use tempfile::NamedTempFile;
+use tempfile::{tempdir, NamedTempFile};
 use tracing::debug;
 
 use crate::dvf::abstract_wallet::AbstractWallet;
@@ -84,7 +84,7 @@ pub struct DVFSignerConfig {
     pub wallet_type: DVFWalletType,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct DVFConfig {
     pub rpc_urls: BTreeMap<u64, String>, // chain_id to URL
     pub dvf_storage: PathBuf,            // Storage of DVFs
@@ -123,6 +123,7 @@ impl DVFConfig {
             return Ok(Self::default());
         }
         match matches.value_of("config") {
+            Some("env") => Self::from_env(None),
             Some(config_path_str) => Self::from_path(Path::new(config_path_str)),
             None => Self::from_default_path(),
         }
@@ -140,9 +141,11 @@ impl DVFConfig {
         } else {
             rpc_urls = BTreeMap::from([(1, env::var("MAINNET_RPC")?)]);
         }
+        let temp_dir = tempdir().unwrap();
+
         Ok(DVFConfig {
             rpc_urls,
-            dvf_storage: PathBuf::from_str("/tmp/dvfs48/").unwrap(),
+            dvf_storage: temp_dir.path().to_path_buf(),
             trusted_signers: vec![
                 Address::from_str("0x229F1a71262e4bE12215EE4648615D2bA0969682")?,
                 Address::from_str("0xF063F84A88Bf621520583d386F8F642C475A0c5E")?,
@@ -167,6 +170,7 @@ impl DVFConfig {
     }
 
     pub fn test_config_file(local_port: Option<u16>) -> Result<NamedTempFile, ValidationError> {
+        // @note we should use this file
         let config_file = NamedTempFile::new().unwrap();
         let config = DVFConfig::from_env(local_port)?;
         config.write_to_file(&config_file.path().to_path_buf())?;
@@ -825,6 +829,28 @@ impl DVFConfig {
         }
     }
 
+    pub fn get_etherscan_url(&self) -> Result<String, ValidationError> {
+        if let Some(test_url) = &self.etherscan_test_api_url {
+            match self.active_chain_id {
+                Some(1337) | Some(31337) => {
+                    return Err(ValidationError::from("Testnet, no Etherscan"))
+                }
+                _ => return Ok(test_url.clone()),
+            }
+        }
+        match self.active_chain {
+            Some(active_chain) => match active_chain.etherscan_urls() {
+                Some((_api_url, base_url)) => Ok(base_url.to_string()),
+                None => Err(ValidationError::from(
+                    "Invalid active chain. Cannot chose Etherscan API.",
+                )),
+            },
+            None => Err(ValidationError::from(
+                "No active chain. Cannot chose Etherscan API.",
+            )),
+        }
+    }
+
     pub fn get_graphql_name(&self) -> Result<String, ValidationError> {
         match self.active_chain_id {
             Some(1) => Ok("ethereum".to_string()),
@@ -851,6 +877,7 @@ impl DVFConfig {
 
         let mut file = File::create(path)?;
         file.write_all(output.as_bytes())?;
+        file.sync_all().expect("Unable to sync");
         Ok(())
     }
 
