@@ -428,6 +428,10 @@ The registry is an internal representation of all DVFs in your chosen DVF storag
 1. Allow `dv validate` to validate [References](#references). All referenced DVFs must therefore reside in the DVF storage.
 2. Resolve the contract names of known addresses in `dv init`. All addresses in the storage, the immutable variables, or events of a smart contract that match with the address of an existing DVF in the storage are automatically decoded to the respective contract name.
 
+### Locally Deployed Contracts
+
+If you deployed contracts in a local testnet, e.g. anvil, those can also be validated as long as those use chain ID 1337 or 31337. Simply specify the endpoint for the network, e.g. "http://127.0.0.1:8545" for 31337, and run all the commands as you normally would. 
+
 ### Etherscan Verified Contracts
 
 If you do not wish to initialize a DVF with a specific project directory, you can use `fetch-from-etherscan` to instead create a project from a verified Etherscan contract automatically:
