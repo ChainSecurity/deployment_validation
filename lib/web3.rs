@@ -289,6 +289,31 @@ pub fn get_internal_create_addresses(
     Ok(addresses)
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct OtsContractCreator {
+    #[serde(rename = "creator")]
+    pub contract_creator: String,
+    #[serde(rename = "hash")]
+    pub tx_hash: String,
+}
+
+fn get_ots_contract_creator(
+    config: &DVFConfig,
+    address: &Address,
+) -> Result<OtsContractCreator, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "ots_getContractCreator",
+        "params": [address],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let result: OtsContractCreator = serde_json::from_value(result)?;
+
+    Ok(result)
+}
+
 fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<Trace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
@@ -480,8 +505,13 @@ pub fn get_deployment(
         debug!("GraphQL Deployment Tx: {}", deployment_tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
         return Ok((deployment_block_num, deployment_tx_hash));
+    } else if let Ok(creator) = get_ots_contract_creator(config,address) {
+        debug!("Otterscan Deployment Tx: {}", creator.tx_hash);
+        let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
+        return Ok((deployment_block_num, creator.tx_hash));
     } else {
-        let current_block_num = get_eth_block_number(config)?;
+        debug!("No deployment tx found in etherscan or graphql, searching traces. ");
+        let current_block_num = get_eth_block_number(config)?; 
         if current_block_num < 100 {
             if let Ok((deployment_block_num, deployment_tx_hash)) =
                 get_deployment_from_parity_trace(config, address, current_block_num)
@@ -494,6 +524,33 @@ pub fn get_deployment(
                 return Ok((deployment_block_num, deployment_tx_hash));
             }
         }
+        // debug!("Old deployment search failed, trying binary search.")
+
+        // let mut low: u64 = 0;
+        // let mut high = current_block_num;
+
+        // while high - low > 1 {
+        //     let mid = (low + high) / 2;
+        //     let code = get_eth_code(config, address, mid)?;
+        //     if code.is_empty() {
+        //         low = mid;
+        //     } else {
+        //         high = mid;
+        //     }
+
+        //     if !(get_eth_code(config, address, high)?.is_empty()) {
+        //         if let Ok((deployment_block_num, deployment_tx_hash)) =
+        //             get_deployment_from_parity_trace(config, address, current_block_num)
+        //         {
+        //             return Ok((deployment_block_num, deployment_tx_hash));
+        //         }
+        //         if let Ok((deployment_block_num, deployment_tx_hash)) =
+        //             get_deployment_from_geth_trace(config, address, current_block_num)
+        //         {
+        //             return Ok((deployment_block_num, deployment_tx_hash));
+        //         }
+        //     }
+        // }
     }
     Err(ValidationError::from(
         "Could not find deployment transaction.",
@@ -1719,6 +1776,26 @@ mod tests {
         let init_code = get_init_code(&config, &tx, &address).unwrap();
 
         assert!(init_code.starts_with("0x61014060405234"))
+    }
+
+    #[test]
+    fn test_ots_contract_creator() {
+        let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let creator = get_ots_contract_creator(&config, &address).unwrap();
+
+        assert_eq!(creator.contract_creator, "0x4600d3b12c39af925c2c07c487d31d17c1e32a35".to_string());
+        assert_eq!(creator.tx_hash, "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d");
+        println!("Creator: {:?}", creator);
     }
 
     /*
