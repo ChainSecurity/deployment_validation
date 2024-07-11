@@ -505,13 +505,13 @@ pub fn get_deployment(
         debug!("GraphQL Deployment Tx: {}", deployment_tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
         return Ok((deployment_block_num, deployment_tx_hash));
-    } else if let Ok(creator) = get_ots_contract_creator(config,address) {
+    } else if let Ok(creator) = get_ots_contract_creator(config, address) {
         debug!("Otterscan Deployment Tx: {}", creator.tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
         return Ok((deployment_block_num, creator.tx_hash));
     } else {
         debug!("No deployment tx found in etherscan or graphql, searching traces. ");
-        let current_block_num = get_eth_block_number(config)?; 
+        let current_block_num = get_eth_block_number(config)?;
         if current_block_num < 100 {
             if let Ok((deployment_block_num, deployment_tx_hash)) =
                 get_deployment_from_parity_trace(config, address, current_block_num)
@@ -1793,8 +1793,14 @@ mod tests {
 
         let creator = get_ots_contract_creator(&config, &address).unwrap();
 
-        assert_eq!(creator.contract_creator, "0x4600d3b12c39af925c2c07c487d31d17c1e32a35".to_string());
-        assert_eq!(creator.tx_hash, "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d");
+        assert_eq!(
+            creator.contract_creator,
+            "0x4600d3b12c39af925c2c07c487d31d17c1e32a35".to_string()
+        );
+        assert_eq!(
+            creator.tx_hash,
+            "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d"
+        );
         println!("Creator: {:?}", creator);
     }
 
