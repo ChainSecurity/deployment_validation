@@ -545,7 +545,7 @@ pub fn get_deployment_block_from_binary_search(
 
     while high - low > 1 {
         let mid = (low + high) / 2;
-        
+
         let code = get_eth_code(config, address, mid)?;
 
         if code.trim_start_matches("0x").is_empty() {
@@ -553,13 +553,14 @@ pub fn get_deployment_block_from_binary_search(
         } else {
             high = mid;
         }
-
     }
 
-    if !(get_eth_code(config, address, high)?.trim_start_matches("0x").is_empty()) {
+    if !(get_eth_code(config, address, high)?
+        .trim_start_matches("0x")
+        .is_empty())
+    {
         return Ok(high);
     }
-
 
     Err(ValidationError::from(
         "Could not find deployment transaction.",
@@ -1812,7 +1813,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_get_deployment_block_from_binary_search() {
         let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
@@ -1827,7 +1827,8 @@ mod tests {
         config.set_chain_id(1).unwrap();
 
         let block_num = get_eth_block_number(&config).unwrap();
-        let deployment_block = get_deployment_block_from_binary_search(&config, &address, block_num).unwrap();
+        let deployment_block =
+            get_deployment_block_from_binary_search(&config, &address, block_num).unwrap();
 
         assert_eq!(deployment_block, 15686046);
     }
