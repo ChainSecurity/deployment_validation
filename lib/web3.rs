@@ -512,46 +512,55 @@ pub fn get_deployment(
     } else {
         debug!("No deployment tx found in etherscan or graphql, searching traces. ");
         let current_block_num = get_eth_block_number(config)?;
-        if current_block_num < 100 {
-            if let Ok((deployment_block_num, deployment_tx_hash)) =
-                get_deployment_from_parity_trace(config, address, current_block_num)
-            {
-                return Ok((deployment_block_num, deployment_tx_hash));
-            }
-            if let Ok((deployment_block_num, deployment_tx_hash)) =
-                get_deployment_from_geth_trace(config, address, current_block_num)
-            {
-                return Ok((deployment_block_num, deployment_tx_hash));
-            }
+        let start_block_num = if current_block_num > 100 {
+            get_deployment_block_from_binary_search(config, address, current_block_num)?
+        } else {
+            current_block_num
+        };
+
+        if let Ok((deployment_block_num, deployment_tx_hash)) =
+            get_deployment_from_parity_trace(config, address, start_block_num)
+        {
+            return Ok((deployment_block_num, deployment_tx_hash));
         }
-        // debug!("Old deployment search failed, trying binary search.")
-
-        // let mut low: u64 = 0;
-        // let mut high = current_block_num;
-
-        // while high - low > 1 {
-        //     let mid = (low + high) / 2;
-        //     let code = get_eth_code(config, address, mid)?;
-        //     if code.is_empty() {
-        //         low = mid;
-        //     } else {
-        //         high = mid;
-        //     }
-
-        //     if !(get_eth_code(config, address, high)?.is_empty()) {
-        //         if let Ok((deployment_block_num, deployment_tx_hash)) =
-        //             get_deployment_from_parity_trace(config, address, current_block_num)
-        //         {
-        //             return Ok((deployment_block_num, deployment_tx_hash));
-        //         }
-        //         if let Ok((deployment_block_num, deployment_tx_hash)) =
-        //             get_deployment_from_geth_trace(config, address, current_block_num)
-        //         {
-        //             return Ok((deployment_block_num, deployment_tx_hash));
-        //         }
-        //     }
-        // }
+        if let Ok((deployment_block_num, deployment_tx_hash)) =
+            get_deployment_from_geth_trace(config, address, start_block_num)
+        {
+            return Ok((deployment_block_num, deployment_tx_hash));
+        }
     }
+
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
+}
+
+pub fn get_deployment_block_from_binary_search(
+    config: &DVFConfig,
+    address: &Address,
+    current_block_num: u64,
+) -> Result<u64, ValidationError> {
+    let mut low: u64 = 0;
+    let mut high = current_block_num;
+
+    while high - low > 1 {
+        let mid = (low + high) / 2;
+        
+        let code = get_eth_code(config, address, mid)?;
+
+        if code.trim_start_matches("0x").is_empty() {
+            low = mid;
+        } else {
+            high = mid;
+        }
+
+    }
+
+    if !(get_eth_code(config, address, high)?.trim_start_matches("0x").is_empty()) {
+        return Ok(high);
+    }
+
+
     Err(ValidationError::from(
         "Could not find deployment transaction.",
     ))
@@ -1801,7 +1810,26 @@ mod tests {
             creator.tx_hash,
             "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d"
         );
-        println!("Creator: {:?}", creator);
+    }
+
+
+    #[test]
+    fn test_get_deployment_block_from_binary_search() {
+        let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let block_num = get_eth_block_number(&config).unwrap();
+        let deployment_block = get_deployment_block_from_binary_search(&config, &address, block_num).unwrap();
+
+        assert_eq!(deployment_block, 15686046);
     }
 
     /*
