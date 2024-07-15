@@ -438,13 +438,17 @@ pub fn get_deployment_block(config: &DVFConfig, address: &Address) -> Result<u64
     }
 }
 
+// Search between start_block_num and end_block_num (inclusive)
+// Iterates through those blocks
+// Returns block number and tx hash
 fn get_deployment_from_parity_trace(
     config: &DVFConfig,
     address: &Address,
-    current_block_num: u64,
+    start_block_num: u64,
+    end_block_num: u64,
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching parity traces for deployment tx");
-    for i in 1..current_block_num + 1 {
+    for i in start_block_num..end_block_num + 1 {
         let block_traces = get_block_traces(config, i)?;
         for trace in block_traces {
             // Filter reverted
@@ -467,13 +471,17 @@ fn get_deployment_from_parity_trace(
     ))
 }
 
+// Search between start_block_num and end_block_num (inclusive)
+// Iterates through those blocks
+// Returns block number and tx hash
 fn get_deployment_from_geth_trace(
     config: &DVFConfig,
     address: &Address,
-    current_block_num: u64,
+    start_block_num: u64,
+    end_block_num: u64,
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching geth traces for deployment tx of {:?}", address);
-    for i in 1..current_block_num + 1 {
+    for i in start_block_num..end_block_num + 1 {
         let block = get_eth_block_by_num(config, i, true)?;
         for tx in block.transactions {
             let tx_hash = format!("{:#x}", tx.hash);
@@ -512,19 +520,19 @@ pub fn get_deployment(
     } else {
         debug!("No deployment tx found in etherscan or graphql, searching traces. ");
         let current_block_num = get_eth_block_number(config)?;
-        let start_block_num = if current_block_num > 100 {
+        let start_block_num = if current_block_num > 10 {
             get_deployment_block_from_binary_search(config, address, current_block_num)?
         } else {
-            current_block_num
+            1
         };
 
         if let Ok((deployment_block_num, deployment_tx_hash)) =
-            get_deployment_from_parity_trace(config, address, start_block_num)
+            get_deployment_from_parity_trace(config, address, start_block_num, current_block_num)
         {
             return Ok((deployment_block_num, deployment_tx_hash));
         }
         if let Ok((deployment_block_num, deployment_tx_hash)) =
-            get_deployment_from_geth_trace(config, address, start_block_num)
+            get_deployment_from_geth_trace(config, address, start_block_num, current_block_num)
         {
             return Ok((deployment_block_num, deployment_tx_hash));
         }
