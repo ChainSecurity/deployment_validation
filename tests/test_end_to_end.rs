@@ -1516,7 +1516,6 @@ mod tests {
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
                 let assert = dvf_cmd
                     .args(&[
-                        "-vvv",
                         "--config",
                         &config_file.path().to_string_lossy(),
                         "init",
