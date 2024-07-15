@@ -289,6 +289,31 @@ pub fn get_internal_create_addresses(
     Ok(addresses)
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct OtsContractCreator {
+    #[serde(rename = "creator")]
+    pub contract_creator: String,
+    #[serde(rename = "hash")]
+    pub tx_hash: String,
+}
+
+fn get_ots_contract_creator(
+    config: &DVFConfig,
+    address: &Address,
+) -> Result<OtsContractCreator, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "ots_getContractCreator",
+        "params": [address],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    // Parse the response as a JSON list
+    let result: OtsContractCreator = serde_json::from_value(result)?;
+
+    Ok(result)
+}
+
 fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<Trace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
@@ -413,13 +438,17 @@ pub fn get_deployment_block(config: &DVFConfig, address: &Address) -> Result<u64
     }
 }
 
+// Search between start_block_num and end_block_num (inclusive)
+// Iterates through those blocks
+// Returns block number and tx hash
 fn get_deployment_from_parity_trace(
     config: &DVFConfig,
     address: &Address,
-    current_block_num: u64,
+    start_block_num: u64,
+    end_block_num: u64,
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching parity traces for deployment tx");
-    for i in 1..current_block_num + 1 {
+    for i in start_block_num..end_block_num + 1 {
         let block_traces = get_block_traces(config, i)?;
         for trace in block_traces {
             // Filter reverted
@@ -442,13 +471,17 @@ fn get_deployment_from_parity_trace(
     ))
 }
 
+// Search between start_block_num and end_block_num (inclusive)
+// Iterates through those blocks
+// Returns block number and tx hash
 fn get_deployment_from_geth_trace(
     config: &DVFConfig,
     address: &Address,
-    current_block_num: u64,
+    start_block_num: u64,
+    end_block_num: u64,
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching geth traces for deployment tx of {:?}", address);
-    for i in 1..current_block_num + 1 {
+    for i in start_block_num..end_block_num + 1 {
         let block = get_eth_block_by_num(config, i, true)?;
         for tx in block.transactions {
             let tx_hash = format!("{:#x}", tx.hash);
@@ -480,21 +513,63 @@ pub fn get_deployment(
         debug!("GraphQL Deployment Tx: {}", deployment_tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
         return Ok((deployment_block_num, deployment_tx_hash));
+    } else if let Ok(creator) = get_ots_contract_creator(config, address) {
+        debug!("Otterscan Deployment Tx: {}", creator.tx_hash);
+        let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
+        return Ok((deployment_block_num, creator.tx_hash));
     } else {
+        debug!("No deployment tx found in etherscan or graphql, searching traces. ");
         let current_block_num = get_eth_block_number(config)?;
-        if current_block_num < 100 {
-            if let Ok((deployment_block_num, deployment_tx_hash)) =
-                get_deployment_from_parity_trace(config, address, current_block_num)
-            {
-                return Ok((deployment_block_num, deployment_tx_hash));
-            }
-            if let Ok((deployment_block_num, deployment_tx_hash)) =
-                get_deployment_from_geth_trace(config, address, current_block_num)
-            {
-                return Ok((deployment_block_num, deployment_tx_hash));
-            }
+        let start_block_num = if current_block_num > 10 {
+            get_deployment_block_from_binary_search(config, address, current_block_num)?
+        } else {
+            1
+        };
+
+        if let Ok((deployment_block_num, deployment_tx_hash)) =
+            get_deployment_from_parity_trace(config, address, start_block_num, current_block_num)
+        {
+            return Ok((deployment_block_num, deployment_tx_hash));
+        }
+        if let Ok((deployment_block_num, deployment_tx_hash)) =
+            get_deployment_from_geth_trace(config, address, start_block_num, current_block_num)
+        {
+            return Ok((deployment_block_num, deployment_tx_hash));
         }
     }
+
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
+}
+
+pub fn get_deployment_block_from_binary_search(
+    config: &DVFConfig,
+    address: &Address,
+    current_block_num: u64,
+) -> Result<u64, ValidationError> {
+    let mut low: u64 = 0;
+    let mut high = current_block_num;
+
+    while high - low > 1 {
+        let mid = (low + high) / 2;
+
+        let code = get_eth_code(config, address, mid)?;
+
+        if code.trim_start_matches("0x").is_empty() {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    if !(get_eth_code(config, address, high)?
+        .trim_start_matches("0x")
+        .is_empty())
+    {
+        return Ok(high);
+    }
+
     Err(ValidationError::from(
         "Could not find deployment transaction.",
     ))
@@ -1719,6 +1794,51 @@ mod tests {
         let init_code = get_init_code(&config, &tx, &address).unwrap();
 
         assert!(init_code.starts_with("0x61014060405234"))
+    }
+
+    #[test]
+    fn test_ots_contract_creator() {
+        let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let creator = get_ots_contract_creator(&config, &address).unwrap();
+
+        assert_eq!(
+            creator.contract_creator,
+            "0x4600d3b12c39af925c2c07c487d31d17c1e32a35".to_string()
+        );
+        assert_eq!(
+            creator.tx_hash,
+            "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d"
+        );
+    }
+
+    #[test]
+    fn test_get_deployment_block_from_binary_search() {
+        let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let block_num = get_eth_block_number(&config).unwrap();
+        let deployment_block =
+            get_deployment_block_from_binary_search(&config, &address, block_num).unwrap();
+
+        assert_eq!(deployment_block, 15686046);
     }
 
     /*

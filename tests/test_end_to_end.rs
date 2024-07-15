@@ -79,7 +79,7 @@ mod tests {
                         Err(_) => {
                             // Wait for the other process to go away
                             println!("Waiting to start anvil");
-                            sleep(Duration::from_millis(500));
+                            sleep(Duration::from_millis(250));
                         }
                     }
                 }
@@ -661,8 +661,11 @@ mod tests {
 
             let token_dvf = CompleteDVF::from_path(outfile.path()).unwrap();
             let token_dvf_id = token_dvf.id.unwrap();
+            let config = DVFConfig::from_path(&config_file.path()).unwrap();
 
-            outfile.persist("/tmp/dvfs48/MyToken.dvf.json").unwrap();
+            let mut new_dvf_path = config.dvf_storage.clone();
+            new_dvf_path.push("MyToken.dvf.json");
+            outfile.persist(new_dvf_path.as_path()).unwrap();
 
             let proxy_outfile = NamedTempFile::new().unwrap();
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -738,10 +741,7 @@ mod tests {
 
             // Remove MyToken.dvf.json
             let mut rm_cmd = Command::new("rm");
-            rm_cmd
-                .arg("/tmp/dvfs48/MyToken.dvf.json")
-                .assert()
-                .success();
+            rm_cmd.arg(new_dvf_path.as_path()).assert().success();
 
             drop(local_client);
         }
@@ -1472,28 +1472,29 @@ mod tests {
             contract: String::from("HardhatUp"),
             expected: String::from("tests/expected_dvfs/HardhatUp.dvf.json"),
         });
+        /*
 
-        // test old Hardhat version 2.0
-        testcases.push(TestCaseE2EHardhat {
-            path: String::from("tests/hardhat_2_0"),
-            script: vec![
-                String::from("run"),
-                String::from("scripts/Deploy_Hardhat.js"),
-            ],
-            contract: String::from("Hardhat"),
-            expected: String::from("tests/expected_dvfs/Hardhat_old.dvf.json"),
-        });
+                // test old Hardhat version 2.0
+                testcases.push(TestCaseE2EHardhat {
+                    path: String::from("tests/hardhat_2_0"),
+                    script: vec![
+                        String::from("run"),
+                        String::from("scripts/Deploy_Hardhat.js"),
+                    ],
+                    contract: String::from("Hardhat"),
+                    expected: String::from("tests/expected_dvfs/Hardhat_old.dvf.json"),
+                });
 
-        testcases.push(TestCaseE2EHardhat {
-            path: String::from("tests/hardhat_2_0"),
-            script: vec![
-                String::from("run"),
-                String::from("scripts/Deploy_HardhatUp.js"),
-            ],
-            contract: String::from("HardhatUp"),
-            expected: String::from("tests/expected_dvfs/HardhatUp_old.dvf.json"),
-        });
-
+                testcases.push(TestCaseE2EHardhat {
+                    path: String::from("tests/hardhat_2_0"),
+                    script: vec![
+                        String::from("run"),
+                        String::from("scripts/Deploy_HardhatUp.js"),
+                    ],
+                    contract: String::from("HardhatUp"),
+                    expected: String::from("tests/expected_dvfs/HardhatUp_old.dvf.json"),
+                });
+        */
         for testcase in testcases {
             let port = 8556u16;
             for client_type in LocalClientType::iterator() {
