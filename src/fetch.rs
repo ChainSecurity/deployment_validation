@@ -195,7 +195,7 @@ fn parse_sources(sources: &HashMap<String, SourceCodeEntry>, foundry_path: &Path
 
         if needs_link {
             // Just try
-            let _ = fs::hard_link(&source_path, &foundry_path.join(&spath));
+            let _ = fs::hard_link(&source_path, foundry_path.join(&spath));
         }
 
         // Remapping
