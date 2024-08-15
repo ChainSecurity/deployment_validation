@@ -692,7 +692,19 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 imp_env = env
             }
 
-            let output_path = Path::new(sub_m.value_of("OUTPUT").unwrap());
+            let user_output_path = Path::new(sub_m.value_of("OUTPUT").unwrap());
+            // This is just a file name so we will place it in the configured folder
+            let output_path = if user_output_path.components().count() == 1 {
+                let mut new_path = PathBuf::from(&config.dvf_storage);
+                new_path.push(user_output_path);
+                &new_path.clone()
+            } else {
+                if !user_output_path.starts_with(&config.dvf_storage) {
+                    println!("If you want to reference your generated DVF in another DVF, you need to place it in the configured directory.");
+                }
+                user_output_path
+            };
+
             let mut dumped = parse::DumpedDVF::from_cli(sub_m)?;
             config.set_chain_id(dumped.chain_id)?;
 
