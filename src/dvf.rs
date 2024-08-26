@@ -769,9 +769,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let compare_status =
                 CompareBytecode::compare(&mut project_info, factory_mode, &rpc_code);
 
-            // immutable values are set in CompareBytecode::compare so this has to be after the call
-            dumped.copy_immutables(&project_info, &pretty_printer);
-
             if !compare_status.matched {
                 if matches.get_count("verbose") > 0 {
                     let mut error_info_table = Table::new();
@@ -800,6 +797,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     dumped.address
                 )));
             }
+            // immutable values are set in CompareBytecode::compare so this has to be after the call
+            dumped.copy_immutables(&project_info, &pretty_printer);
+
             debug!("Copying parsed constructor arguments to dvf file");
             dumped.copy_constructor_args(&project_info, &pretty_printer);
 
