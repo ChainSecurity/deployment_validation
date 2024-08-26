@@ -62,6 +62,7 @@ console = "0.15.7"
 actix-web = "4.7.0"
 scanf = "1.2.1"
 dotenv = "0.15.0"
+time = "0.3.36"
 
 [dev-dependencies]
 assert_cmd = "2.0.12"

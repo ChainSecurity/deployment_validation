@@ -308,6 +308,30 @@ fn is_valid_blocknum(val: &str) -> Result<(), String> {
     }
 }
 
+fn is_filename_only_path(path: &Path) -> bool {
+    path.components().count() == 1
+}
+
+fn make_relative_to_dvf_storage(config: &DVFConfig, path: &Path) -> PathBuf {
+    let mut new_path = PathBuf::from(&config.dvf_storage);
+    new_path.push(path);
+    new_path.clone()
+}
+
+fn parse_input_path(config: &DVFConfig, path_val: &str) -> Result<PathBuf, ValidationError> {
+    let input_path_buf = Path::new(path_val).canonicalize()?;
+    let input_path = input_path_buf.as_path();
+    if input_path_buf.exists() {
+        Ok(input_path_buf)
+    } else if is_filename_only_path(input_path)
+        && make_relative_to_dvf_storage(config, input_path).exists()
+    {
+        Ok(make_relative_to_dvf_storage(config, input_path))
+    } else {
+        Err(ValidationError::from("The path provided is not valid."))
+    }
+}
+
 fn main() {
     let matches = Command::new("dv")
         .version(CURRENT_VERSION.to_string().as_str())
@@ -436,7 +460,6 @@ fn main() {
                 .arg(
                     Arg::with_name("DVF")
                         .help("The provided DVF file - updated in-place")
-                        .validator(is_valid_path),
                 ),
         )
         .subcommand(
@@ -461,7 +484,6 @@ fn main() {
                     Arg::with_name("DVF")
                         .help("The DVF file - updated in-place")
                         .required(true)
-                        .validator(is_valid_path),
                 ),
         )
         .subcommand(
@@ -469,7 +491,6 @@ fn main() {
                 Arg::with_name("DVF")
                     .help("The DVF file - updated in-place")
                     .required(true)
-                    .validator(is_valid_path),
             ),
         )
         .subcommand(
@@ -492,7 +513,6 @@ fn main() {
                     Arg::with_name("DVF")
                         .help("The DVF file")
                         .required(true)
-                        .validator(is_valid_path),
                 ),
         )
         .subcommand(
@@ -508,7 +528,6 @@ fn main() {
                 .arg(
                     Arg::with_name("DVF")
                         .help("The DVF file")
-                        .validator(is_valid_path),
                 ),
         )
         .subcommand(SubCommand::with_name("generate-config")
@@ -692,7 +711,17 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 imp_env = env
             }
 
-            let output_path = Path::new(sub_m.value_of("OUTPUT").unwrap());
+            let user_output_path = Path::new(sub_m.value_of("OUTPUT").unwrap());
+            // This is just a file name so we will place it in the configured folder
+            let output_path: &Path = if is_filename_only_path(user_output_path) {
+                &make_relative_to_dvf_storage(&config, user_output_path)
+            } else {
+                if !user_output_path.starts_with(&config.dvf_storage) {
+                    println!("If you want to reference your generated DVF in another DVF, you need to place it in the configured directory.");
+                }
+                user_output_path
+            };
+
             let mut dumped = parse::DumpedDVF::from_cli(sub_m)?;
             config.set_chain_id(dumped.chain_id)?;
 
@@ -1078,39 +1107,39 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             exit(0);
         }
         Some(("id", sub_m)) => {
-            let input_path = Path::new(sub_m.value_of("DVF").unwrap());
-            let mut filled = parse::CompleteDVF::from_path(input_path)?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let mut filled = parse::CompleteDVF::from_path(input_path.as_path())?;
 
             filled.generate_id()?;
 
-            filled.write_to_file(input_path)?;
+            filled.write_to_file(input_path.as_path())?;
             println!("Wrote to file: {}", input_path.display());
             exit(0);
         }
         Some(("add-reference", sub_m)) => {
-            let input_path = Path::new(sub_m.value_of("DVF").unwrap());
-            let mut filled = parse::CompleteDVF::from_path(input_path)?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let mut filled = parse::CompleteDVF::from_path(&input_path)?;
             let new_ref_id = sub_m.value_of("id").unwrap().to_string();
             let new_ref_name = sub_m.value_of("contractname").unwrap().to_string();
             filled.add_reference(&new_ref_id, &new_ref_name);
             filled.generate_id()?;
             filled.clear_signature_data();
-            filled.write_to_file(input_path)?;
+            filled.write_to_file(input_path.as_path())?;
             println!("Wrote to file: {}", input_path.display());
             exit(0);
         }
         Some(("sign", sub_m)) => {
-            let input_path = Path::new(sub_m.value_of("DVF").unwrap());
-            let mut filled = parse::CompleteDVF::from_path(input_path)?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let mut filled = parse::CompleteDVF::from_path(&input_path)?;
 
             filled.sign(&config)?;
             // Regenerate ID
-            filled.write_to_file(input_path)?;
+            filled.write_to_file(input_path.as_path())?;
             println!("Wrote signed DVF to file: {}", input_path.display());
             exit(0);
         }
         Some(("validate", sub_m)) => {
-            let input_path = Path::new(sub_m.value_of("DVF").unwrap()).canonicalize()?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
             let filled = match parse::CompleteDVF::from_path(&input_path) {
                 Ok(filled) => filled,
                 Err(e) => {
@@ -1167,14 +1196,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             };
         }
         Some(("update", sub_m)) => {
-            let input_path = Path::new(sub_m.value_of("DVF").unwrap());
+            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
             let progress_mode = ProgressMode::Update;
             print_progress("Loading file.", &mut pc, &progress_mode);
 
-            let filled = parse::CompleteDVF::from_path(input_path)?;
+            let filled = parse::CompleteDVF::from_path(&input_path)?;
             let mut updated = filled.clone();
 
             // Validate ChainID
