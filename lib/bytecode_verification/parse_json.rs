@@ -1472,7 +1472,7 @@ impl ProjectInfo {
         let immutables = Self::extract_immutables(&deployed_bytecode, &id_to_ast);
 
         // If we are not using build_cache then delete the tmp files
-        if build_cache.is_none() {
+        if build_cache.is_none() && env == Environment::Foundry {
             fs::remove_dir_all(&build_info_path)?;
         };
 
