@@ -68,13 +68,13 @@ Once you have it installed you can continue to [validate](#validate-dvf).
 To successfully create DVFs for on-chain smart contracts, you need access to the following APIs:
 
 1. An RPC archive node for the desired chain ID.
-2. (Optional) A [BitQuery](https://bitquery.io/) API key.
+2. (Optional) A [Blockscout](https://blockscout.com/) API key.
 3. (Optional) An [Etherscan](https://etherscan.io/apis) API key.
 
 **Please note the following restrictions/requirements**:
 
-1. While BitQuery and Etherscan API keys are optional, at least one of them is required to determine the deployment transaction of a contract. If you provide neither, you are limited to local RPC nodes with less than 100 blocks.
-2. A BitQuery API key allows for faster execution.
+1. While Blockscout and Etherscan API keys are optional, at least one of them is required to determine the deployment transaction of a contract. If you provide neither, you are limited to local RPC nodes with less than 100 blocks.
+2. A Blockscout API key allows for faster execution.
 3. Your RPC node **must** support either `debug_traceTransaction` or `trace_transaction`.
 4. Your RPC node **should** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` won't be able to decode mapping keys.
 5. For faster execution, your RPC node **may** support `debug_storageRangeAt`.
@@ -484,7 +484,7 @@ This section will be updated soon.
 - Only projects with `solc` version starting from `0.5.13` are supported due to the lack of generated storage layout in older versions (see [solc release 0.5.13](https://github.com/ethereum/solidity/releases/tag/v0.5.13)).
 - The RPC endpoints automatically parsed in `dv generate-config` are not guaranteed to be compatible.
 - As detailed [above](#dvf-creation), many public RPCs are not or only partially supported for DVF creation.
-- Finding the deployment transaction of a contract currently requires either BitQuery or Etherscan API keys to collect all relevant information.
+- Finding the deployment transaction of a contract currently requires either Blockscout or Etherscan API keys to collect all relevant information.
 - Contracts performing `delegatecall` to more than one other contract are currently not supported.
 - `dv update` currently only updates values of existing storage variables in the DVF and does not add newly added storage values.
 - Multiple contracts with the same name compiled with different compiler versions in one project are not supported.

@@ -6,6 +6,8 @@
     },
     "etherscan_api_key": { "1": "$ETHERSCAN_API_KEY"},
     "blockscout_api_key": { "1": "$BLOCKSCOUT_API_KEY"},
+    "etherscan_test_api_url": "http://127.0.0.1:5002",
+    "blockscout_test_api_url": "http://127.0.0.1:5001",
     "dvf_storage": "/tmp/dvfs/",
     "trusted_signers": [
         "$SIGNER_ADDRESS"
