@@ -349,7 +349,7 @@ struct BlockscoutApiResponse {
 
 // https://docs.blockscout.com/developer-support/api/rpc-endpoints/contract#get-contract-creator-address-hash-and-creation-transaction-hash
 #[derive(Debug, Deserialize)]
-struct ContractCreation{
+struct ContractCreation {
     #[serde(alias = "txHash")]
     transaction_hash: String,
 }
@@ -532,9 +532,9 @@ fn get_deployment_tx_from_blockscout(
     address: &Address,
 ) -> Result<String, ValidationError> {
     let url = format!(
-            "?module=contract&action=getcontractcreation&contractaddresses={:?}",
-            address
-        );
+        "?module=contract&action=getcontractcreation&contractaddresses={:?}",
+        address
+    );
 
     let result = send_blocking_blockscout_get(config, &url)?;
     let creation: ContractCreation = serde_json::from_value(result)?;
