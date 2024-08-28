@@ -649,23 +649,26 @@ impl<'a> ContractState<'a> {
     }
 
     pub fn is_uint(var_type: &str) -> bool {
-        var_type.starts_with("t_uint")
+        var_type.starts_with("t_uint") && !var_type.contains("[]")
     }
 
     pub fn is_address(var_type: &str) -> bool {
-        var_type.starts_with("t_address") || var_type.starts_with("t_contract")
+        (var_type.starts_with("t_address") || var_type.starts_with("t_contract"))
+            && !var_type.contains("[]")
     }
 
     pub fn is_int(var_type: &str) -> bool {
-        var_type.starts_with("t_int")
+        var_type.starts_with("t_int") && !var_type.contains("[]")
     }
 
     pub fn is_bool(var_type: &str) -> bool {
-        var_type.starts_with("t_bool")
+        var_type.starts_with("t_bool") && !var_type.contains("[]")
     }
 
     pub fn is_fixed_bytes(var_type: &str) -> bool {
-        var_type.starts_with("t_bytes") && var_type.chars().last().unwrap().is_ascii_digit()
+        var_type.starts_with("t_bytes")
+            && var_type.chars().last().unwrap().is_ascii_digit()
+            && !var_type.contains("[]")
     }
 
     pub fn is_basic_type(var_type: &str) -> bool {
