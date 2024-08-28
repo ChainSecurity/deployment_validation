@@ -8,8 +8,10 @@ When running the `dvf` command, the default configuration file is expected at `$
 | `rpc_urls` | Mapping from chain ID to RPC URL |
 | `dvf_storage` | Folder where DVFs are stored |
 | `trusted_signers`: | List of addresses of trusted signers |
-| `etherscan_api_key` | Etherscan API Key, free plan sufficient, optional | 
-| `bitquery_api_key` | Bitquery API Key, free plan sufficient, optional |
+| `etherscan_api_key` | Mapping from chain ID to Etherscan API Key, free plan sufficient, optional | 
+| `blockscout_api_key` | Mapping from chain ID to Blockscout API Key, free plan sufficient, optional |
+| `etherscan_test_api_url` | Only for testing, optional | 
+| `blockscout_test_api_url` | Only for testing, optional | 
 | `max_blocks_per_event_query` | Number of blocks that can be queried at once in `getLogs`, optional |
 | `web3_timeout` | Timeout is seconds for web3 RPC queries, optional |
 | `signer` | Configuration on how to sign, optional |

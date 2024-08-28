@@ -1,5 +1,8 @@
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt;
 use std::io::Read;
+use std::str::FromStr;
 use std::time::Duration;
 
 use ethers::core::types::{Block, CallFrame, Transaction};
@@ -12,7 +15,7 @@ use ethers::types::{H256, U256};
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
 use reqwest::blocking::Client;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 use tiny_keccak::Hasher;
 use tiny_keccak::Keccak;
@@ -99,7 +102,7 @@ pub fn get_init_code(
     tx_id: &String,
     address: &Address,
 ) -> Result<String, ValidationError> {
-    info!("Get init code for is {}", address);
+    info!("Get init code for is {:?}", address);
 
     // create a mapping for failed traces
     let mut failed_parity_traces: HashMap<Vec<usize>, bool> = HashMap::new();
@@ -192,6 +195,7 @@ pub fn get_eth_debug_trace(
     config: &DVFConfig,
     tx_id: &str,
 ) -> Result<TraceWithAddress, ValidationError> {
+    debug!("Obtaining debug trace.");
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "debug_traceTransaction",
@@ -336,6 +340,77 @@ struct EtherscanCreationTransaction {
     // ... much more we don't care about: https://docs.etherscan.io/api-endpoints/contracts
 }
 
+#[derive(Debug, Deserialize)]
+struct BlockscoutApiResponse {
+    status: String,
+    message: String,
+    result: serde_json::Value,
+}
+
+// https://docs.blockscout.com/developer-support/api/rpc-endpoints/contract#get-contract-creator-address-hash-and-creation-transaction-hash
+#[derive(Debug, Deserialize)]
+struct ContractCreation {
+    #[serde(alias = "txHash")]
+    transaction_hash: String,
+}
+
+#[derive(Debug, Deserialize, Eq)]
+struct TransactionDetail {
+    #[serde(rename = "transactionHash")]
+    #[serde(alias = "hash")]
+    transaction_hash: String,
+    #[serde(rename = "transactionIndex")]
+    #[serde(alias = "index")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    transaction_index: u64,
+    #[serde(rename = "blockNumber")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    block_number: u64,
+}
+
+impl PartialOrd for TransactionDetail {
+    fn partial_cmp(&self, other: &TransactionDetail) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TransactionDetail {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.block_number
+            .cmp(&other.block_number)
+            .then_with(|| self.transaction_index.cmp(&other.transaction_index))
+    }
+}
+
+impl PartialEq for TransactionDetail {
+    fn eq(&self, other: &Self) -> bool {
+        self.transaction_hash.to_lowercase() == other.transaction_hash.to_lowercase()
+    }
+}
+
+fn deserialize_dec_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct U64Visitor;
+
+    impl<'de> Visitor<'de> for U64Visitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a decimal string")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<u64, E>
+        where
+            E: de::Error,
+        {
+            Ok(u64::from_str(v).unwrap())
+        }
+    }
+    deserializer.deserialize_string(U64Visitor)
+}
+
 fn get_deployment_tx_from_etherscan(
     config: &DVFConfig,
     address: &Address,
@@ -363,6 +438,42 @@ fn get_deployment_tx_from_etherscan(
     let transaction = transactions.remove(0);
 
     Ok(transaction)
+}
+
+fn send_blocking_blockscout_get(
+    config: &DVFConfig,
+    request: &str,
+) -> Result<serde_json::Value, ValidationError> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(config.web3_timeout))
+        .build()
+        .unwrap();
+
+    // Base URL of the API
+    let base_url = format!("{}/api", config.get_blockscout_api_url()?);
+
+    let full_url = format!(
+        "{}{}&apikey={}",
+        base_url,
+        request,
+        config.get_blockscout_api_key()?
+    );
+    debug!("Blockscout URL: {}", full_url);
+
+    let res = client
+        .get(&full_url)
+        .send()?
+        .json::<BlockscoutApiResponse>()?;
+
+    if res.message != "OK" || res.status != "1" {
+        debug!("Blockscout Error: {}, {}", res.message, res.status);
+        return Err(ValidationError::from(format!(
+            "Blockscout Error: {}, {}",
+            res.message, res.status
+        )));
+    };
+
+    Ok(res.result)
 }
 
 fn send_blocking_web3_post(
@@ -416,18 +527,19 @@ pub fn get_block_number_for_tx(
     ))
 }
 
-fn get_deployment_tx_from_graphql(
+fn get_deployment_tx_from_blockscout(
     config: &DVFConfig,
     address: &Address,
 ) -> Result<String, ValidationError> {
-    let current_block_num = get_eth_block_number(config)?;
-    // TODO: Only get first tx here
-    let tx_hashes: Vec<String> =
-        get_all_txs_for_contract_from_graphql(config, address, 0, current_block_num)?;
-    if tx_hashes.is_empty() {
-        return Err(ValidationError::from("Could not find deployment tx."));
-    }
-    Ok(tx_hashes[0].clone())
+    let url = format!(
+        "?module=contract&action=getcontractcreation&contractaddresses={:?}",
+        address
+    );
+
+    let result = send_blocking_blockscout_get(config, &url)?;
+    let creation: ContractCreation = serde_json::from_value(result)?;
+
+    Ok(creation.transaction_hash.clone())
 }
 
 pub fn get_deployment_block(config: &DVFConfig, address: &Address) -> Result<u64, ValidationError> {
@@ -509,8 +621,8 @@ pub fn get_deployment(
         debug!("Etherscan Deployment Tx: {}", deployment_tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
         return Ok((deployment_block_num, deployment_tx_hash));
-    } else if let Ok(deployment_tx_hash) = get_deployment_tx_from_graphql(config, address) {
-        debug!("GraphQL Deployment Tx: {}", deployment_tx_hash);
+    } else if let Ok(deployment_tx_hash) = get_deployment_tx_from_blockscout(config, address) {
+        debug!("Blockscout Deployment Tx: {}", deployment_tx_hash);
         let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
         return Ok((deployment_block_num, deployment_tx_hash));
     } else if let Ok(creator) = get_ots_contract_creator(config, address) {
@@ -518,7 +630,7 @@ pub fn get_deployment(
         let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
         return Ok((deployment_block_num, creator.tx_hash));
     } else {
-        debug!("No deployment tx found in etherscan or graphql, searching traces. ");
+        debug!("No deployment tx found in etherscan or blockscout, searching traces. ");
         let current_block_num = get_eth_block_number(config)?;
         let start_block_num = if current_block_num > 10 {
             get_deployment_block_from_binary_search(config, address, current_block_num)?
@@ -603,29 +715,6 @@ struct EtherscanTransaction {
     pub hash: String,
 }
 
-#[derive(Deserialize, Debug)]
-struct GraphQLNetworkRes {
-    #[serde(rename = "smartContractCalls")]
-    smart_contract_calls: Vec<GraphQLNetworkCall>,
-}
-
-#[derive(Deserialize, Debug)]
-struct GraphQLNetworkCall {
-    transaction: EtherscanTransaction,
-}
-
-#[derive(Deserialize, Debug)]
-struct GraphQLError {
-    message: String,
-    // include other fields as needed
-}
-
-#[derive(Deserialize, Debug)]
-struct GraphQLResponse {
-    data: Option<Value>,
-    errors: Option<Vec<GraphQLError>>,
-}
-
 // Inclusive for start_block and end_block
 pub fn get_all_txs_for_contract(
     config: &DVFConfig,
@@ -634,7 +723,7 @@ pub fn get_all_txs_for_contract(
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
     if let Ok(all_txs) =
-        get_all_txs_for_contract_from_graphql(config, address, start_block, end_block)
+        get_all_txs_for_contract_from_blockscout(config, address, start_block, end_block)
     {
         return Ok(all_txs);
     } else if end_block - start_block <= 100 {
@@ -755,105 +844,115 @@ fn get_all_txs_for_contract_from_parity_traces(
     Ok(res.iter().map(|tx| format!("{:?}", tx)).collect())
 }
 
+/*
 // Inclusive for start_block and end_block
-fn get_all_txs_for_contract_from_graphql(
+fn get_first_tx_for_contract_from_blockscout(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<String, ValidationError> {
+    let mut txs: Vec<String> = vec![];
+
+    // Parameters for the query
+    let page = 1;
+    let offset = 1;
+    let sort = "asc";
+    // Build the full URL with query parameters
+    let url = format!(
+            "?module=account&action=txlistinternal&address={:?}&startblock={}&endblock={}&page={}&offset={}&sort={}",
+            address, start_block, end_block, page, offset, sort
+        );
+
+    let result = send_blocking_blockscout_get(config, &url)?;
+    let internal_txs: Vec<TransactionDetail> = serde_json::from_value(result)?;
+    for internal_tx in internal_txs {
+        if !txs.contains(&internal_tx.transaction_hash) {
+            txs.push(internal_tx.transaction_hash);
+        }
+    }
+
+    if txs.len() != 1 {
+        return Err(ValidationError::from("Blockscout could not find first tx."));
+    }
+
+    Ok(txs[0].clone())
+}*/
+
+// Inclusive for start_block and end_block
+fn get_some_txs_for_contract_from_blockscout(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+    internal: bool,
+) -> Result<Vec<TransactionDetail>, ValidationError> {
+    let mut txs: Vec<TransactionDetail> = vec![];
+
+    // Parameters for the query
+    let mut page = 1;
+    let offset = 50;
+    let sort = "asc";
+    let internal_str = match internal {
+        true => String::from("internal"),
+        false => String::from(""),
+    };
+
+    loop {
+        // Build the full URL with query parameters
+        let url = format!(
+            "?module=account&action=txlist{}&address={:?}&startblock={}&endblock={}&page={}&offset={}&sort={}",
+            internal_str, address, start_block, end_block, page, offset, sort
+        );
+
+        let result = send_blocking_blockscout_get(config, &url)?;
+        debug!("Trying to parse");
+        let internal_txs: Vec<TransactionDetail> = serde_json::from_value(result).unwrap();
+        debug!("Parsing worked.");
+        let num_internal_txs = internal_txs.len();
+        for internal_tx in internal_txs {
+            if !txs.contains(&internal_tx) {
+                txs.push(internal_tx);
+            }
+        }
+        if num_internal_txs < offset {
+            break;
+        } else {
+            page += 1;
+        }
+    }
+
+    debug!("Found {} {} transactions.", txs.len(), internal_str);
+    Ok(txs)
+}
+
+// Inclusive for start_block and end_block
+fn get_all_txs_for_contract_from_blockscout(
     config: &DVFConfig,
     address: &Address,
     start_block: u64,
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
-    let client = Client::new();
+    let mut combined =
+        get_some_txs_for_contract_from_blockscout(config, address, start_block, end_block, true)?;
+    let external_txs =
+        get_some_txs_for_contract_from_blockscout(config, address, start_block, end_block, false)?;
 
-    let limit_per_query = 500;
-    let mut offset = 0;
-    let mut transactions: Vec<EtherscanTransaction> = vec![];
-    let mut transaction_present: HashSet<String> = HashSet::new();
-    loop {
-        // This GraphQL Query finds all internal transactions for a contract in between the specified block numbers
-        let request_body = json!({
-            "query":
-            "query ($network: EthereumNetwork!, $limit: Int!, $offset: Int!, $from: Int!, $till: Int!, $addr: String!) {
-            ethereum(network: $network) {
-                smartContractCalls(
-                options: {asc: \"block.height\", limit: $limit, offset: $offset}
-                height: {gteq: $from, lteq: $till}
-                smartContractAddress: {is: $addr}
-                ) {
-                block {
-                    height
-                }
-                transaction {
-                    hash
-                }
-                }
-            }
-            }
-            ",
+    // Combine the two lists of external and internal transactions
+    combined.extend(external_txs);
 
-            "variables": {
-                "limit": limit_per_query, // this needs greater or equal to the number of internal transactions between `start_block`and `end_block`
-                "offset": offset,
-                "network": config.get_graphql_name()?,
-                "from": start_block,
-                "till": end_block,
-                "addr": address,
-            }
-        });
+    // Sort the combined Vec
+    combined.sort();
 
-        let res = client
-            .post(&config.bitquery_api_url)
-            .header("X-API-KEY", config.get_bitquery_api_key()?)
-            .json(&request_body)
-            .send()?
-            .json::<GraphQLResponse>()?;
+    // Remove potential duplicates
+    combined.dedup();
 
-        match res.errors {
-            Some(errors) => {
-                let mut errors_str = String::new();
-                for error in errors {
-                    errors_str.push_str(&error.message);
-                }
-                return Err(ValidationError::from(format!(
-                    "Error in GraphQL: {}",
-                    errors_str
-                )));
-            }
-            None => debug!("No GraphQL errors"),
-        }
-
-        let res: HashMap<String, GraphQLNetworkRes> = match res.data {
-            Some(data) => serde_json::from_value::<HashMap<String, GraphQLNetworkRes>>(data)?,
-            None => {
-                return Err(ValidationError::from("No data received from GraphQL."));
-            }
-        };
-
-        debug!("Debug data: {:?}", res);
-        let mut num_new_res = 0;
-        match res.get("ethereum") {
-            Some(network_res) => {
-                for transaction in &network_res.smart_contract_calls {
-                    num_new_res += 1;
-                    if transaction_present.contains(&transaction.transaction.hash) {
-                        continue;
-                    }
-                    transactions.push(transaction.transaction.clone());
-                    transaction_present.insert(transaction.transaction.hash.clone());
-                }
-            }
-            None => {
-                return Err(ValidationError::from("Empty Response from GraphQL."));
-            }
-        };
-        if num_new_res < limit_per_query {
-            break;
-        } else {
-            offset += num_new_res;
-        }
-    }
-
-    debug!("Found {} transactions.", transactions.len());
-    Ok(transactions.iter().map(|tx| tx.hash.clone()).collect())
+    let txs: Vec<String> = combined
+        .iter()
+        .map(|tx| tx.transaction_hash.clone())
+        .collect();
+    debug!("Found {} total transactions: {:?}", txs.len(), txs);
+    Ok(txs)
 }
 
 // Inclusive for start_block and end_block
@@ -1228,6 +1327,7 @@ impl StorageSnapshot {
         address: &Address,
         tx_hashes: &Vec<String>,
     ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+        debug!("Constructing snapshot from TX Ids.");
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for tx_hash in tx_hashes {
             let trace_w_a = get_eth_debug_trace(config, tx_hash)?;
@@ -1407,6 +1507,7 @@ impl StorageSnapshot {
         deployment_block_num: u64,
         init_block_num: u64,
     ) {
+        info!("Testing snapshot correctness using diff-traces.");
         let tx_hashes =
             get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)
                 .unwrap();
@@ -1429,6 +1530,7 @@ impl StorageSnapshot {
         deployment_block_num: u64,
         init_block_num: u64,
     ) {
+        info!("Testing snapshot correctness using debug traces.");
         let tx_hashes =
             get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)
                 .unwrap();
@@ -1475,6 +1577,10 @@ impl StorageSnapshot {
             let expected_value =
                 &get_eth_storage_at(config, address, slot, init_block_num).unwrap();
             if value != expected_value {
+                debug!(
+                    "{:?} != {:?} for {:?}:{}@{}",
+                    value, expected_value, address, slot, init_block_num
+                );
                 return false;
             }
         }
@@ -1612,9 +1718,15 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
+    use env_logger;
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
 
     #[test]
     fn test_snapshots_correctness() {
+        init();
         let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
         let mut config = match DVFConfig::from_env(None) {
             Ok(config) => config,
@@ -1653,12 +1765,8 @@ mod tests {
 
     #[test]
     fn test_snapshot_equality() {
-        /*
-                tracing_subscriber::fmt()
-                    .with_max_level(tracing::Level::DEBUG)
-                    .init();
-        */
         // TODO: add more traces with reverts and stuff
+        init();
         let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
         let mut config = match DVFConfig::from_env(None) {
             Ok(config) => config,
@@ -1687,6 +1795,7 @@ mod tests {
 
     #[test]
     fn test_snapshot_get() {
+        init();
         let slots: Vec<U256> = vec![
             U256::from_str_radix(
                 "0x0000000000000000000000000000000000000000000000000000000000000002",
@@ -1760,6 +1869,7 @@ mod tests {
 
     #[test]
     fn test_get_eth_debug_init_code_create_opcode() {
+        init();
         let tx = "0x495402df7d45fe36329b0bd94487f49baee62026d50f654600f6771bd2a596ab".to_string(); // dai deployment tx
         let address = Address::from_str("0x6b175474e89094c44da98b954eedeac495271d0f").unwrap(); // dai address
         let mut config = match DVFConfig::from_env(None) {
@@ -1779,6 +1889,7 @@ mod tests {
 
     #[test]
     fn test_get_eth_debug_init_code_to_to_address_zero() {
+        init();
         let tx = "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d".to_string(); // frax deployment tx
         let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
         let mut config = match DVFConfig::from_env(None) {
@@ -1796,8 +1907,11 @@ mod tests {
         assert!(init_code.starts_with("0x61014060405234"))
     }
 
+    /*
+    // TODO: Test against separate endpoint, current endpoint does not support it
     #[test]
     fn test_ots_contract_creator() {
+        init();
         let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
         let mut config = match DVFConfig::from_env(None) {
             Ok(config) => config,
@@ -1819,10 +1933,11 @@ mod tests {
             creator.tx_hash,
             "0x8b36720344797ed57f2e22cf2aa56a09662165567a6ade701259cde560cc4a9d"
         );
-    }
+    }*/
 
     #[test]
     fn test_get_deployment_block_from_binary_search() {
+        init();
         let address = Address::from_str("0x5e8422345238f34275888049021821e8e08caa1f").unwrap(); // frax address
         let mut config = match DVFConfig::from_env(None) {
             Ok(config) => config,

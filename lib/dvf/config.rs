@@ -89,11 +89,10 @@ pub struct DVFConfig {
     pub rpc_urls: BTreeMap<u64, String>, // chain_id to URL
     pub dvf_storage: PathBuf,            // Storage of DVFs
     pub trusted_signers: Vec<Address>,
-    pub etherscan_api_key: Option<String>,
+    pub etherscan_api_key: BTreeMap<u64, String>,
     etherscan_test_api_url: Option<String>,
-    bitquery_api_key: Option<String>,
-    #[serde(default = "default_bitquery_url")]
-    pub bitquery_api_url: String,
+    blockscout_api_key: BTreeMap<u64, String>,
+    pub blockscout_test_api_url: Option<String>,
     #[serde(default = "default_max_blocks")]
     pub max_blocks_per_event_query: u64,
     #[serde(default = "default_web3_timeout")]
@@ -103,10 +102,6 @@ pub struct DVFConfig {
     pub active_chain_id: Option<u64>,
     #[serde(default, skip_serializing)]
     active_chain: Option<Chain>,
-}
-
-fn default_bitquery_url() -> String {
-    String::from("https://graphql.bitquery.io")
 }
 
 fn default_max_blocks() -> u64 {
@@ -152,10 +147,10 @@ impl DVFConfig {
                 Address::from_str("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")?,
                 Address::from_str(env::var("SIGNER_ADDRESS")?.as_str())?,
             ],
-            etherscan_api_key: Some(env::var("ETHERSCAN_API_KEY")?),
-            etherscan_test_api_url: Some(env::var("ETHERSCAN_TEST_API_URL")?),
-            bitquery_api_key: Some(env::var("BITQUERY_API_KEY")?),
-            bitquery_api_url: env::var("BITQUERY_API_URL")?,
+            etherscan_api_key: BTreeMap::from([(0u64, env::var("ETHERSCAN_API_KEY")?)]),
+            etherscan_test_api_url: env::var("ETHERSCAN_TEST_API_URL").ok(),
+            blockscout_api_key: BTreeMap::from([(1u64, env::var("BLOCKSCOUT_API_KEY")?)]),
+            blockscout_test_api_url: env::var("BLOCKSCOUT_TEST_API_URL").ok(),
             max_blocks_per_event_query: default_max_blocks(),
             web3_timeout: default_web3_timeout(),
             signer: Some(DVFSignerConfig {
@@ -426,21 +421,22 @@ impl DVFConfig {
             }
         }
 
-        let etherscan_api_key: Option<String>;
-        let bitquery_api_key: Option<String>;
+        let mut etherscan_api_key: BTreeMap<u64, String> = BTreeMap::new();
+        let mut blockscout_api_key: BTreeMap<u64, String> = BTreeMap::new();
         println!();
         println!("{}", "STEP 4".green());
         println!(
-            "In the following, you will be asked to provide API keys for Etherscan and BitQuery."
+            "In the following, you will be asked to provide API keys for Etherscan and Blockscout."
         );
         println!(
             "This is optional but please be aware that providing neither limits this tool to local"
         );
         println!("testing environments.");
         println!();
-        loop {
+        for chain_id in rpc_urls.keys() {
             println!(
-                "Please provide an Etherscan API Key or hit {} to provide none.",
+                "Please provide an Etherscan API Key for Chain ID {} or hit {} to provide none.",
+                chain_id,
                 "<Enter>".green()
             );
             print!("> ");
@@ -450,22 +446,21 @@ impl DVFConfig {
             io::stdin().read_line(&mut input).unwrap();
 
             if input.trim().is_empty() {
-                etherscan_api_key = None;
-                break;
+                continue;
             }
 
             let mut key = String::new();
             if sscanf!(&input, "{}", key).is_ok() {
-                etherscan_api_key = Some(key);
-                break;
+                etherscan_api_key.insert(*chain_id, key);
             } else {
                 println!("{}", "The provided API key could not be parsed.".yellow());
             }
         }
 
-        loop {
+        for chain_id in rpc_urls.keys() {
             println!(
-                "Please provide a BitQuery API Key or hit {} to provide none.",
+                "Please provide a Blockscout API Key for Chain ID {} or hit {} to provide none.",
+                chain_id,
                 "<Enter>".green()
             );
             print!("> ");
@@ -475,14 +470,12 @@ impl DVFConfig {
             io::stdin().read_line(&mut input).unwrap();
 
             if input.trim().is_empty() {
-                bitquery_api_key = None;
-                break;
+                continue;
             }
 
             let mut key = String::new();
             if sscanf!(&input, "{}", key).is_ok() {
-                bitquery_api_key = Some(key);
-                break;
+                blockscout_api_key.insert(*chain_id, key);
             } else {
                 println!("{}", "The provided API key could not be parsed.".yellow());
             }
@@ -710,8 +703,8 @@ impl DVFConfig {
             trusted_signers,
             etherscan_test_api_url: None,
             etherscan_api_key,
-            bitquery_api_url: default_bitquery_url(),
-            bitquery_api_key,
+            blockscout_test_api_url: None,
+            blockscout_api_key,
             max_blocks_per_event_query,
             web3_timeout,
             signer,
@@ -770,17 +763,32 @@ impl DVFConfig {
         }
     }
 
-    pub fn get_bitquery_api_key(&self) -> Result<String, ValidationError> {
-        match &self.bitquery_api_key {
-            Some(bitquery_api_key) => Ok(bitquery_api_key.clone()),
-            None => Err(ValidationError::Error("No api key found.".to_string())),
+    pub fn get_blockscout_api_key(&self) -> Result<String, ValidationError> {
+        match self.active_chain_id {
+            None => Err(ValidationError::Error("No chain id chosen.".to_string())),
+            Some(chain_id) => match self.blockscout_api_key.get(&chain_id) {
+                None => Err(ValidationError::Error(format!(
+                    "No Blockscout API Key found in config for chain id {}.",
+                    chain_id
+                ))),
+                Some(key) => Ok(key.clone()),
+            },
         }
     }
 
     pub fn get_etherscan_api_key(&self) -> Result<String, ValidationError> {
-        match &self.etherscan_api_key {
-            Some(etherscan_api_key) => Ok(etherscan_api_key.clone()),
-            None => Err(ValidationError::Error("No api key found.".to_string())),
+        match self.active_chain_id {
+            None => Err(ValidationError::Error("No chain id chosen.".to_string())),
+            Some(chain_id) => match self.etherscan_api_key.get(&chain_id) {
+                None => match self.etherscan_api_key.get(&0) {
+                    Some(key) => Ok(key.clone()),
+                    None => Err(ValidationError::Error(format!(
+                        "No Etherscan API Key found in config for chain id {}.",
+                        chain_id
+                    ))),
+                },
+                Some(key) => Ok(key.clone()),
+            },
         }
     }
 
@@ -849,6 +857,35 @@ impl DVFConfig {
                 "No active chain. Cannot chose Etherscan API.",
             )),
         }
+    }
+
+    pub fn get_blockscout_api_url(&self) -> Result<String, ValidationError> {
+        if let Some(test_url) = &self.blockscout_test_api_url {
+            match self.active_chain_id {
+                Some(1337) | Some(31337) => {
+                    return Err(ValidationError::from("Testnet, no Blockscout"))
+                }
+                _ => return Ok(test_url.clone()),
+            }
+        }
+        let hostname = match self.active_chain_id {
+            // Add More from https://www.blockscout.com/chains-and-projects
+            Some(1) => "eth.blockscout.com".to_string(),
+            Some(10) => "optimism.blockscout.com".to_string(),
+            Some(100) => "gnosis.blockscout.com".to_string(),
+            Some(137) => "polygon.blockscout.com".to_string(),
+            Some(8453) => "base.blockscout.com".to_string(),
+            Some(42161) => "arbitrum.blockscout.com".to_string(),
+            Some(81457) => "blast.blockscout.com".to_string(),
+            Some(11155111) => "eth-sepolia.blockscout.com".to_string(),
+            _ => {
+                return Err(ValidationError::from(format!(
+                    "Invalid chain id: {:?}.",
+                    self.active_chain_id
+                )))
+            }
+        };
+        Ok(format!("https://{hostname}"))
     }
 
     pub fn get_graphql_name(&self) -> Result<String, ValidationError> {

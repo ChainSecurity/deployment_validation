@@ -66,3 +66,4 @@ time = "0.3.36"
 
 [dev-dependencies]
 assert_cmd = "2.0.12"
+env_logger = "0.11.5"

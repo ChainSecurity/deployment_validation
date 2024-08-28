@@ -8,3 +8,4 @@ on_chain_bytecode.txt
 **/*.swp
 /*.dvf.json
 .env
+tests/hardhat/package-lock.json

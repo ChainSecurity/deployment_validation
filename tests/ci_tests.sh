@@ -1,19 +1,26 @@
 #!/bin/bash
 set -ex
 
+# Can use env with "set -a && source .env && set +a" for testing
 export RUSTFLAGS='-D warnings'   # This flag makes pipeline fail on warnings
 pkill geth || true
 pkill anvil || true
+pkill cached_proxy || true
+rm -rf /tmp/uni-factory /tmp/usdc_implementation2
 cargo build
 cargo clippy
 mkdir -p /tmp/dvfs
-# Uncomment this to create caches
-# cargo run --bin cached_proxy -- -d tests/cachedrpc -u MAINNET_RPC &
-# cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u ETHERSCAN_TEST_API_URL &
-# cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u BITQUERY_API_URL &
-cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 &
-cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 &
-cargo run --bin cached_proxy -- -d tests/cachedrpc &
+if [ "$REBUILD_CACHE" = "1" ]; then
+    echo "Rebuilding Cache"
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -u $RPC_MAINNET &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/api" &
+else
+    echo "Using Cache"
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc &
+fi
 cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
