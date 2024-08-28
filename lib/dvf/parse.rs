@@ -425,6 +425,9 @@ impl DumpedDVF {
             .constructor_args
             .iter()
             .map(|x| -> DVFConstructorArg {
+                // TODO: This is wrong. Hotfixed for now
+                // Needs a proper translation, e.g. uint[] => t_array_uint...
+                // Then those types might be unknown
                 let translated_type = format!("t_{}", &x.type_string);
                 DVFConstructorArg {
                     var_name: x.name.clone(),
