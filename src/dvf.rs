@@ -449,9 +449,9 @@ fn main() {
                         .default_value("artifacts")
                 )
                 .arg(
-                    Arg::with_name("build-cache")
-                        .long("build-cache")
-                        .help("Folder containing build-cache previously. Use with care")
+                    Arg::with_name("buildcache")
+                        .long("buildcache")
+                        .help("Folder containing buildcache previously. Use with care")
                         .action(ArgAction::Set)
                 )
                 .arg(
@@ -539,7 +539,7 @@ fn main() {
         .subcommand(SubCommand::with_name("generate-config")
                 .about("interactively generate configuration file")
         )
-        .subcommand(SubCommand::with_name("generate-build-cache").about("generate the build cache")
+        .subcommand(SubCommand::with_name("generate-buildcache").about("generate the build cache")
                 .arg(
                     Arg::with_name("project")
                         .long("project")
@@ -625,9 +625,9 @@ fn main() {
                         .action(ArgAction::Set)
                 )
                 .arg(
-                    Arg::with_name("build-cache")
-                        .long("build-cache")
-                        .help("Folder containing build-cache previously. Use with care")
+                    Arg::with_name("buildcache")
+                        .long("buildcache")
+                        .help("Folder containing buildcache previously. Use with care")
                         .action(ArgAction::Set)
                 )
         )
@@ -735,7 +735,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let env = *sub_m.get_one::<Environment>("env").unwrap();
             let project = sub_m.value_of("project").unwrap();
             let artifacts = sub_m.value_of("artifacts").unwrap();
-            let build_cache = sub_m.value_of("build-cache");
+            let build_cache = sub_m.value_of("buildcache");
             let (path, artifacts_path) = get_project_paths(project, artifacts);
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
@@ -1476,7 +1476,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             let contract_name = sub_m.value_of("contractname").unwrap().to_string();
             let address = Address::from_str(sub_m.value_of("address").unwrap())?;
-            let build_cache = sub_m.value_of("build-cache");
+            let build_cache = sub_m.value_of("buildcache");
             let chain_id = *sub_m.get_one("chainid").unwrap();
 
             config.set_chain_id(chain_id)?;
