@@ -539,7 +539,7 @@ fn main() {
         .subcommand(SubCommand::with_name("generate-config")
                 .about("interactively generate configuration file")
         )
-        .subcommand(SubCommand::with_name("generate-buildcache").about("generate the build cache")
+        .subcommand(SubCommand::with_name("generate-build-cache").about("generate the build cache")
                 .arg(
                     Arg::with_name("project")
                         .long("project")
