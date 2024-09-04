@@ -214,7 +214,7 @@ fn validate_dvf(
             }
             if seen_events[i].data != critical_event.occurrences[i].data {
                 return Err(ValidationError::Invalid(format!(
-                    "Validation failed. Mismatching data for event occurrence {} of {}.",
+                    "Mismatching data for event occurrence {} of {}.",
                     i, critical_event.sig
                 )));
             }
@@ -1172,25 +1172,42 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             ) {
                 Ok(()) => {
                     println!(
-                        "Validation succeeded based on block {}.",
+                        "Validation of {} succeeded based on block {}.",
+                        input_path.display(),
                         validation_block_num
                     );
                     exit(0);
                 }
                 Err(ValidationError::Error(e)) => {
-                    println!("Validation failed because of an error: {}", e);
+                    println!(
+                        "Validation of {} failed because of an error: {}",
+                        input_path.display(),
+                        e
+                    );
                     exit(1);
                 }
                 Err(ValidationError::Insecure(e)) => {
-                    println!("Validation failed. Insecure Contract found: {}", e);
+                    println!(
+                        "Validation of {} failed. Insecure Contract found: {}",
+                        input_path.display(),
+                        e
+                    );
                     exit(1);
                 }
                 Err(ValidationError::Invalid(e)) => {
-                    println!("Validation failed. Deployment invalid: {}", e);
+                    println!(
+                        "Validation of {} failed. Deployment invalid: {}",
+                        input_path.display(),
+                        e
+                    );
                     exit(1);
                 }
                 Err(ValidationError::NoDVFFound(e)) => {
-                    println!("Validation failed. DVF(s) missing: {}", e);
+                    println!(
+                        "Validation of {} failed. DVF(s) missing: {}",
+                        input_path.display(),
+                        e
+                    );
                     exit(1);
                 }
             };
