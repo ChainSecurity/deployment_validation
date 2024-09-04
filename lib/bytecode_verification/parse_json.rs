@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 
 use clap::ValueEnum;
@@ -1264,12 +1265,11 @@ impl ProjectInfo {
         false
     }
 
-    pub fn new(
-        contract_name: &String,
+    pub fn compile(
         project: &Path,
         env: Environment,
         artifacts_path: &Path,
-    ) -> Result<Self, ValidationError> {
+    ) -> Result<PathBuf, ValidationError> {
         let build_info_path: PathBuf;
         let build_info_dir: TempDir;
 
@@ -1277,7 +1277,8 @@ impl ProjectInfo {
             Environment::Foundry => {
                 assert!(Self::check_forge());
                 build_info_dir = Builder::new().prefix("dvf_bi").tempdir().unwrap();
-                build_info_path = build_info_dir.path().to_path_buf();
+                // Persist for now
+                build_info_path = build_info_dir.into_path();
                 Self::forge_build(project, &build_info_path)?;
             }
             Environment::Hardhat => {
@@ -1287,6 +1288,20 @@ impl ProjectInfo {
                 Self::hardhat_compile(project)?;
             }
         }
+        Ok(build_info_path)
+    }
+
+    pub fn new(
+        contract_name: &String,
+        project: &Path,
+        env: Environment,
+        artifacts_path: &Path,
+        build_cache: Option<&str>,
+    ) -> Result<Self, ValidationError> {
+        let build_info_path: PathBuf = match build_cache {
+            Some(s) => PathBuf::from(s),
+            None => Self::compile(project, env, artifacts_path)?,
+        };
 
         let command = match env {
             Environment::Foundry => "<forge clean>",
@@ -1455,6 +1470,11 @@ impl ProjectInfo {
             );
         }
         let immutables = Self::extract_immutables(&deployed_bytecode, &id_to_ast);
+
+        // If we are not using build_cache then delete the tmp files
+        if build_cache.is_none() && env == Environment::Foundry {
+            fs::remove_dir_all(&build_info_path)?;
+        };
 
         let pi = ProjectInfo {
             compiled_bytecode: compiled_bytecode_str,

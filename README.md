@@ -28,6 +28,7 @@ Once a DVF is published, any user can choose to trust the signer of that DVF and
    - [Update DVF](#update-dvf)
    - [Check Bytecode](#check-bytecode)
    - [Handle errors](#handle-errors)
+   - [Use Build Cache](#use-build-cache)
 
 6. [Advanced Usage](#advanced-usage)
 
@@ -190,6 +191,12 @@ If the Hardhat project does not store its compilation artifacts in the default d
 dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --env hardhat --artifacts <ARTIFACTS> new.dvf.json
 ```
 
+If you have to use an external build-info (i.e., you don't want `dv` to build the project), you can specify the path to the build-info directory with `--buildcache`:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --buildcache <PATH_TO_BUILD_INFO> new.dvf.json
+```
+
 In many cases, deployments are not completed in one block as parameters may be set in subsequent transactions. To receive the storage at a later block (and emitted events up to that block), you can pass the desired block number with `--initblock`:
 
 ```
@@ -339,7 +346,7 @@ dv bytecode-check --project <PROJECT_PATH> --address <ADDRESS> --contractname <N
 
 Please note that `<B>` must be equal to or larger than the deployment block of the contract.
 
-### Handle errors
+### Handle Errors
 
 If something goes wrong during a run of `dv`, you can add the `--verbose` option to get additional information:
 
@@ -356,6 +363,33 @@ dv --verbose --verbose <COMMAND> new.dvf.json
 Please refer to section [Common Problems](#common-problems) for help with understanding the output.
 
 If your problem cannot be solved by yourself or if you have found a bug (e.g., `dv` crashed), please refer to section [Getting Help](#getting-help).
+
+### Use Build Cache
+
+By default `dv` compiles the full project every time you run the `init` or `bytecode-check` commands.
+
+You can pass an external build-info path (containing the compiler output) to `dv` using the `--buildcache` flag. This can be used to:
+
+1. Circumvent the internal project compilation in case of issues.
+2. Skip subsequent compilations if you want to create DVFs for multiple contracts in a large project.
+
+For the second case, you can use the `generate-build-cache` command to generate a persisted build-info path that can be passed to `--buildcache`:
+
+```
+dv generate-build-cache --project <PROJECT_PATH>
+```
+
+You can also use the command for hardhat projects using `--env`:
+
+```
+dv generate-build-cache --project <PROJECT_PATH> --env hardhat
+```
+
+If the Hardhat project does not store its compilation artifacts in the default directory, you can pass the correct directory with `--artifacts`:
+
+```
+dv generate-build-cache --project <PROJECT_PATH> --env hardhat --artifacts <ARTIFACTS>
+```
 
 ## Advanced Usage
 

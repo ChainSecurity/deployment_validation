@@ -449,6 +449,12 @@ fn main() {
                         .default_value("artifacts")
                 )
                 .arg(
+                    Arg::with_name("buildcache")
+                        .long("buildcache")
+                        .help("Folder containing buildcache previously. Use with care")
+                        .action(ArgAction::Set)
+                )
+                .arg(
                     Arg::with_name("OUTPUT")
                         .help("Path of the generated DVF file")
                         .required(true),
@@ -533,6 +539,31 @@ fn main() {
         .subcommand(SubCommand::with_name("generate-config")
                 .about("interactively generate configuration file")
         )
+        .subcommand(SubCommand::with_name("generate-build-cache").about("generate the build cache")
+                .arg(
+                    Arg::with_name("project")
+                        .long("project")
+                        .help("Path to the root folder of source code project")
+                        .required(true)
+                        .validator(is_valid_path)
+                        .action(ArgAction::Set),
+                )
+                .arg(
+                    Arg::with_name("env")
+                        .long("env")
+                        .help("Project's development environment")
+                        .value_parser(clap::value_parser!(Environment))
+                        .default_value(Environment::Foundry.to_string().as_str())
+                        .action(ArgAction::Set)
+                )
+                .arg(
+                    Arg::with_name("artifacts")
+                        .long("artifacts")
+                        .help("Folder containing the artifacts (Hardhat only)")
+                        .default_value("artifacts")
+                        .action(ArgAction::Set)
+                )
+        )
         .subcommand(SubCommand::with_name("bytecode-check").about("perform just the bytecode check")
                 .arg(
                     Arg::with_name("initblock")
@@ -593,6 +624,12 @@ fn main() {
                         .default_value("artifacts")
                         .action(ArgAction::Set)
                 )
+                .arg(
+                    Arg::with_name("buildcache")
+                        .long("buildcache")
+                        .help("Folder containing buildcache previously. Use with care")
+                        .action(ArgAction::Set)
+                )
         )
         .get_matches();
 
@@ -641,6 +678,7 @@ enum ProgressMode {
     Update,
     Validation,
     BytecodeCheck,
+    GenerateBuildCache,
 }
 
 fn updated_filename(original_path: &Path) -> PathBuf {
@@ -669,6 +707,7 @@ fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
         ProgressMode::Update => 4,
         ProgressMode::Validation => 5,
         ProgressMode::BytecodeCheck => 3,
+        ProgressMode::GenerateBuildCache => 1,
     };
     println!("{} {}", style(format!("[{i:2}/{total:2}]")).bold().dim(), s);
     *i += 1;
@@ -696,6 +735,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let env = *sub_m.get_one::<Environment>("env").unwrap();
             let project = sub_m.value_of("project").unwrap();
             let artifacts = sub_m.value_of("artifacts").unwrap();
+            let build_cache = sub_m.value_of("buildcache");
             let (path, artifacts_path) = get_project_paths(project, artifacts);
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
@@ -761,8 +801,13 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             debug!("Fetching forge output");
             print_progress("Compiling local code.", &mut pc, &progress_mode);
-            let mut project_info =
-                ProjectInfo::new(&dumped.contract_name, &path, env, &artifacts_path)?;
+            let mut project_info = ProjectInfo::new(
+                &dumped.contract_name,
+                &path,
+                env,
+                &artifacts_path,
+                build_cache,
+            )?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");
@@ -844,6 +889,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &imp_path,
                     imp_env,
                     &imp_artifacts_path,
+                    None,
                 )?;
 
                 print_progress(
@@ -1401,6 +1447,25 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             Ok(())
         }
+        Some(("generate-build-cache", sub_m)) => {
+            println!("Generating Build Cache.");
+
+            let env = *sub_m.get_one::<Environment>("env").unwrap();
+            let project = sub_m.value_of("project").unwrap();
+            let artifacts = sub_m.value_of("artifacts").unwrap();
+            let (path, artifacts_path) = get_project_paths(project, artifacts);
+
+            let mut pc = 1_u64;
+            let progress_mode: ProgressMode = ProgressMode::GenerateBuildCache;
+
+            // Bytecode and Immutable check
+            print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
+
+            let build_cache_path = ProjectInfo::compile(&path, env, &artifacts_path)?;
+
+            println!("Build Cache: {}", build_cache_path.display());
+            exit(0);
+        }
         Some(("bytecode-check", sub_m)) => {
             println!("Starting bytecode check.");
 
@@ -1411,6 +1476,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             let contract_name = sub_m.value_of("contractname").unwrap().to_string();
             let address = Address::from_str(sub_m.value_of("address").unwrap())?;
+            let build_cache = sub_m.value_of("buildcache");
             let chain_id = *sub_m.get_one("chainid").unwrap();
 
             config.set_chain_id(chain_id)?;
@@ -1433,7 +1499,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let mut project_info = ProjectInfo::new(&contract_name, &path, env, &artifacts_path)?;
+            let mut project_info =
+                ProjectInfo::new(&contract_name, &path, env, &artifacts_path, build_cache)?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");
