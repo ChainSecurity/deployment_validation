@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
 use clap::ValueEnum;
 use ethers::solc::{utils, CompilerInput, CompilerOutput};
+use ethers_solc::artifacts::SourceFile;
 use ethers_solc::error::SolcError;
 use serde::Deserialize;
 use serde::Serialize;
@@ -175,7 +177,7 @@ impl ProjectInfo {
 
     /// Extracts the type definitions of a given AST node (type_name).
     fn find_storage_struct_types(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         type_defs: &Types,
         type_name: &Value,
         types: &mut HashMap<String, TypeDescription>,
@@ -258,7 +260,7 @@ impl ProjectInfo {
                 },
             );
             // recursively add value types
-            Self::find_storage_struct_types(ast, type_defs, &type_name["valueType"], types);
+            Self::find_storage_struct_types(sources, type_defs, &type_name["valueType"], types);
         } else if type_name["nodeType"] == "ArrayTypeName" {
             let base_identifier = type_name["baseType"]["typeDescriptions"]["typeIdentifier"]
                 .as_str()
@@ -337,24 +339,30 @@ impl ProjectInfo {
                     None,
                 )];
                 let mut storage: Vec<StateVariable> = vec![]; // this won't be used as we only have to add the types
-                for top_node in &ast.nodes {
-                    Self::find_storage_struct_data(
-                        ast,
-                        top_node,
-                        type_defs,
-                        &struct_slots,
-                        types,
-                        &mut storage,
-                    );
+                for source in sources.values() {
+                    let ast = source.ast.clone().unwrap();
+                    for top_node in &ast.nodes {
+                        Self::find_storage_struct_data(
+                            sources,
+                            top_node,
+                            type_defs,
+                            &struct_slots,
+                            types,
+                            &mut storage,
+                        );
+                    }
                 }
             } else if identifier.starts_with("t_userDefinedValueType") {
                 let mut var_type = String::new();
-                for top_node in &ast.nodes {
-                    Self::find_storage_struct_user_defined_type(
-                        top_node,
-                        type_name["referencedDeclaration"].as_u64().unwrap(),
-                        &mut var_type,
-                    );
+                for source in sources.values() {
+                    let ast = source.ast.clone().unwrap();
+                    for top_node in &ast.nodes {
+                        Self::find_storage_struct_user_defined_type(
+                            top_node,
+                            type_name["referencedDeclaration"].as_u64().unwrap(),
+                            &mut var_type,
+                        );
+                    }
                 }
                 types.insert(
                     identifier.clone(),
@@ -430,7 +438,7 @@ impl ProjectInfo {
     /// Parses the AST of a contract for struct definitions of a certain set of struct AST IDs.
     /// Creates a set of StorageVariables and TypeDescriptions describing the structs.
     fn find_storage_struct_data(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
         struct_slots: &Vec<(u64, U256, Option<String>)>,
@@ -489,7 +497,7 @@ impl ProjectInfo {
                                 .unwrap()
                                 .to_string();
                             Self::find_storage_struct_types(
-                                ast,
+                                sources,
                                 type_defs,
                                 &member["typeName"],
                                 types,
@@ -562,7 +570,7 @@ impl ProjectInfo {
             }
         }
         for subnode in &node.nodes {
-            Self::find_storage_struct_data(ast, subnode, type_defs, struct_slots, types, storage);
+            Self::find_storage_struct_data(sources, subnode, type_defs, struct_slots, types, storage);
         }
     }
 
@@ -572,7 +580,7 @@ impl ProjectInfo {
     /// explicitly defined as storage variables.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_storage_structs(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
         storage: &mut Vec<StateVariable>,
@@ -581,12 +589,18 @@ impl ProjectInfo {
         // Tuple: (struct AST ID, slot, name of variable containing the slot)
         let mut struct_slots: Vec<(u64, U256, Option<String>)> = vec![];
         // find pairs (storage slot => struct AST ID)
-        for node in &ast.nodes {
-            Self::find_storage_struct_slots(ast, node, exported_ids, &mut struct_slots);
+        for source in sources.values() {
+            let ast = source.ast.clone().unwrap();
+            for node in &ast.nodes {
+                Self::find_storage_struct_slots(sources, node, exported_ids, &mut struct_slots);
+            }
         }
         // parse the struct members + types
-        for node in &ast.nodes {
-            Self::find_storage_struct_data(ast, node, type_defs, &struct_slots, types, storage);
+        for source in sources.values() {
+            let ast = source.ast.clone().unwrap();
+            for node in &ast.nodes {
+                Self::find_storage_struct_data(sources, node, type_defs, &struct_slots, types, storage);
+            }
         }
     }
 
@@ -594,7 +608,7 @@ impl ProjectInfo {
     /// storage pointer.
     /// Creates a set of tuples mapping struct AST IDs to the respective storage slots.
     fn find_storage_struct_slots(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         node: &EAstNode,
         exported_ids: &Vec<usize>,
         struct_slots: &mut Vec<(u64, U256, Option<String>)>,
@@ -636,7 +650,6 @@ impl ProjectInfo {
                                                                 ["referencedDeclaration"]
                                                                 .as_u64()
                                                                 .unwrap();
-
                                                             // if a variable is assigned to the slot, follow the
                                                             // path.
                                                             if yul_stmt["value"]["nodeType"]
@@ -655,24 +668,27 @@ impl ProjectInfo {
                                                                         {
                                                                             let mut parameter_defs: Vec<(u64, usize)> = vec![];
                                                                             // get the the slot from variable declaration.
-                                                                            for top_node in
-                                                                                &ast.nodes
-                                                                            {
-                                                                                if let Some((var_name, _, var_slot))
-                                                                                    = Self::find_variable_declaration(
-                                                                                        ast,
-                                                                                        top_node,
-                                                                                        stmt_ref["declaration"].as_u64().unwrap()
-                                                                                    ) {
-                                                                                        struct_slots.push((struct_id, var_slot, Some(var_name)));
-                                                                                    // if no variable declaration can be found, try to find 
-                                                                                    // functions with the variable as parameter.
-                                                                                } else if let Some((_, _, function_id, param_id))
-                                                                                    = Self::find_parameter_declaration(
-                                                                                        top_node,
-                                                                                        stmt_ref["declaration"].as_u64().unwrap()
-                                                                                    ) {
-                                                                                    parameter_defs.push((function_id, param_id));
+                                                                            for source in sources.values() {
+                                                                                let ast = source.ast.clone().unwrap();
+                                                                                for top_node in
+                                                                                    &ast.nodes
+                                                                                {
+                                                                                    if let Some((var_name, _, var_slot))
+                                                                                        = Self::find_variable_declaration(
+                                                                                            sources,
+                                                                                            top_node,
+                                                                                            stmt_ref["declaration"].as_u64().unwrap()
+                                                                                        ) {
+                                                                                            struct_slots.push((struct_id, var_slot, Some(var_name)));
+                                                                                        // if no variable declaration can be found, try to find 
+                                                                                        // functions with the variable as parameter.
+                                                                                    } else if let Some((_, _, function_id, param_id))
+                                                                                        = Self::find_parameter_declaration(
+                                                                                            top_node,
+                                                                                            stmt_ref["declaration"].as_u64().unwrap()
+                                                                                        ) {
+                                                                                        parameter_defs.push((function_id, param_id));
+                                                                                    }
                                                                                 }
                                                                             }
                                                                             // calls can happen in a different contract so we have to check
@@ -682,48 +698,51 @@ impl ProjectInfo {
                                                                                 param_id,
                                                                             ) in parameter_defs
                                                                             {
-                                                                                for top_node in
-                                                                                    &ast.nodes
-                                                                                {
-                                                                                    // find all calls of the given function and match the
-                                                                                    // passed parameters with the variable.
-                                                                                    let mut args: Vec<(String, Value)> = vec![];
-                                                                                    Self::find_call_args(top_node, function_id, &mut args);
-                                                                                    for (
-                                                                                        outer_function,
-                                                                                        arg,
-                                                                                    ) in args
+                                                                                for source in sources.values() {
+                                                                                    let ast = source.ast.clone().unwrap();
+                                                                                    for top_node in
+                                                                                        &ast.nodes
                                                                                     {
-                                                                                        let arg_array = arg.as_array().unwrap();
-                                                                                        if arg_array.len() > param_id {
-                                                                                            // if a variable is passed, get the slot from the
-                                                                                            // associated variable declaration.
-                                                                                            if let Some(var_ref_id) = arg[param_id].get("referencedDeclaration") {
-                                                                                                for top_node in &ast.nodes {
-                                                                                                    if let Some((var_name, _, var_slot))
-                                                                                                        = Self::find_variable_declaration(
-                                                                                                            ast,
-                                                                                                            top_node,
-                                                                                                            var_ref_id.as_u64().unwrap()
-                                                                                                        ) {
-                                                                                                            if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
-                                                                                                                struct_slots.push((struct_id, var_slot, Some(var_name)));
-                                                                                                            }
+                                                                                        // find all calls of the given function and match the
+                                                                                        // passed parameters with the variable.
+                                                                                        let mut args: Vec<(String, Value)> = vec![];
+                                                                                        Self::find_call_args(top_node, function_id, &mut args);
+                                                                                        for (
+                                                                                            outer_function,
+                                                                                            arg,
+                                                                                        ) in args
+                                                                                        {
+                                                                                            let arg_array = arg.as_array().unwrap();
+                                                                                            if arg_array.len() > param_id {
+                                                                                                // if a variable is passed, get the slot from the
+                                                                                                // associated variable declaration.
+                                                                                                if let Some(var_ref_id) = arg[param_id].get("referencedDeclaration") {
+                                                                                                    for top_node in &ast.nodes {
+                                                                                                        if let Some((var_name, _, var_slot))
+                                                                                                            = Self::find_variable_declaration(
+                                                                                                                sources,
+                                                                                                                top_node,
+                                                                                                                var_ref_id.as_u64().unwrap()
+                                                                                                            ) {
+                                                                                                                if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
+                                                                                                                    struct_slots.push((struct_id, var_slot, Some(var_name)));
+                                                                                                                }
+                                                                                                        }
                                                                                                     }
-                                                                                                }
-                                                                                            } else if let Some(slot_value) = arg[param_id].get("value") {
-                                                                                                // if a value is passed, use it as slot.
-                                                                                                // as we have no associated variable for the slot,
-                                                                                                // we use the name of the outer function.
-                                                                                                let var_slot = U256::from_str(slot_value.as_str().unwrap()).unwrap();
-                                                                                                if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
-                                                                                                    struct_slots.push(
-                                                                                                        (
-                                                                                                            struct_id,
-                                                                                                            var_slot,
-                                                                                                            Some(format!("[{}]", outer_function))
-                                                                                                        )
-                                                                                                    );
+                                                                                                } else if let Some(slot_value) = arg[param_id].get("value") {
+                                                                                                    // if a value is passed, use it as slot.
+                                                                                                    // as we have no associated variable for the slot,
+                                                                                                    // we use the name of the outer function.
+                                                                                                    let var_slot = U256::from_str(slot_value.as_str().unwrap()).unwrap();
+                                                                                                    if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
+                                                                                                        struct_slots.push(
+                                                                                                            (
+                                                                                                                struct_id,
+                                                                                                                var_slot,
+                                                                                                                Some(format!("[{}]", outer_function))
+                                                                                                            )
+                                                                                                        );
+                                                                                                    }
                                                                                                 }
                                                                                             }
                                                                                         }
@@ -786,7 +805,7 @@ impl ProjectInfo {
             }
         }
         for subnode in &node.nodes {
-            Self::find_storage_struct_slots(ast, subnode, exported_ids, struct_slots);
+            Self::find_storage_struct_slots(sources, subnode, exported_ids, struct_slots);
         }
     }
 
@@ -795,21 +814,24 @@ impl ProjectInfo {
     /// output.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_direct_storage_writes(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
         storage: &mut Vec<StateVariable>,
         types: &mut HashMap<String, TypeDescription>,
     ) {
-        for node in &ast.nodes {
-            Self::find_direct_storage_write_variables(
-                ast,
-                node,
-                type_defs,
-                exported_ids,
-                storage,
-                types,
-            );
+        for source in sources.values() {
+            let ast = source.ast.clone().unwrap();
+            for node in &ast.nodes {
+                Self::find_direct_storage_write_variables(
+                    sources,
+                    node,
+                    type_defs,
+                    exported_ids,
+                    storage,
+                    types,
+                );
+            }
         }
     }
 
@@ -880,7 +902,7 @@ impl ProjectInfo {
     /// variables.
     /// Returns a tuple (variable name, variable type, variable value)
     fn find_variable_declaration(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         node: &EAstNode,
         id: u64,
     ) -> Option<(String, String, U256)> {
@@ -930,15 +952,18 @@ impl ProjectInfo {
                                             if let Some(referenced_id) =
                                                 stmt["initialValue"].get("referencedDeclaration")
                                             {
-                                                for top_node in &ast.nodes {
-                                                    if let Some(sv_value) =
-                                                        Self::find_variable_declaration(
-                                                            ast,
-                                                            top_node,
-                                                            referenced_id.as_u64().unwrap(),
-                                                        )
-                                                    {
-                                                        return Some(sv_value);
+                                                for source in sources.values() {
+                                                    let ast = source.ast.clone().unwrap();
+                                                    for top_node in &ast.nodes {
+                                                        if let Some(sv_value) =
+                                                            Self::find_variable_declaration(
+                                                                sources,
+                                                                top_node,
+                                                                referenced_id.as_u64().unwrap(),
+                                                            )
+                                                        {
+                                                            return Some(sv_value);
+                                                        }
                                                     }
                                                 }
                                             } else if stmt["initialValue"].get("value").is_some() {
@@ -971,7 +996,7 @@ impl ProjectInfo {
             }
         }
         for subnode in &node.nodes {
-            if let Some(sv_node) = Self::find_variable_declaration(ast, subnode, id) {
+            if let Some(sv_node) = Self::find_variable_declaration(sources, subnode, id) {
                 return Some(sv_node);
             }
         }
@@ -1069,7 +1094,7 @@ impl ProjectInfo {
     /// written to storage using assembly.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_direct_storage_write_variables(
-        ast: &ethers_solc::artifacts::Ast,
+        sources: &BTreeMap<String, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
@@ -1116,110 +1141,116 @@ impl ProjectInfo {
                                                             let var_id = stmt_ref["declaration"]
                                                                 .as_u64()
                                                                 .unwrap();
-                                                            for top_node in &ast.nodes {
-                                                                let var_type = match Self::find_variable_declaration(
-                                                                    ast,
-                                                                    top_node,
-                                                                    var_id,
-                                                                ) {
-                                                                    Some((_, vt, _)) => Some(vt),
-                                                                    None => Self::find_parameter_declaration(top_node, var_id).map(|(_, vt, _, _)| vt)
-                                                                };
-                                                                if let Some(var_type) = var_type {
-                                                                    types.insert(
-                                                                        var_type.clone(),
-                                                                        TypeDescription {
-                                                                            encoding: String::from(
-                                                                                "inplace",
-                                                                            ),
-                                                                            label: var_type.clone(),
-                                                                            number_of_bytes: type_defs.get_number_of_bytes(&var_type),
-                                                                            base: None,
-                                                                            key: None,
-                                                                            value: None,
-                                                                            members: None,
-                                                                        },
-                                                                    );
+                                                            for source in sources.values() {
+                                                                let ast = source.ast.clone().unwrap();
+                                                                for top_node in &ast.nodes {
+                                                                    let var_type = match Self::find_variable_declaration(
+                                                                        sources,
+                                                                        top_node,
+                                                                        var_id,
+                                                                    ) {
+                                                                        Some((_, vt, _)) => Some(vt),
+                                                                        None => Self::find_parameter_declaration(top_node, var_id).map(|(_, vt, _, _)| vt)
+                                                                    };
+                                                                    if let Some(var_type) = var_type {
+                                                                        types.insert(
+                                                                            var_type.clone(),
+                                                                            TypeDescription {
+                                                                                encoding: String::from(
+                                                                                    "inplace",
+                                                                                ),
+                                                                                label: var_type.clone(),
+                                                                                number_of_bytes: type_defs.get_number_of_bytes(&var_type),
+                                                                                base: None,
+                                                                                key: None,
+                                                                                value: None,
+                                                                                members: None,
+                                                                            },
+                                                                        );
 
-                                                                    // get the slot that is written to by parsing the
-                                                                    // value (= slot) and name of the variable used in
-                                                                    // the first sstore() argument
-                                                                    let slot_arg = &arguments
-                                                                        .as_array()
-                                                                        .unwrap()[0];
-                                                                    if slot_arg["nodeType"]
-                                                                        == "YulIdentifier"
-                                                                    {
-                                                                        if let Some(stmt_refs) = stmt
-                                                                            .get("externalReferences")
+                                                                        // get the slot that is written to by parsing the
+                                                                        // value (= slot) and name of the variable used in
+                                                                        // the first sstore() argument
+                                                                        let slot_arg = &arguments
+                                                                            .as_array()
+                                                                            .unwrap()[0];
+                                                                        if slot_arg["nodeType"]
+                                                                            == "YulIdentifier"
                                                                         {
-                                                                            for stmt_ref in stmt_refs
-                                                                                .as_array()
-                                                                                .unwrap()
-                                                                                .iter()
+                                                                            if let Some(stmt_refs) = stmt
+                                                                                .get("externalReferences")
                                                                             {
-                                                                                if slot_arg["src"]
-                                                                                    == stmt_ref["src"]
+                                                                                for stmt_ref in stmt_refs
+                                                                                    .as_array()
+                                                                                    .unwrap()
+                                                                                    .iter()
                                                                                 {
-                                                                                    // find the variable. this must be
-                                                                                    // a variable declaration as we need
-                                                                                    // a value.
-                                                                                    for top_node in &ast.nodes {
-                                                                                        if let Some((var_name, _, var_slot))
-                                                                                            = Self::find_variable_declaration(
-                                                                                                ast,
-                                                                                                top_node,
-                                                                                                stmt_ref["declaration"].as_u64().unwrap()
-                                                                                            ) {
-                                                                                            storage.push(StateVariable {
-                                                                                                contract: String::from(""),
-                                                                                                label: var_name,
-                                                                                                offset: 0,
-                                                                                                slot: var_slot,
-                                                                                                var_type: var_type.clone(),
-                                                                                            });
+                                                                                    if slot_arg["src"]
+                                                                                        == stmt_ref["src"]
+                                                                                    {
+                                                                                        // find the variable. this must be
+                                                                                        // a variable declaration as we need
+                                                                                        // a value.
+                                                                                        for source in sources.values() {
+                                                                                            let ast = source.ast.clone().unwrap();
+                                                                                            for top_node in &ast.nodes {
+                                                                                                if let Some((var_name, _, var_slot))
+                                                                                                    = Self::find_variable_declaration(
+                                                                                                        sources,
+                                                                                                        top_node,
+                                                                                                        stmt_ref["declaration"].as_u64().unwrap()
+                                                                                                    ) {
+                                                                                                    storage.push(StateVariable {
+                                                                                                        contract: String::from(""),
+                                                                                                        label: var_name,
+                                                                                                        offset: 0,
+                                                                                                        slot: var_slot,
+                                                                                                        var_type: var_type.clone(),
+                                                                                                    });
+                                                                                                }
+                                                                                            }
                                                                                         }
                                                                                     }
                                                                                 }
                                                                             }
-                                                                        }
-                                                                    } else if slot_arg["nodeType"]
-                                                                        == "YulLiteral"
-                                                                    {
-                                                                        let name: String = if node
-                                                                            .other["kind"]
-                                                                            == "constructor"
+                                                                        } else if slot_arg["nodeType"]
+                                                                            == "YulLiteral"
                                                                         {
-                                                                            String::from("[constructor].unnamed")
-                                                                        } else {
-                                                                            format!(
-                                                                                "[{}].unnamed",
-                                                                                node.other["name"]
-                                                                                    .as_str()
-                                                                                    .unwrap()
-                                                                            )
-                                                                        };
+                                                                            let name: String = if node
+                                                                                .other["kind"]
+                                                                                == "constructor"
+                                                                            {
+                                                                                String::from("[constructor].unnamed")
+                                                                            } else {
+                                                                                format!(
+                                                                                    "[{}].unnamed",
+                                                                                    node.other["name"]
+                                                                                        .as_str()
+                                                                                        .unwrap()
+                                                                                )
+                                                                            };
 
-                                                                        // if the slot argument is not a variable but a literal,
-                                                                        // directly add it. In this case, we don't have a
-                                                                        // variable name and thus use the name of the function
-                                                                        // to distinguish between different slots.
-                                                                        storage
-                                                                            .push(StateVariable {
-                                                                            contract: String::from(
-                                                                                "",
-                                                                            ),
-                                                                            label: name,
-                                                                            offset: 0,
-                                                                            slot: U256::from_str(
-                                                                                slot_arg["value"]
-                                                                                    .as_str()
-                                                                                    .unwrap(),
-                                                                            )
-                                                                            .unwrap(),
-                                                                            var_type: var_type
-                                                                                .clone(),
-                                                                        });
+                                                                            // if the slot argument is not a variable but a literal,
+                                                                            // directly add it. In this case, we don't have a
+                                                                            // variable name and thus use the name of the function
+                                                                            // to distinguish between different slots.
+                                                                            storage
+                                                                                .push(StateVariable {
+                                                                                contract: String::from(
+                                                                                    "",
+                                                                                ),
+                                                                                label: name,
+                                                                                offset: 0,
+                                                                                slot: U256::from_str(
+                                                                                    slot_arg["value"]
+                                                                                        .as_str()
+                                                                                        .unwrap(),
+                                                                                )
+                                                                                .unwrap(),
+                                                                                var_type: var_type
+                                                                                    .clone(),
+                                                                            });
+                                                                        }
                                                                     }
                                                                 }
                                                             }
@@ -1238,7 +1269,7 @@ impl ProjectInfo {
         }
         for subnode in &node.nodes {
             Self::find_direct_storage_write_variables(
-                ast,
+                sources,
                 subnode,
                 type_defs,
                 exported_ids,
@@ -1453,22 +1484,23 @@ impl ProjectInfo {
             for node in &new_ast.nodes {
                 Self::find_var_defs(node, &mut id_to_ast);
             }
-            // find structs that are used in storage slots but not declared as storage variable
-            Self::find_storage_structs(
-                &new_ast,
-                &type_defs,
-                &exported_ids,
-                &mut storage,
-                &mut types,
-            );
-            Self::find_direct_storage_writes(
-                &new_ast,
-                &type_defs,
-                &exported_ids,
-                &mut storage,
-                &mut types,
-            );
         }
+        // find structs that are used in storage slots but not declared as storage variable
+        Self::find_storage_structs(
+            &build_info.output.sources,
+            &type_defs,
+            &exported_ids,
+            &mut storage,
+            &mut types,
+        );
+        Self::find_direct_storage_writes(
+            &build_info.output.sources,
+            &type_defs,
+            &exported_ids,
+            &mut storage,
+            &mut types,
+        );
+
         let immutables = Self::extract_immutables(&deployed_bytecode, &id_to_ast);
 
         // If we are not using build_cache then delete the tmp files
