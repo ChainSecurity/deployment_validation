@@ -755,7 +755,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             } else {
                 imp_path = path.clone();
                 imp_artifacts_path = artifacts_path.clone();
-                imp_build_cache = build_cache.clone();
+                imp_build_cache = build_cache;
                 imp_env = env
             }
 
@@ -810,7 +810,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             debug!("Fetching forge output");
             let compile_output = match build_cache {
                 None => "Compiling local code.",
-                Some(_) => "Loading build cache."
+                Some(_) => "Loading build cache.",
             };
             print_progress(compile_output, &mut pc, &progress_mode);
             let mut project_info = ProjectInfo::new(
