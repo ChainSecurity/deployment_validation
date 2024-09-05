@@ -425,6 +425,12 @@ If the Hardhat project does not store its compilation artifacts in the default d
 dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --implementation <IMPL_NAME> --implementationproject <IMPL_PROJECT_PATH> --implementationenv hardhat --implementationartifacts <IMPL_ARTIFACTS> new.dvf.json
 ```
 
+If you have to use an external build-info (i.e., you don't want `dv` to build the implementation project), you can specify the path to the implementation project's build-info directory with `--implementationbuildcache`:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --implementation <IMPL_NAME> --implementationproject <IMPL_PROJECT_PATH> --implementationbuildcache <IMPL_BUILD_CACHE> new.dvf.json
+```
+
 Please note that this does not validate the implementation contract itself. If there are any security risks associated with the implementation contracts, you should create another DVF for it and then create a reference (see [References](#references)) from the original DVF to the implementation contract's DVF.
 
 ### Factories
