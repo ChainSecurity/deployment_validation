@@ -570,7 +570,14 @@ impl ProjectInfo {
             }
         }
         for subnode in &node.nodes {
-            Self::find_storage_struct_data(sources, subnode, type_defs, struct_slots, types, storage);
+            Self::find_storage_struct_data(
+                sources,
+                subnode,
+                type_defs,
+                struct_slots,
+                types,
+                storage,
+            );
         }
     }
 
@@ -599,7 +606,14 @@ impl ProjectInfo {
         for source in sources.values() {
             let ast = source.ast.clone().unwrap();
             for node in &ast.nodes {
-                Self::find_storage_struct_data(sources, node, type_defs, &struct_slots, types, storage);
+                Self::find_storage_struct_data(
+                    sources,
+                    node,
+                    type_defs,
+                    &struct_slots,
+                    types,
+                    storage,
+                );
             }
         }
     }
@@ -668,8 +682,13 @@ impl ProjectInfo {
                                                                         {
                                                                             let mut parameter_defs: Vec<(u64, usize)> = vec![];
                                                                             // get the the slot from variable declaration.
-                                                                            for source in sources.values() {
-                                                                                let ast = source.ast.clone().unwrap();
+                                                                            for source in
+                                                                                sources.values()
+                                                                            {
+                                                                                let ast = source
+                                                                                    .ast
+                                                                                    .clone()
+                                                                                    .unwrap();
                                                                                 for top_node in
                                                                                     &ast.nodes
                                                                                 {
@@ -698,8 +717,15 @@ impl ProjectInfo {
                                                                                 param_id,
                                                                             ) in parameter_defs
                                                                             {
-                                                                                for source in sources.values() {
-                                                                                    let ast = source.ast.clone().unwrap();
+                                                                                for source in
+                                                                                    sources.values()
+                                                                                {
+                                                                                    let ast =
+                                                                                        source
+                                                                                            .ast
+                                                                                            .clone()
+                                                                                            .unwrap(
+                                                                                            );
                                                                                     for top_node in
                                                                                         &ast.nodes
                                                                                     {
@@ -710,7 +736,8 @@ impl ProjectInfo {
                                                                                         for (
                                                                                             outer_function,
                                                                                             arg,
-                                                                                        ) in args
+                                                                                        ) in
+                                                                                            args
                                                                                         {
                                                                                             let arg_array = arg.as_array().unwrap();
                                                                                             if arg_array.len() > param_id {
@@ -1142,7 +1169,8 @@ impl ProjectInfo {
                                                                 .as_u64()
                                                                 .unwrap();
                                                             for source in sources.values() {
-                                                                let ast = source.ast.clone().unwrap();
+                                                                let ast =
+                                                                    source.ast.clone().unwrap();
                                                                 for top_node in &ast.nodes {
                                                                     let var_type = match Self::find_variable_declaration(
                                                                         sources,
@@ -1152,7 +1180,8 @@ impl ProjectInfo {
                                                                         Some((_, vt, _)) => Some(vt),
                                                                         None => Self::find_parameter_declaration(top_node, var_id).map(|(_, vt, _, _)| vt)
                                                                     };
-                                                                    if let Some(var_type) = var_type {
+                                                                    if let Some(var_type) = var_type
+                                                                    {
                                                                         types.insert(
                                                                             var_type.clone(),
                                                                             TypeDescription {
@@ -1213,22 +1242,24 @@ impl ProjectInfo {
                                                                                     }
                                                                                 }
                                                                             }
-                                                                        } else if slot_arg["nodeType"]
+                                                                        } else if slot_arg
+                                                                            ["nodeType"]
                                                                             == "YulLiteral"
                                                                         {
-                                                                            let name: String = if node
-                                                                                .other["kind"]
-                                                                                == "constructor"
-                                                                            {
-                                                                                String::from("[constructor].unnamed")
-                                                                            } else {
-                                                                                format!(
+                                                                            let name: String =
+                                                                                if node.other
+                                                                                    ["kind"]
+                                                                                    == "constructor"
+                                                                                {
+                                                                                    String::from("[constructor].unnamed")
+                                                                                } else {
+                                                                                    format!(
                                                                                     "[{}].unnamed",
                                                                                     node.other["name"]
                                                                                         .as_str()
                                                                                         .unwrap()
                                                                                 )
-                                                                            };
+                                                                                };
 
                                                                             // if the slot argument is not a variable but a literal,
                                                                             // directly add it. In this case, we don't have a
