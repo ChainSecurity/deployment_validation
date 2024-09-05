@@ -451,7 +451,13 @@ fn main() {
                 .arg(
                     Arg::with_name("buildcache")
                         .long("buildcache")
-                        .help("Folder containing buildcache previously. Use with care")
+                        .help("Folder containing build-info files")
+                        .action(ArgAction::Set)
+                )
+                .arg(
+                    Arg::with_name("implementationbuildcache")
+                        .long("implementationbuildcache")
+                        .help("Folder containing build-info files of the implementation contract")
                         .action(ArgAction::Set)
                 )
                 .arg(
@@ -627,7 +633,7 @@ fn main() {
                 .arg(
                     Arg::with_name("buildcache")
                         .long("buildcache")
-                        .help("Folder containing buildcache previously. Use with care")
+                        .help("Folder containing build-info files")
                         .action(ArgAction::Set)
                 )
         )
@@ -740,6 +746,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
             let imp_project = sub_m.value_of("implementationproject");
+            let mut imp_build_cache = sub_m.value_of("implementationbuildcache");
             let imp_artifacts = sub_m.value_of("implementationartifacts").unwrap();
             let imp_path: PathBuf;
             let imp_artifacts_path: PathBuf;
@@ -748,6 +755,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             } else {
                 imp_path = path.clone();
                 imp_artifacts_path = artifacts_path.clone();
+                imp_build_cache = build_cache.clone();
                 imp_env = env
             }
 
@@ -800,7 +808,11 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let init_code = web3::get_init_code(&config, &dumped.deployment_tx, &dumped.address)?;
 
             debug!("Fetching forge output");
-            print_progress("Compiling local code.", &mut pc, &progress_mode);
+            let compile_output = match build_cache {
+                None => "Compiling local code.",
+                Some(_) => "Loading build cache."
+            };
+            print_progress(compile_output, &mut pc, &progress_mode);
             let mut project_info = ProjectInfo::new(
                 &dumped.contract_name,
                 &path,
@@ -889,7 +901,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &imp_path,
                     imp_env,
                     &imp_artifacts_path,
-                    None,
+                    imp_build_cache,
                 )?;
 
                 print_progress(
