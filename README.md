@@ -1,4 +1,4 @@
-# ![Deployment Validation](logo.png?raw=true)
+# ![Deployment Validation](logo.png?raw=true#gh-light-mode-only) ![Deployment Validation](logo_dark.png?raw=true#gh-dark-mode-only)
 
 **Please note: This project is currently in BETA status**
 
