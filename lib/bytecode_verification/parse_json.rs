@@ -1331,7 +1331,7 @@ impl ProjectInfo {
     fn find_exported_ids(
         sources: &BTreeMap<String, SourceFile>,
         contract_name: &String,
-        exported_ids: &mut Vec<usize>
+        exported_ids: &mut Vec<usize>,
     ) {
         for source in sources.values() {
             let new_ast = source.ast.clone().unwrap();
