@@ -1,7 +1,7 @@
 pragma solidity ^0.8.12;
 
 import "forge-std/Script.sol";
-import "../src/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "../src/MyToken.sol";
 
 contract S is Script {

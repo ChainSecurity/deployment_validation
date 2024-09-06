@@ -8,7 +8,12 @@
   "deployment_tx": "0x30d3bb8f5b22cab0ec6643f7bcbd69a3d2ead0af29e9cd28a2a583e3c3ad4efd",
   "codehash": "0x39882c05f46981e5d43622ad2aa327df73cfad4fd1eb9fd85caece0871f8f84c",
   "insecure": false,
-  "immutables": [],
+  "immutables": [
+    {
+      "var_name": "_admin",
+      "value": "0x000000000000000000000000cafac3dd18ac6c6e92c921884f9e4176737c052c"
+    }
+  ],
   "constructor_args": [
     {
       "var_name": "_logic",
@@ -16,7 +21,7 @@
       "value_hint": "MyToken"
     },
     {
-      "var_name": "admin_",
+      "var_name": "initialOwner",
       "value": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
     },
     {
@@ -841,7 +846,7 @@
     {
       "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
       "offset": 0,
-      "var_name": "StorageSlot._IMPLEMENTATION_SLOT.AddressSlot.value",
+      "var_name": "StorageSlot.IMPLEMENTATION_SLOT.AddressSlot.value",
       "var_type": "t_address",
       "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
       "value_hint": "MyToken",
@@ -850,9 +855,9 @@
     {
       "slot": "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103",
       "offset": 0,
-      "var_name": "StorageSlot._ADMIN_SLOT.AddressSlot.value",
+      "var_name": "StorageSlot.ADMIN_SLOT.AddressSlot.value",
       "var_type": "t_address",
-      "value": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+      "value": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
       "comparison_operator": "Equal"
     }
   ],
@@ -865,14 +870,9 @@
           "topics": [
             "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f"
           ],
-          "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045"
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cafac3dd18ac6c6e92c921884f9e4176737c052c"
         }
       ]
-    },
-    {
-      "sig": "BeaconUpgraded(address)",
-      "topic0": "0x1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e",
-      "occurrences": []
     },
     {
       "sig": "Upgraded(address)",
