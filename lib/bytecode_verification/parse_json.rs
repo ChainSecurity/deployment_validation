@@ -1327,6 +1327,29 @@ impl ProjectInfo {
         false
     }
 
+    // Parses the AST to find all associated contracts (libraries & parent contracts)
+    fn find_exported_ids(
+        sources: &BTreeMap<String, SourceFile>,
+        contract_name: &String,
+        exported_ids: &mut Vec<usize>
+    ) {
+        for source in sources.values() {
+            let new_ast = source.ast.clone().unwrap();
+            for node in &new_ast.nodes {
+                if Self::contains_contract(node, contract_name) {
+                    for (sub_contract, symbols) in new_ast.exported_symbols {
+                        // TODO: what does it mean if there is more than 1 symbol per contract?
+                        if symbols.len() == 1 && !exported_ids.contains(&symbols[0]) {
+                            exported_ids.extend(symbols);
+                            Self::find_exported_ids(sources, &sub_contract, exported_ids);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     pub fn compile(
         project: &Path,
         env: Environment,
@@ -1488,21 +1511,18 @@ impl ProjectInfo {
         let mut types: HashMap<String, TypeDescription> = HashMap::new();
         let mut exported_ids: Vec<usize> = vec![];
         let mut absolute_path: Option<String> = None;
-        // get exported AST IDs of the current contract to prevent parsing storage slots of other contracts
-        // in the project
         for source in build_info.output.sources.values() {
             let new_ast = source.ast.clone().unwrap();
-
             for node in &new_ast.nodes {
                 if Self::contains_contract(node, contract_name) {
                     absolute_path = Some(new_ast.absolute_path.to_string());
-                    for symbols in new_ast.exported_symbols.values() {
-                        exported_ids.extend(symbols);
-                    }
                     break;
                 }
             }
         }
+        // get exported AST IDs of the current contract to prevent parsing storage slots of other contracts
+        // in the project
+        Self::find_exported_ids(&build_info.output.sources, contract_name, &mut exported_ids);
         if exported_ids.is_empty() {
             return Err(ValidationError::from(format!(
                 "Could not find the associated sources of contract {}",
