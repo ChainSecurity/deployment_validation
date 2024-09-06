@@ -22,3 +22,6 @@
 [submodule "examples/tokenized-aave-v3/lib/tokenized-strategy-periphery"]
 	path = examples/tokenized-aave-v3/lib/tokenized-strategy-periphery
 	url = https://github.com/yearn/tokenized-strategy-periphery
+[submodule "tests/Contracts/lib/openzeppelin-contracts"]
+	path = tests/Contracts/lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
