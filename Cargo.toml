@@ -40,13 +40,13 @@ regex = "1"
 bigint = "1"
 tiny-keccak = { version = "2.0.0", features = ["sha3", "keccak"] }
 hex = "0.4"
-ethers = { version = "2.0.8", features = ["solc"] }
-ethers-contract = "2.0.8"
-ethers-core = { version = "2.0.8" }
-ethers-etherscan = { version = "2.0.8" }
-ethers-providers = "2.0.8"
-ethers-signers = {version = "2.0.8", features = ["ledger", "yubi", "yubihsm"]}
-ethers-solc = "2.0.8"
+ethers = { version = "2.0.14", features = ["solc"] }
+ethers-contract = "2.0.14"
+ethers-core = { version = "2.0.14" }
+ethers-etherscan = { version = "2.0.14" }
+ethers-providers = "2.0.14"
+ethers-signers = {version = "2.0.14", features = ["ledger", "yubi", "yubihsm"]}
+ethers-solc = "2.0.14"
 semver = { version = "1.0.17", features = ["serde"] }
 toml = "0.7.4"
 dirs-next = "2.0.0"

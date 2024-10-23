@@ -461,6 +461,12 @@ fn main() {
                         .action(ArgAction::Set)
                 )
                 .arg(
+                    Arg::with_name("noevents")
+                        .long("noevents")
+                        .help("Assume that there are no critical events")
+                        .action(ArgAction::SetTrue)
+                )
+                .arg(
                     Arg::with_name("OUTPUT")
                         .help("Path of the generated DVF file")
                         .required(true),
@@ -823,6 +829,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");
+            let no_events = sub_m.get_flag("noevents");
             let compare_status =
                 CompareBytecode::compare(&mut project_info, factory_mode, &rpc_code);
 
@@ -974,13 +981,16 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let mut critical_events: Vec<parse::DVFEventEntry> = vec![];
 
             print_progress("Obtaining past events.", &mut pc, &progress_mode);
-            let seen_events = web3::get_eth_events(
-                &config,
-                &dumped.address,
-                deployment_block_num,
-                init_block_num,
-                &vec![],
-            )?;
+            let seen_events = match no_events {
+                true => vec![],
+                false => web3::get_eth_events(
+                    &config,
+                    &dumped.address,
+                    deployment_block_num,
+                    init_block_num,
+                    &vec![],
+                )?,
+            };
 
             let mut covered_events = 0;
             let mut event_table = Table::new();
@@ -1087,7 +1097,10 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     critical_events.push(event_entry);
                 }
             }
-            dumped.critical_events = critical_events;
+            dumped.critical_events = match no_events {
+                true => vec![],
+                false => critical_events,
+            };
 
             pc = 1;
             println!();
@@ -1132,22 +1145,24 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 }
             }
 
-            if !all_events.is_empty() {
-                println!(
-                    "{}. Select critical events by deleting the others from {}",
-                    pc,
-                    output_path.display()
-                );
-                pc += 1;
-
-                if event_table.is_empty() {
+            if !no_events {
+                if !all_events.is_empty() {
                     println!(
-                        "   No events occurred up until block {}.",
-                        deployment_block_num
+                        "{}. Select critical events by deleting the others from {}",
+                        pc,
+                        output_path.display()
                     );
-                } else {
-                    println!("   Event occurrences up to block {}:", deployment_block_num);
-                    event_table.printstd();
+                    pc += 1;
+
+                    if event_table.is_empty() {
+                        println!(
+                            "   No events occurred up until block {}.",
+                            deployment_block_num
+                        );
+                    } else {
+                        println!("   Event occurrences up to block {}:", deployment_block_num);
+                        event_table.printstd();
+                    }
                 }
             }
 

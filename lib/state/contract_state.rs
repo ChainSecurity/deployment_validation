@@ -121,6 +121,7 @@ impl<'a> ContractState<'a> {
 
     fn fetch_memory_slice(start_idx: &U256, length: &U256, memory: &Vec<String>) -> String {
         let mem_str = Self::memory_as_string(memory);
+        println!("{:?} {:?} {:?}", memory, mem_str, start_idx);
         let start_idx = start_idx.as_usize() * 2;
         let length = length.as_usize() * 2;
 
@@ -491,8 +492,12 @@ impl<'a> ContractState<'a> {
                 .into_iter()
                 .collect();
             sorted_keys.sort();
+            let key_type = self.get_key_type(&state_variable.var_type);
             for (sorted_key, target_slot) in &sorted_keys {
-                let key_type = self.get_key_type(&state_variable.var_type);
+                // Skip unrelated data
+                if self.get_number_of_bytes(&key_type) * 2 >= sorted_key.len() {
+                    continue;
+                }
                 let pretty_key: String = match self.has_inplace_encoding(&key_type) {
                     true => self
                         .pretty_printer

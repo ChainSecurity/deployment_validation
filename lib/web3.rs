@@ -130,21 +130,24 @@ pub fn get_init_code(
                     }
                 }
             }
-            Err(ValidationError::from(format!(
+        }
+        Err(_e) => {}
+    }
+
+    // In case of error or empty data (quicknode-optimism), try this way
+    let call_frame = get_eth_debug_call_trace(config, tx_id)?;
+
+    match extract_create_call_frame(&call_frame, address) {
+        Ok(call_frame) => {
+            let init_code = format!("{:#x}", call_frame.input);
+            return Ok(init_code);
+        }
+        Err(e) => {
+            debug!("Error during extract_create_call_frame: {:?}", e);
+            return Err(ValidationError::from(format!(
                 "Found no deployment trace for tx {:?} and contract {:?}",
                 tx_id, address
-            )))?
-        }
-        Err(_e) => {
-            let call_frame = get_eth_debug_call_trace(config, tx_id)?;
-
-            match extract_create_call_frame(&call_frame, address) {
-                Ok(call_frame) => {
-                    let init_code = format!("{:#x}", call_frame.input);
-                    Ok(init_code)
-                }
-                Err(e) => Err(e),
-            }
+            )))?;
         }
     }
 }
@@ -191,20 +194,76 @@ pub fn get_eth_debug_call_trace(
     Ok(trace)
 }
 
+fn contains_a_to_f(s: &str) -> bool {
+    s.chars()
+        .any(|c| ('a'..='f').contains(&c) || ('A'..='F').contains(&c))
+}
+
+fn has_hex_stack(input: &Value) -> bool {
+    if let Some(Value::Array(logs)) = input.get("structLogs") {
+        for l in logs {
+            if let Value::Object(log) = l {
+                if let Some(Value::Array(stack)) = log.get("stack") {
+                    for s in stack {
+                        if let Value::String(stack_el) = s {
+                            if contains_a_to_f(stack_el) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
+fn convert_hex_stack_to_decimal(input: &mut Value) {
+    if let Some(Value::Array(ref mut logs)) = input.get_mut("structLogs") {
+        for l in logs {
+            if let Value::Object(log) = l {
+                if let Some(Value::Array(ref mut stack)) = log.get_mut("stack") {
+                    for s in stack {
+                        if let Value::String(stack_el) = s {
+                            let hex_value = U256::from_str_radix(&stack_el, 16).unwrap();
+                            *s = Value::String(hex_value.to_string());
+                        }
+                    }
+                }
+                if let Some(e) = log.get_mut("error") {
+                    if let Value::Object(_) = e {
+                        *e = Value::String("".to_string());
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn get_eth_debug_trace(
     config: &DVFConfig,
     tx_id: &str,
 ) -> Result<TraceWithAddress, ValidationError> {
-    debug!("Obtaining debug trace.");
+    debug!("Obtaining debug trace for {}", tx_id);
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "debug_traceTransaction",
         "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
         "id": 1
     });
-    let result = send_blocking_web3_post(config, &request_body)?;
-    // Parse the response as a JSON list
-    let trace: DefaultFrame = serde_json::from_value(result)?;
+    let mut result = send_blocking_web3_post(config, &request_body)?;
+
+    // Some traces have hex representation of the stack
+    // But default is decimal, so here we might convert
+    let has_hex_stack = has_hex_stack(&result);
+    debug!("has_hex_stack = {}", has_hex_stack);
+    let trace: DefaultFrame = match has_hex_stack {
+        false => serde_json::from_value(result)?,
+        true => {
+            convert_hex_stack_to_decimal(&mut result);
+            serde_json::from_value(result)?
+        }
+    };
 
     let request_body = json!({
         "jsonrpc": "2.0",
@@ -443,7 +502,7 @@ fn get_deployment_tx_from_etherscan(
 fn send_blocking_blockscout_get(
     config: &DVFConfig,
     request: &str,
-) -> Result<serde_json::Value, ValidationError> {
+) -> Result<Value, ValidationError> {
     let client = Client::builder()
         .timeout(Duration::from_secs(config.web3_timeout))
         .build()
@@ -478,8 +537,8 @@ fn send_blocking_blockscout_get(
 
 fn send_blocking_web3_post(
     config: &DVFConfig,
-    request_body: &serde_json::Value,
-) -> Result<serde_json::Value, ValidationError> {
+    request_body: &Value,
+) -> Result<Value, ValidationError> {
     let client = Client::builder()
         .timeout(Duration::from_secs(config.web3_timeout))
         .build()
@@ -594,7 +653,7 @@ fn get_deployment_from_geth_trace(
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching geth traces for deployment tx of {:?}", address);
     for i in start_block_num..end_block_num + 1 {
-        let block = get_eth_block_by_num(config, i, true)?;
+        let block = get_eth_full_block_by_num(config, i)?;
         for tx in block.transactions {
             let tx_hash = format!("{:#x}", tx.hash);
             let call_frame = get_eth_debug_call_trace(config, &tx_hash)?;
@@ -780,7 +839,7 @@ fn get_all_txs_for_contract_from_geth_traces(
 ) -> Result<Vec<String>, ValidationError> {
     let mut res: Vec<String> = Vec::new();
     for i in start_block..end_block + 1 {
-        let block = get_eth_block_by_num(config, i, true)?;
+        let block = get_eth_full_block_by_num(config, i)?;
         for tx in block.transactions {
             let tx_hash = format!("{:#x}", tx.hash);
             if tx_geth_trace_contains(config, &tx_hash, address)? {
@@ -1160,29 +1219,45 @@ pub fn get_eth_storage_at(
 }
 
 pub fn get_eth_block_timestamp(config: &DVFConfig, block_num: u64) -> Result<u64, ValidationError> {
-    Ok(get_eth_block_by_num(config, block_num, false)?
-        .timestamp
-        .low_u64())
+    Ok(get_eth_block_by_num(config, block_num)?.timestamp.low_u64())
 }
 
 fn get_eth_blockhash_by_num(config: &DVFConfig, block_num: u64) -> Result<String, ValidationError> {
     Ok(format!(
         "{:?}",
-        get_eth_block_by_num(config, block_num, false)?.hash
+        get_eth_block_by_num(config, block_num)?.hash
     ))
 }
 
 fn get_eth_block_by_num(
     config: &DVFConfig,
     block_num: u64,
-    include_tx: bool,
+) -> Result<Block<TxHash>, ValidationError> {
+    let block_num_hex = format!("{:#x}", block_num);
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getBlockByNumber",
+        "params": [block_num_hex, false],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let block: Block<TxHash> = serde_json::from_value(result)?;
+
+    Ok(block)
+}
+
+fn get_eth_full_block_by_num(
+    config: &DVFConfig,
+    block_num: u64,
 ) -> Result<Block<Transaction>, ValidationError> {
     let block_num_hex = format!("{:#x}", block_num);
 
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "eth_getBlockByNumber",
-        "params": [block_num_hex, include_tx],
+        "params": [block_num_hex, true],
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
@@ -1341,6 +1416,7 @@ impl StorageSnapshot {
         address: &Address,
         traces_w_a: &Vec<TraceWithAddress>,
     ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+        debug!("Constructing snapshot from Traces.");
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for trace_w_a in traces_w_a {
             Self::add_trace(&mut snapshot, config, address, trace_w_a)?;
@@ -2052,6 +2128,7 @@ pub fn get_eth_storage_snapshot(
     address: &Address,
     init_block_num: u64,
 ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+    debug!("Trying to use Storage Range.");
     let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
 
     //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
@@ -2062,6 +2139,7 @@ pub fn get_eth_storage_snapshot(
         init_block_hash
     );
 
+    debug!("Constructing snapshot from Storage Range.");
     // Mapping of hash -> {'key': 0x00, 'value': 0x01}
     let mut next_key: String =
         "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
