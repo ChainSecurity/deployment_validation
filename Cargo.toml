@@ -63,6 +63,10 @@ actix-web = "4.7.0"
 scanf = "1.2.1"
 dotenv = "0.15.0"
 time = "0.3.36"
+foundry-compilers = "0.11.6"
+alloy = { version = "0.6.4", features = ["full"] }
+alloy-rpc-types = "0.6.4"
+alloy-rpc-types-trace = "0.6.4"
 
 [dev-dependencies]
 assert_cmd = "2.0.12"

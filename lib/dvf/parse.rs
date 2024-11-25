@@ -69,6 +69,12 @@ impl From<ethers::abi::Error> for ValidationError {
     }
 }
 
+impl From<foundry_compilers::error::SolcError> for ValidationError {
+    fn from(error: foundry_compilers::error::SolcError) -> Self {
+        ValidationError::Error(format!("Solc Error: {}", error))
+    }
+}
+
 impl From<FromStrRadixErr> for ValidationError {
     fn from(error: FromStrRadixErr) -> Self {
         ValidationError::Error(format!("Error converting from hex: {}", error))

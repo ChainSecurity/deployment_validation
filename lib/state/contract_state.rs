@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 use std::str::FromStr;
 
-use ethers::types::{Address, U256};
-use ethers::utils::keccak256;
+use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
 use tracing::{debug, info};
 
@@ -17,10 +16,8 @@ use crate::state::forge_inspect::{ForgeInspect, StateVariable, TypeDescription};
 use crate::utils::pretty::PrettyPrinter;
 use crate::web3::{get_internal_create_addresses, StorageSnapshot, TraceWithAddress};
 
-fn hash_u256(u: &U256) -> [u8; 32] {
-    let mut input = [0u8; 32];
-    u.to_big_endian(&mut input);
-    keccak256(input)
+fn hash_u256(u: &U256) -> B256 {
+    keccak256(u.to_be_bytes::<32>())
 }
 
 // Take a hex-string with leading 0x and
@@ -121,8 +118,8 @@ impl<'a> ContractState<'a> {
 
     fn fetch_memory_slice(start_idx: &U256, length: &U256, memory: &Vec<String>) -> String {
         let mem_str = Self::memory_as_string(memory);
-        let start_idx = start_idx.as_usize() * 2;
-        let length = length.as_usize() * 2;
+        let start_idx = start_idx.to::<usize>() * 2;
+        let length = length.to::<usize>() * 2;
 
         mem_str[start_idx..(start_idx + length)].to_string()
     }
@@ -148,7 +145,7 @@ impl<'a> ContractState<'a> {
             // Mapping key, Some if previous op was a SHA3
             let mut key: Option<String> = None;
             // Mapping storage index, only meaningful when key is Some
-            let mut index: U256 = U256::one();
+            let mut index: U256 = U256::from(1);
             for log in trace_w_a.trace.struct_logs {
                 // Boring state
                 if log.stack.is_none() {
@@ -170,14 +167,14 @@ impl<'a> ContractState<'a> {
                     } else {
                         // Insert dummy address as we don't care about this address
                         // That way we avoid fetching it
-                        depth_to_address.insert(log.depth + 1, Address::zero());
+                        depth_to_address.insert(log.depth + 1, Address::from([0; 20]));
                     }
                 }
 
                 if log.op == "CALL" || log.op == "STATICCALL" {
                     let mut address_bytes = [0u8; 32];
                     stack[stack.len() - 2].to_big_endian(&mut address_bytes);
-                    let mut a = Address::zero();
+                    let mut a = Address::from([0; 20]);
                     a.assign_from_slice(&address_bytes[12..]);
                     depth_to_address.insert(log.depth + 1, a);
                 }

@@ -5,7 +5,7 @@ use std::process::Command;
 use std::str::FromStr;
 use tempfile::TempDir;
 
-use ethers::types::U256;
+use alloy::primitives::U256;
 use serde::de::{self, Deserializer, Visitor};
 use serde::Deserialize;
 use tracing::{debug, info};
@@ -83,7 +83,7 @@ where
         where
             E: de::Error,
         {
-            Ok(U256::from_dec_str(v).unwrap())
+            Ok(U256::from_str_radix(v, 10).unwrap())
         }
     }
     deserializer.deserialize_string(U256Visitor)

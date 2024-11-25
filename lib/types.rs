@@ -1,5 +1,3 @@
-use ethers::abi::ParamType;
-
 #[derive(Debug, Default)]
 pub struct Immutable {
     pub id: usize,
@@ -14,7 +12,6 @@ pub struct Immutable {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstructorArg {
     pub name: String,
-    pub kind: ParamType,
     pub value: String,
     pub type_string: String,
 }
