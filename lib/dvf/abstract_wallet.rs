@@ -1,18 +1,21 @@
 use async_trait::async_trait;
-use ethers::signers::{LocalWallet, Signer};
-use ethers::types::Signature;
-use ethers_core::types::transaction::eip2718::TypedTransaction;
-use ethers_core::types::transaction::eip712::Eip712;
-use ethers_core::types::Address;
-use ethers_signers::Ledger;
-use ethers_signers::LedgerError;
-use ethers_signers::WalletError;
+
+use alloy::signers::{Signer, Error as SignerError};
+use alloy::signers::local::{PrivateKeySigner, LocalSignerError};
+use alloy_signer_ledger::{HDPath, LedgerSigner, LedgerError};
+use alloy::primitives::{Address, PrimitiveSignature as Signature, B256, ChainId};
+use alloy::consensus::{Transaction, TypedTransaction, SignableTransaction};
+use alloy::dyn_abi::eip712::TypedData;
+use alloy::network::TxSigner;
+use alloy::sol_types::{Eip712Domain, SolStruct};
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AbstractError {
     LedgerError(LedgerError),
-    WalletError(WalletError),
+    WalletError(LocalSignerError),
+    GeneralError(SignerError),
 }
 
 impl From<LedgerError> for AbstractError {
@@ -21,9 +24,15 @@ impl From<LedgerError> for AbstractError {
     }
 }
 
-impl From<WalletError> for AbstractError {
-    fn from(error: WalletError) -> Self {
+impl From<LocalSignerError> for AbstractError {
+    fn from(error: LocalSignerError) -> Self {
         AbstractError::WalletError(error)
+    }
+}
+
+impl From<alloy::signers::Error> for AbstractError {
+    fn from(error: SignerError) -> Self {
+        AbstractError::GeneralError(error)
     }
 }
 
@@ -32,80 +41,112 @@ impl std::fmt::Display for AbstractError {
         match self {
             AbstractError::LedgerError(e) => write!(f, "{:?}", e),
             AbstractError::WalletError(e) => write!(f, "{:?}", e),
+            AbstractError::GeneralError(e) => write!(f, "{:?}", e),
         }
     }
 }
 
 #[derive(Debug)]
 pub enum AbstractWallet {
-    Ledger(Ledger),
-    LocalWallet(LocalWallet),
+    Ledger(LedgerSigner),
+    LocalWallet(PrivateKeySigner),
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl TxSigner<Signature> for AbstractWallet {
+
+    fn address(&self) -> Address {
+        match self {
+            AbstractWallet::Ledger(ledger) => Signer::address(ledger),
+            AbstractWallet::LocalWallet(localwallet) => localwallet.address(),
+        }
+    }
+
+    #[inline]
+    async fn sign_transaction(
+        &self,
+        tx: &mut dyn SignableTransaction<Signature>,
+    ) -> Result<Signature, alloy::signers::Error> { //@audit how to turn a typed transaction into a signableTx?
+        match self {
+            AbstractWallet::Ledger(ledger) => ledger
+                .sign_transaction(tx)
+                .await,
+            AbstractWallet::LocalWallet(localwallet) => localwallet
+                .sign_transaction(tx)
+                .await,
+        }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl Signer for AbstractWallet {
-    type Error = AbstractError;
 
-    async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
+    async fn sign_hash(&self, hash: &B256) -> Result<Signature, alloy::signers::Error> {
+        Err(alloy_signer::Error::UnsupportedOperation(
+            alloy_signer::UnsupportedSignerOperation::SignHash,
+        ))
+    }
+
+    async fn sign_message(
         &self,
-        message: S,
-    ) -> Result<Signature, AbstractError> {
+        message: &[u8],
+    ) -> Result<Signature, alloy::signers::Error> {
         match self {
             AbstractWallet::Ledger(ledger) => ledger
                 .sign_message(message)
-                .await
-                .map_err(AbstractError::from),
+                .await,
             AbstractWallet::LocalWallet(localwallet) => localwallet
                 .sign_message(message)
-                .await
-                .map_err(AbstractError::from),
+                .await,
         }
     }
 
-    /// Signs the transaction
-    async fn sign_transaction(
-        &self,
-        message: &TypedTransaction,
-    ) -> Result<Signature, AbstractError> {
-        match self {
-            AbstractWallet::Ledger(ledger) => ledger
-                .sign_transaction(message)
-                .await
-                .map_err(AbstractError::from),
-            AbstractWallet::LocalWallet(localwallet) => localwallet
-                .sign_transaction(message)
-                .await
-                .map_err(AbstractError::from),
-        }
-    }
-
-    async fn sign_typed_data<T: Eip712 + Send + Sync>(
+    #[cfg(feature = "eip712")]
+    #[inline]
+    async fn sign_typed_data<T: SolStruct + Send + Sync>(
         &self,
         payload: &T,
-    ) -> Result<Signature, AbstractError> {
+        domain: &Eip712Domain,
+    ) -> Result<Signature, alloy::signers::Error> {
         match self {
             AbstractWallet::Ledger(ledger) => ledger
                 .sign_typed_data(payload)
-                .await
-                .map_err(AbstractError::from),
+                .await,
+                // .map_err(AbstractError::from),
             AbstractWallet::LocalWallet(localwallet) => localwallet
                 .sign_typed_data(payload)
-                .await
-                .map_err(AbstractError::from),
+                .await,
+                // .map_err(AbstractError::from),
+        }
+    }
+
+    #[cfg(feature = "eip712")]
+    #[inline]
+    async fn sign_dynamic_typed_data(&self, payload: &TypedData) -> Result<Signature, alloy::signers::Error> {
+        match self {
+            AbstractWallet::Ledger(ledger) => ledger
+            .sign_dynamic_typed_data(payload)
+            .await,
+            // .map_err(AbstractError::from),
+            AbstractWallet::LocalWallet(localwallet) => localwallet
+            .sign_dynamic_typed_data(payload)
+            .await,
+            // .map_err(AbstractError::from),
         }
     }
 
     /// Returns the signer's Ethereum Address
     fn address(&self) -> Address {
         match self {
-            AbstractWallet::Ledger(ledger) => ledger.address(),
+            AbstractWallet::Ledger(ledger) => Signer::address(ledger),
             AbstractWallet::LocalWallet(localwallet) => localwallet.address(),
         }
     }
 
     /// Returns the signer's chain id
-    fn chain_id(&self) -> u64 {
+    fn chain_id(&self) -> Option<ChainId> {
         match self {
             AbstractWallet::Ledger(ledger) => ledger.chain_id(),
             AbstractWallet::LocalWallet(localwallet) => localwallet.chain_id(),
@@ -113,14 +154,15 @@ impl Signer for AbstractWallet {
     }
 
     /// Sets the signer's chain id
-    fn with_chain_id<T: Into<u64>>(self, chain_id: T) -> Self {
+    fn set_chain_id(&mut self, chain_id: Option<ChainId>) {
         match self {
             AbstractWallet::Ledger(ledger) => {
-                AbstractWallet::Ledger(ledger.with_chain_id(chain_id))
+                ledger.set_chain_id(chain_id)
             }
             AbstractWallet::LocalWallet(localwallet) => {
-                AbstractWallet::LocalWallet(localwallet.with_chain_id(chain_id))
+                localwallet.set_chain_id(chain_id)
             }
         }
     }
 }
+

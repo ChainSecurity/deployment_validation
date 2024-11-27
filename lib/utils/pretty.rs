@@ -1,13 +1,13 @@
 use std::collections::HashMap;
+use std::fmt::format;
 use std::ops::BitAnd;
 use std::str::FromStr;
 
-use ethers::abi::ethabi::param_type::Writer;
-use ethers::abi::Log;
-use ethers::abi::Token;
-use ethers::abi::{Event, ParamType};
-use ethers::types::{Address, Sign, I256, U256};
-use ethers_etherscan::Client;
+use alloy::json_abi::{Event, EventParam, Param};
+use alloy::sol_types::{SolType, SolEvent};
+use alloy::primitives::{Address, U256, I256, Sign, Log};
+
+use alloy_dyn_abi::{DynSolEvent, DecodedEvent, DynSolType, EventExt, DynSolValue};
 use prettytable::Table;
 use serde::Deserialize;
 use tracing::debug;
@@ -37,7 +37,6 @@ pub struct ResolvedAddress {
 #[derive(Debug)]
 pub struct PrettyPrinter {
     ns: HashMap<Address, ResolvedAddress>,
-    client: Option<Client>,
 }
 
 const KNOWN_ADDRS: &str = include_str!("../../addresses/known.json");
@@ -64,30 +63,38 @@ impl PrettyPrinter {
             ns.extend(registry.collect_name_resolution(chain_id));
         }
         debug!("Name Resolution has {} entries.", ns.keys().len());
-        PrettyPrinter { ns, client: None }
+        PrettyPrinter { ns }
     }
 
     // Based on: https://docs.rs/ethabi/latest/src/ethabi/signature.rs.html
     // and https://docs.rs/ethabi/latest/src/ethabi/event.rs.html
     pub fn event_to_string(event: &Event) -> String {
         let name = &event.name;
-        let params: Vec<ParamType> = event.inputs.iter().map(|p| p.kind.clone()).collect();
-        let types = params
+        let types: String = event.inputs
             .iter()
-            .map(Writer::write)
+            .map(|p| p.ty.clone())
             .collect::<Vec<String>>()
-            .join(",");
+            .join(",");//@audit maybe p.name instead?
         format!("{name}({types})")
     }
 
-    pub fn pretty_event_params(&self, log: &Log, newlines: bool) -> String {
+    pub fn pretty_event_params(&self, abi_event: &Event, decoded_event: &DecodedEvent, newlines: bool) -> String {
         let mut decoded_params: Vec<String> = vec![];
-        for param in &log.params {
+        let mut next_index = 0;
+        let mut next_body = 0;
+        for param in &abi_event.inputs {
+            let current_val: &DynSolValue = if param.indexed {
+                next_index += 1;
+                &decoded_event.indexed[next_index]
+            } else {
+                next_body += 1;
+                &decoded_event.body[next_body]
+            };
             decoded_params.push(format!(
                 "{} = {}",
                 &param.name,
                 Self::insert_newline_every_n_chars(
-                    &self.pretty_token(&param.value),
+                    &self.pretty_token(current_val),
                     CHARS_PER_LINE,
                     param.name.len() + 4
                 ),
@@ -100,35 +107,69 @@ impl PrettyPrinter {
         }
     }
 
-    pub fn pretty_event(&self, event: &Event, log: &Log, newlines: bool) -> String {
-        let name = &event.name;
-        let params = self.pretty_event_params(log, newlines);
-        format!("{name}{params}")
-    }
+    // pub fn pretty_event(&self, event: &Event, log: &Log, newlines: bool) -> String {
+    //     let decoded_event = event.decode_log(&log.data, true).unwrap();
+    //     let name = &event.name;
+    //     let params = self.pretty_event_params(&decoded_event, newlines);
+    //     format!("{name}{params}")
+    // }
 
-    pub fn pretty_token(&self, token: &Token) -> String {
-        match token {
-            Token::Address(addr) => self.pretty_address(addr, false, false),
-            Token::FixedBytes(fbytes) => format!("0x{}", hex::encode(fbytes)),
-            Token::Bytes(bytes) => format!("0x{}", hex::encode(bytes)),
-            Token::Int(int) => Self::pretty_int(&I256::from_raw(*int)),
-            Token::Uint(uint) => Self::pretty_uint(uint),
-            Token::Bool(b) => Self::pretty_bool(*b),
-            Token::String(s) => s.clone(),
-            Token::FixedArray(arr) | Token::Array(arr) => {
+    pub fn pretty_token(&self, dyn_val: &DynSolValue) -> String {
+        match dyn_val {
+            DynSolValue::Address(addr) => self.pretty_address(addr, false, false),
+            DynSolValue::FixedBytes(fbytes,num_bytes) => format!("0x{}", hex::encode(fbytes)),
+            DynSolValue::Bytes(bytes) => format!("0x{}", hex::encode(bytes)),
+            DynSolValue::Int(int, num_bits) => Self::pretty_int(int),
+            DynSolValue::Uint(uint, num_bits) => Self::pretty_uint(uint),
+            DynSolValue::Bool(b) => Self::pretty_bool(*b),
+            DynSolValue::String(s) => s.clone(),
+            DynSolValue::FixedArray(arr) | DynSolValue::Array(arr) => {
                 let decoded: Vec<String> = arr.iter().map(|a| self.pretty_token(a)).collect();
                 format!("[{}]", decoded.join(", "))
             }
-            Token::Tuple(arr) => {
+            DynSolValue::Tuple(arr) => {
                 let decoded: Vec<String> = arr.iter().map(|a| self.pretty_token(a)).collect();
+                format!("({})", decoded.join(", "))
+            }
+            DynSolValue::Function(func) => {
+                format!("function {}", func.to_string())
+            }
+            DynSolValue::CustomStruct { name, prop_names, tuple } => {
+                let decoded: Vec<String> = tuple.iter().map(|a| self.pretty_token(a)).collect();
                 format!("({})", decoded.join(", "))
             }
         }
     }
 
+    // pub fn pretty_event_params(&self, log: &ALog, newlines: bool) -> String {
+    //     let mut decoded_params: Vec<String> = vec![];
+
+    //     let log_data = &log.data;
+        
+    //     for i in 0..log_data.topics().len() {
+    //         let topic = log_data.topics()[i];
+    //         decoded_params.push(
+    //             format!("topic {}: {}", i, topic)
+    //         );
+    //     };
+    //     if newlines {
+    //         format!("({})", decoded_params.join(",\n "))
+    //     } else {
+    //         format!("({})", decoded_params.join(", "))
+    //     }
+    // }
+
+    // pub fn pretty_event(&self, event: &Event, log: &ALog, newlines: bool) -> String {
+    //     let name = &event.name;
+    //     let params = self.pretty_event_params(log, newlines);
+    //     format!("{name}{params}")
+
+    //     event.decode_log(log, validate);
+    // }
+
     fn pretty_uint(u256: &U256) -> String {
         // TODO Timestamps
-        if u256 == &U256::max_value() {
+        if u256 == &U256::MAX {
             return String::from("uint256 Max Value");
         }
         let u256_str = u256.to_string();
@@ -179,11 +220,11 @@ impl PrettyPrinter {
             match resolved.address_type {
                 AddressType::Contract | AddressType::Token | AddressType::Registry => {
                     if long {
-                        if let Some(client) = self.client.as_ref() {
-                            format!("{}\nLink:\n{}", resolved.name, client.address_url(*a))
-                        } else {
-                            resolved.name.clone()
-                        }
+                        format!(
+                            "{}\nLink:\n{}",
+                            resolved.name,
+                            format!("https://etherscan.io/address/{}", a.to_string())
+                        )
                     } else {
                         resolved.name.clone()
                     }
@@ -244,11 +285,10 @@ impl PrettyPrinter {
             let i256 = convert_bytes_to_i256(value, var_type);
             return Self::pretty_int(&i256);
         } else if ContractState::is_uint(var_type) {
-            let u256 = U256::from_big_endian(value);
+            let u256 = U256::from_be_slice(value);
             return Self::pretty_uint(&u256);
         } else if ContractState::is_address(var_type) {
-            let mut a = Address::zero();
-            a.assign_from_slice(&value[value.len() - 20..]);
+            let a = Address::from_slice(&value[value.len() - 20..]);
             return self.pretty_address(&a, long, leave_empty);
         } else if ContractState::is_bool(var_type) {
             let last_byte: u8 = *value.last().unwrap();
@@ -372,10 +412,10 @@ pub fn convert_bytes_to_i256(bytes: &[u8], var_type: &str) -> I256 {
         for i in 0..num_used_bytes {
             full_bytes[i + num_unused_bytes] = bytes[bytes.len() - num_used_bytes + i];
         }
-        let u256 = U256::from_big_endian(&full_bytes);
+        let u256 = U256::from_be_slice(&full_bytes);
         I256::from_raw(u256)
     } else {
-        let u256 = U256::from_big_endian(bytes);
+        let u256 = U256::from_be_slice(bytes);
         I256::from_raw(u256)
     }
 }
@@ -387,46 +427,44 @@ mod tests {
     #[test]
     fn test_convert_bytes_to_i256() {
         let b = vec![0xff];
-        assert_eq!(I256::minus_one(), convert_bytes_to_i256(&b, "t_int8"));
+        assert_eq!(I256::MINUS_ONE, convert_bytes_to_i256(&b, "t_int8"));
         let b2 = vec![0xff, 0xff];
-        assert_eq!(I256::minus_one(), convert_bytes_to_i256(&b2, "t_int16"));
+        assert_eq!(I256::MINUS_ONE, convert_bytes_to_i256(&b2, "t_int16"));
         let b3 = vec![0xff, 0xfe];
         assert_eq!(
-            I256::minus_one() + I256::minus_one(),
+            I256::MINUS_ONE + I256::MINUS_ONE,
             convert_bytes_to_i256(&b3, "t_int16")
         );
         let b4 = vec![0, 0xff, 0xfe];
         assert_eq!(
-            I256::minus_one() + I256::minus_one(),
+            I256::MINUS_ONE + I256::MINUS_ONE,
             convert_bytes_to_i256(&b4, "t_int16")
         );
         let b5 = vec![0x00];
-        assert_eq!(I256::zero(), convert_bytes_to_i256(&b5, "t_int8"));
+        assert_eq!(I256::ZERO, convert_bytes_to_i256(&b5, "t_int8"));
         let b6 = vec![0x00, 0x00];
-        assert_eq!(I256::zero(), convert_bytes_to_i256(&b6, "t_int16"));
+        assert_eq!(I256::ZERO, convert_bytes_to_i256(&b6, "t_int16"));
         let b7 = vec![0x00, 0x01];
-        assert_eq!(I256::one(), convert_bytes_to_i256(&b7, "t_int16"));
+        assert_eq!(I256::ONE, convert_bytes_to_i256(&b7, "t_int16"));
         let b8 = vec![0, 0x00, 0x02];
         assert_eq!(
-            I256::one() + I256::one(),
+            I256::ONE + I256::ONE,
             convert_bytes_to_i256(&b8, "t_int16")
         );
         let b9 = vec![0u8; 32];
-        assert_eq!(I256::zero(), convert_bytes_to_i256(&b9, "t_int256"));
+        assert_eq!(I256::ZERO, convert_bytes_to_i256(&b9, "t_int256"));
         for i in vec![
-            I256::zero(),
-            I256::one(),
-            I256::minus_one(),
-            I256::max_value(),
-            I256::min_value(),
+            I256::ZERO,
+            I256::ONE,
+            I256::MINUS_ONE,
+            I256::MAX,
+            I256::MAX,
         ] {
-            let mut bytes = [0u8; 32];
-            i.to_big_endian(&mut bytes);
+            let mut bytes: [u8; 32] = i.to_be_bytes();
             assert_eq!(i, convert_bytes_to_i256(&bytes.to_vec(), "t_int256"));
         }
-        for i in vec![I256::zero(), I256::one(), I256::minus_one()] {
-            let mut bytes = [0u8; 32];
-            i.to_big_endian(&mut bytes);
+        for i in vec![I256::ZERO, I256::ONE, I256::MINUS_ONE] {
+            let mut bytes: [u8; 32] = i.to_be_bytes();
             assert_eq!(i, convert_bytes_to_i256(&bytes.to_vec(), "t_int128"));
         }
         let b10 = vec![0x80];

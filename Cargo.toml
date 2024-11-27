@@ -67,6 +67,15 @@ foundry-compilers = "0.11.6"
 alloy = { version = "0.6.4", features = ["full"] }
 alloy-rpc-types = "0.6.4"
 alloy-rpc-types-trace = "0.6.4"
+alloy-signer = "0.6.4"
+alloy-signer-local = "0.6.4"
+alloy-signer-ledger = "0.6.4"
+alloy-chains = { version = "0.1.47", features = ["serde"] }
+rand = "0.8.5"
+foundry-compilers-core = "0.12.3"
+alloy-json-abi = "0.8.12"
+alloy-dyn-abi = { version = "0.8.12", features = ["eip712"] }
+ruint = "1.12.3"
 
 [dev-dependencies]
 assert_cmd = "2.0.12"

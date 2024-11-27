@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use colored::Colorize;
-use ethers::abi::Address;
+use alloy::primitives::Address;
 use prettytable::Table;
 use tracing::debug;
 

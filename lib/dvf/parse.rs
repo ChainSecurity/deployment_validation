@@ -1,5 +1,6 @@
 use std::env::VarError;
 use std::fmt;
+use std::fmt::format;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -8,16 +9,24 @@ use std::num::ParseIntError;
 use std::path::Path;
 use std::str::FromStr;
 
+use ruint;
+
 use crate::bytecode_verification::parse_json::ProjectInfo;
 use crate::utils::pretty::convert_bytes_to_i256;
 use crate::utils::pretty::PrettyPrinter;
 use clap::ArgMatches;
-use ethers::abi::ethabi::ethereum_types::FromStrRadixErr;
-use ethers::signers::Signer;
-use ethers::solc::error::SolcError;
-use ethers::types::Address;
-use ethers::types::{Bytes, H256, U256};
-use ethers_signers::{LedgerError, WalletError};
+
+use foundry_compilers;
+
+use alloy_signer_ledger::LedgerError;
+use alloy;
+use alloy_signer_local::LocalSignerError;
+use alloy::signers;
+use alloy::signers::{Signer};
+use alloy_dyn_abi;
+use alloy::primitives::{Address, B256, U256, Bytes, PrimitiveSignature};
+
+
 use reqwest;
 use semver::Version;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -47,6 +56,7 @@ impl From<AbstractError> for ValidationError {
         match error {
             AbstractError::LedgerError(e) => ValidationError::from(e),
             AbstractError::WalletError(e) => ValidationError::from(e),
+            AbstractError::GeneralError(e) => ValidationError::from(e),
         }
     }
 }
@@ -69,26 +79,44 @@ impl From<ethers::abi::Error> for ValidationError {
     }
 }
 
+impl From<alloy_dyn_abi::Error> for ValidationError {
+    fn from(error: alloy_dyn_abi::Error) -> Self {
+        ValidationError::Error(format!("Alloy Dyn Abi Error: {}", error))
+    }
+}
+
+impl From<ruint::ParseError> for ValidationError {
+    fn from(error: ruint::ParseError) -> Self {
+        ValidationError::Error(format!("Uint Parse Error: {}", error))
+    }
+}
+
 impl From<foundry_compilers::error::SolcError> for ValidationError {
     fn from(error: foundry_compilers::error::SolcError) -> Self {
         ValidationError::Error(format!("Solc Error: {}", error))
     }
 }
 
-impl From<FromStrRadixErr> for ValidationError {
-    fn from(error: FromStrRadixErr) -> Self {
-        ValidationError::Error(format!("Error converting from hex: {}", error))
+impl From<alloy::signers::Error> for ValidationError {
+    fn from(error: alloy::signers::Error) -> Self {
+        ValidationError::Error(format!("Signer Error: {}", error))
     }
 }
 
-impl From<SolcError> for ValidationError {
-    fn from(error: SolcError) -> Self {
-        ValidationError::Error(format!("Error in solc: {}", error))
-    }
-}
+// impl From<FromStrRadixErr> for ValidationError {
+//     fn from(error: FromStrRadixErr) -> Self {
+//         ValidationError::Error(format!("Error converting from hex: {}", error))
+//     }
+// }
 
-impl From<WalletError> for ValidationError {
-    fn from(error: WalletError) -> Self {
+// impl From<SolcError> for ValidationError {
+//     fn from(error: SolcError) -> Self {
+//         ValidationError::Error(format!("Error in solc: {}", error))
+//     }
+// }
+
+impl From<LocalSignerError> for ValidationError {
+    fn from(error: LocalSignerError) -> Self {
         ValidationError::Error(format!("Error in with Local Wallet: {}", error))
     }
 }
@@ -287,14 +315,14 @@ impl DVFStorageEntry {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DVFEventOccurrence {
-    pub topics: Vec<H256>,
+    pub topics: Vec<B256>,
     pub data: Bytes,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DVFEventEntry {
     pub sig: String,  // Event signature, e.g. "Transfer(address,address,uint256)"
-    pub topic0: H256, // Event Topic 0
+    pub topic0: B256, // Event Topic 0
     pub occurrences: Vec<DVFEventOccurrence>, // Where the event has legitimately occurred
 }
 
@@ -365,7 +393,7 @@ impl DumpedDVF {
         let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
         let critical_events: Vec<DVFEventEntry> = vec![];
         let constructor_args: Vec<DVFConstructorArg> = vec![];
-        let implementation_address = matches.value_of("implementation").map(|_| Address::zero());
+        let implementation_address = matches.value_of("implementation").map(|_| Address::default());
         let implementation_name = matches.value_of("implementation").map(|x| x.to_string());
         let dumped = DumpedDVF {
             version: CURRENT_VERSION,
@@ -527,13 +555,14 @@ impl CompleteDVF {
         match &self.signature {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
-                    let signature = ethers::types::Signature::from_str(sig_data).unwrap();
-                    let sig_message = ethers::types::RecoveryMessage::from(self.get_sig_message()?);
-                    debug!("sig_message: {}", self.get_sig_message()?);
+                    let signature = PrimitiveSignature::from_str(sig_data).unwrap();
+                    let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
-                    let rec_address = signature.recover(sig_message).map_err(|_| {
-                        ValidationError::Error(String::from("Error. Signature validation failed."))
-                    })?;
+                    let rec_address = signature.recover_address_from_msg(sig_message).map_err(
+                        |_| {
+                            ValidationError::Error(String::from("Error. Signature validation failed."))
+                        }
+                    )?;
                     debug!("Provided Address: {:?}", &sig.signer);
                     debug!("Recovered address {:?}", rec_address);
                     if sig.signer != rec_address {
@@ -653,11 +682,12 @@ impl CompleteDVF {
                 // Chain ID should not matter here
                 let wallet = config.get_abstract_wallet(1)?;
                 let rt = tokio::runtime::Runtime::new().unwrap();
-                rt.block_on(wallet.sign_message(to_be_signed_data))?
+                rt.block_on(wallet.sign_message(to_be_signed_data.as_bytes()))?
             }
         };
         if let Some(sig) = self.signature.as_mut() {
-            sig.sig_data = Some("0x".to_string() + &signature.to_string());
+            let signature_str = serde_json::to_string(&signature).unwrap();
+            sig.sig_data = Some("0x".to_string() + &signature_str);
         };
         Ok(())
     }

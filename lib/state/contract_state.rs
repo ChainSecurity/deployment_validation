@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 use std::str::FromStr;
 
-use alloy::primitives::{keccak256, Address, B256, U256};
+use alloy::primitives::{keccak256, Address, FixedBytes, B256, U256};
 use prettytable::Table;
 use tracing::{debug, info};
 
@@ -172,10 +172,8 @@ impl<'a> ContractState<'a> {
                 }
 
                 if log.op == "CALL" || log.op == "STATICCALL" {
-                    let mut address_bytes = [0u8; 32];
-                    stack[stack.len() - 2].to_big_endian(&mut address_bytes);
-                    let mut a = Address::from([0; 20]);
-                    a.assign_from_slice(&address_bytes[12..]);
+                    let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+                    let mut a = Address::from_slice(&address_bytes[12..]);
                     depth_to_address.insert(log.depth + 1, a);
                 }
 
@@ -212,7 +210,7 @@ impl<'a> ContractState<'a> {
                         if length_in_bytes > U256::from(32_u64)
                             && length_in_bytes < U256::from(usize::MAX / 2)
                         {
-                            let usize_str_length = length_in_bytes.as_usize() * 2 + 2;
+                            let usize_str_length = usize::try_from(length_in_bytes).unwrap() * 2 + 2;
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
@@ -294,7 +292,7 @@ impl<'a> ContractState<'a> {
         }
 
         for unused_part in unused_parts {
-            let crit_var = DVFStorageEntry {
+            let crit_var: DVFStorageEntry = DVFStorageEntry {
                 slot: unused_part.slot,
                 offset: unused_part.offset,
                 var_name: String::from("unknown"),
@@ -448,7 +446,7 @@ impl<'a> ContractState<'a> {
                 )?);
             }
             let mut current_slot = match self.is_dynamic_array(&state_variable.var_type) {
-                true => U256::from(hash_u256(&state_variable.slot)),
+                true => U256::from_be_slice(hash_u256(&state_variable.slot).as_slice()),
                 false => state_variable.slot,
             };
             for i in 0..num {
@@ -468,7 +466,7 @@ impl<'a> ContractState<'a> {
                     current_offset = 0;
                 // Check if we need to skip one slot
                 } else if current_offset + base_num_bytes + base_num_bytes > 32 {
-                    current_slot = current_slot.add(U256::one());
+                    current_slot = current_slot.add(U256::from(1));
                     current_offset = 0;
                 } else {
                     current_offset += base_num_bytes;
@@ -581,19 +579,19 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                 )?);
-                let mut string_length = U256::from_big_endian(&snapshot.get_slot(
+                let mut string_length = U256::from_be_slice(&snapshot.get_slot(
                     &length_var.slot,
                     length_var.offset,
                     32,
                 ));
                 // We skip the -1 as we round down anyway
-                string_length /= U256([2, 0, 0, 0]);
-                let mut string_index = U256::zero();
-                let mut current_slot = U256::from(hash_u256(&state_variable.slot));
+                string_length /= U256::from_limbs([2, 0, 0, 0]);
+                let mut string_index = U256::MAX;
+                let mut current_slot = U256::from_be_slice(hash_u256(&state_variable.slot).as_slice());
                 let mut raw_string: Vec<u8> = vec![];
-                let u256_32 = U256([32, 0, 0, 0]);
+                let u256_32 = U256::from_limbs([32, 0, 0, 0]);
                 loop {
-                    let value_length = cmp::min(string_length.as_usize(), 32);
+                    let value_length = cmp::min(string_length.as_limbs()[0] as usize, 32); //@note take the least significant limbs
                     let value =
                         snapshot.get_slot_and_mark(&current_slot, 32 - value_length, value_length);
                     raw_string.extend_from_slice(&value);
@@ -613,8 +611,8 @@ impl<'a> ContractState<'a> {
                         break;
                     }
                     string_length -= u256_32;
-                    string_index += U256::one();
-                    current_slot += U256::one();
+                    string_index += U256::from(1);
+                    current_slot += U256::from(1);
                 }
                 let mut full_string = String::new();
                 if Self::is_string(&state_variable.var_type) {
