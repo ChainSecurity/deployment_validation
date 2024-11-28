@@ -586,7 +586,7 @@ impl<'a> ContractState<'a> {
                 ));
                 // We skip the -1 as we round down anyway
                 string_length /= U256::from_limbs([2, 0, 0, 0]);
-                let mut string_index = U256::MAX;
+                let mut string_index = U256::ZERO;
                 let mut current_slot = U256::from_be_slice(hash_u256(&state_variable.slot).as_slice());
                 let mut raw_string: Vec<u8> = vec![];
                 let u256_32 = U256::from_limbs([32, 0, 0, 0]);
