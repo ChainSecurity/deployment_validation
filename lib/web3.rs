@@ -4,7 +4,6 @@ use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
-use std::convert::Into;
 
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
@@ -54,19 +53,19 @@ pub struct IntermediateDefaultFrame {
     pub struct_logs: Vec<StructLog>,
 }
 
-impl Into<TraceWithAddress> for IntermediateTraceWithAddress {
+impl From<IntermediateTraceWithAddress> for TraceWithAddress {
 
-    fn into(self) -> TraceWithAddress {
+    fn from(x: IntermediateTraceWithAddress) -> Self {
         let df = DefaultFrame {
-            failed: self.trace.failed,
-            gas: self.trace.gas,
-            return_value: self.trace.return_value,
-            struct_logs: self.trace.struct_logs,
+            failed: x.trace.failed,
+            gas: x.trace.gas,
+            return_value: x.trace.return_value,
+            struct_logs: x.trace.struct_logs,
         };
         TraceWithAddress {
             trace: df,
-            address: self.address,
-            tx_id: self.tx_id,
+            address: x.address,
+            tx_id: x.tx_id,
         }
     }
 }

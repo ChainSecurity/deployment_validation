@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::BitAnd;
 use std::str::FromStr;
 
-use alloy::json_abi::{Event};
+use alloy::json_abi::Event;
 use alloy::primitives::{Address, U256, I256, Sign};
 
 use alloy_dyn_abi::{DecodedEvent, DynSolValue};

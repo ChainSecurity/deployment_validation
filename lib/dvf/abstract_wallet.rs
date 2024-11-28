@@ -4,7 +4,7 @@ use alloy::signers::{Signer, Error as SignerError};
 use alloy::signers::local::{PrivateKeySigner, LocalSignerError};
 use alloy_signer_ledger::{LedgerSigner, LedgerError};
 use alloy::primitives::{Address, PrimitiveSignature as Signature, B256, ChainId};
-use alloy::consensus::{SignableTransaction};
+use alloy::consensus::SignableTransaction;
 use alloy::network::TxSigner;
 use alloy::dyn_abi::eip712::TypedData;
 use alloy::sol_types::{Eip712Domain, SolStruct};

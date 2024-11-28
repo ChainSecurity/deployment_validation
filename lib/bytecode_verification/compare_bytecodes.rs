@@ -1,4 +1,4 @@
-use alloy::dyn_abi::{JsonAbiExt};
+use alloy::dyn_abi::JsonAbiExt;
 use foundry_compilers::artifacts::BytecodeHash;
 use tracing::{debug, info};
 

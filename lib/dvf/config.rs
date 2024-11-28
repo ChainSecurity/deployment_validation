@@ -10,7 +10,7 @@ use std::str::FromStr;
 use clap::ArgMatches;
 use dirs_next::home_dir;
 
-use alloy::primitives::{Address};
+use alloy::primitives::Address;
 use alloy_chains::NamedChain;
 
 use alloy::signers::Signer;
