@@ -869,14 +869,12 @@ impl ProjectInfo {
         if value["nodeType"] == "FunctionCall" && value["expression"]["name"] == "keccak256" {
             if let Some(arguments) = value.get("arguments") {
                 if !arguments.as_array().unwrap().is_empty() {
-                    let mut slot = U256::from_str(
-                        arguments[0]["typeDescriptions"]["typeIdentifier"]
-                            .as_str()
-                            .unwrap()
-                            .replace("t_stringliteral_", "")
-                            .as_str(),
-                    )
-                    .unwrap();
+                    let mut hex_wo_prefix = arguments[0]["typeDescriptions"]["typeIdentifier"]
+                        .as_str()
+                        .unwrap()
+                        .replace("t_stringliteral_", "");
+                    hex_wo_prefix.insert_str(0, "0x");
+                    let mut slot = U256::from_str(hex_wo_prefix.as_str()).unwrap();
                     if let Some(binary_op) = binary_op {
                         slot -= U256::from(binary_op);
                     }
