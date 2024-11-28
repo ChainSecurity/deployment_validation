@@ -30,6 +30,7 @@ alloy = { version = "0.6.4", features = ["full"] }
 alloy-chains = { version = "0.1.47", features = ["serde"] }
 alloy-dyn-abi = { version = "0.8.12", features = ["eip712"] }
 alloy-json-abi = "0.8.12"
+alloy-node-bindings = "0.7.0"
 alloy-rpc-types = "0.6.4"
 alloy-rpc-types-trace = "0.6.4"
 alloy-signer = { version = "0.6.4", features = ["eip712"] }
