@@ -1,13 +1,11 @@
 use std::collections::HashMap;
-use std::fmt::format;
 use std::ops::BitAnd;
 use std::str::FromStr;
 
-use alloy::json_abi::{Event, EventParam, Param};
-use alloy::sol_types::{SolType, SolEvent};
-use alloy::primitives::{Address, U256, I256, Sign, Log};
+use alloy::json_abi::{Event};
+use alloy::primitives::{Address, U256, I256, Sign};
 
-use alloy_dyn_abi::{DynSolEvent, DecodedEvent, DynSolType, EventExt, DynSolValue};
+use alloy_dyn_abi::{DecodedEvent, DynSolValue};
 use prettytable::Table;
 use serde::Deserialize;
 use tracing::debug;
@@ -85,10 +83,10 @@ impl PrettyPrinter {
         for param in &abi_event.inputs {
             let current_val: &DynSolValue = if param.indexed {
                 next_index += 1;
-                &decoded_event.indexed[next_index]
+                &decoded_event.indexed[next_index - 1]
             } else {
                 next_body += 1;
-                &decoded_event.body[next_body]
+                &decoded_event.body[next_body - 1]
             };
             decoded_params.push(format!(
                 "{} = {}",
@@ -117,10 +115,10 @@ impl PrettyPrinter {
     pub fn pretty_token(&self, dyn_val: &DynSolValue) -> String {
         match dyn_val {
             DynSolValue::Address(addr) => self.pretty_address(addr, false, false),
-            DynSolValue::FixedBytes(fbytes,num_bytes) => format!("0x{}", hex::encode(fbytes)),
+            DynSolValue::FixedBytes(fbytes, _num_bytes) => format!("0x{}", hex::encode(fbytes)),
             DynSolValue::Bytes(bytes) => format!("0x{}", hex::encode(bytes)),
-            DynSolValue::Int(int, num_bits) => Self::pretty_int(int),
-            DynSolValue::Uint(uint, num_bits) => Self::pretty_uint(uint),
+            DynSolValue::Int(int, _num_bits) => Self::pretty_int(int),
+            DynSolValue::Uint(uint, _num_bits) => Self::pretty_uint(uint),
             DynSolValue::Bool(b) => Self::pretty_bool(*b),
             DynSolValue::String(s) => s.clone(),
             DynSolValue::FixedArray(arr) | DynSolValue::Array(arr) => {
@@ -132,40 +130,14 @@ impl PrettyPrinter {
                 format!("({})", decoded.join(", "))
             }
             DynSolValue::Function(func) => {
-                format!("function {}", func.to_string())
+                format!("function {:?}", func)
             }
-            DynSolValue::CustomStruct { name, prop_names, tuple } => {
+            DynSolValue::CustomStruct { name: _name, prop_names: _prop_name, tuple } => {
                 let decoded: Vec<String> = tuple.iter().map(|a| self.pretty_token(a)).collect();
                 format!("({})", decoded.join(", "))
             }
         }
     }
-
-    // pub fn pretty_event_params(&self, log: &ALog, newlines: bool) -> String {
-    //     let mut decoded_params: Vec<String> = vec![];
-
-    //     let log_data = &log.data;
-        
-    //     for i in 0..log_data.topics().len() {
-    //         let topic = log_data.topics()[i];
-    //         decoded_params.push(
-    //             format!("topic {}: {}", i, topic)
-    //         );
-    //     };
-    //     if newlines {
-    //         format!("({})", decoded_params.join(",\n "))
-    //     } else {
-    //         format!("({})", decoded_params.join(", "))
-    //     }
-    // }
-
-    // pub fn pretty_event(&self, event: &Event, log: &ALog, newlines: bool) -> String {
-    //     let name = &event.name;
-    //     let params = self.pretty_event_params(log, newlines);
-    //     format!("{name}{params}")
-
-    //     event.decode_log(log, validate);
-    // }
 
     fn pretty_uint(u256: &U256) -> String {
         // TODO Timestamps
@@ -221,9 +193,9 @@ impl PrettyPrinter {
                 AddressType::Contract | AddressType::Token | AddressType::Registry => {
                     if long {
                         format!(
-                            "{}\nLink:\n{}",
+                            "{}\nLink:\nhttps://etherscan.io/address/{:?}",
                             resolved.name,
-                            format!("https://etherscan.io/address/{}", a.to_string())
+                            a,
                         )
                     } else {
                         resolved.name.clone()
@@ -460,11 +432,11 @@ mod tests {
             I256::MAX,
             I256::MAX,
         ] {
-            let mut bytes: [u8; 32] = i.to_be_bytes();
+            let bytes: [u8; 32] = i.to_be_bytes();
             assert_eq!(i, convert_bytes_to_i256(&bytes.to_vec(), "t_int256"));
         }
         for i in vec![I256::ZERO, I256::ONE, I256::MINUS_ONE] {
-            let mut bytes: [u8; 32] = i.to_be_bytes();
+            let bytes: [u8; 32] = i.to_be_bytes();
             assert_eq!(i, convert_bytes_to_i256(&bytes.to_vec(), "t_int128"));
         }
         let b10 = vec![0x80];

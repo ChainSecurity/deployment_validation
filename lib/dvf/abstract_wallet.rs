@@ -2,11 +2,11 @@ use async_trait::async_trait;
 
 use alloy::signers::{Signer, Error as SignerError};
 use alloy::signers::local::{PrivateKeySigner, LocalSignerError};
-use alloy_signer_ledger::{HDPath, LedgerSigner, LedgerError};
+use alloy_signer_ledger::{LedgerSigner, LedgerError};
 use alloy::primitives::{Address, PrimitiveSignature as Signature, B256, ChainId};
-use alloy::consensus::{Transaction, TypedTransaction, SignableTransaction};
-use alloy::dyn_abi::eip712::TypedData;
+use alloy::consensus::{SignableTransaction};
 use alloy::network::TxSigner;
+use alloy::dyn_abi::eip712::TypedData;
 use alloy::sol_types::{Eip712Domain, SolStruct};
 
 use thiserror::Error;
@@ -83,7 +83,7 @@ impl TxSigner<Signature> for AbstractWallet {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl Signer for AbstractWallet {
 
-    async fn sign_hash(&self, hash: &B256) -> Result<Signature, alloy::signers::Error> {
+    async fn sign_hash(&self, _hash: &B256) -> Result<Signature, alloy::signers::Error> {
         Err(alloy_signer::Error::UnsupportedOperation(
             alloy_signer::UnsupportedSignerOperation::SignHash,
         ))
@@ -103,7 +103,6 @@ impl Signer for AbstractWallet {
         }
     }
 
-    #[cfg(feature = "eip712")]
     #[inline]
     async fn sign_typed_data<T: SolStruct + Send + Sync>(
         &self,
@@ -112,17 +111,16 @@ impl Signer for AbstractWallet {
     ) -> Result<Signature, alloy::signers::Error> {
         match self {
             AbstractWallet::Ledger(ledger) => ledger
-                .sign_typed_data(payload)
+                .sign_typed_data(payload, domain)
                 .await,
                 // .map_err(AbstractError::from),
             AbstractWallet::LocalWallet(localwallet) => localwallet
-                .sign_typed_data(payload)
+                .sign_typed_data(payload, domain)
                 .await,
                 // .map_err(AbstractError::from),
         }
     }
 
-    #[cfg(feature = "eip712")]
     #[inline]
     async fn sign_dynamic_typed_data(&self, payload: &TypedData) -> Result<Signature, alloy::signers::Error> {
         match self {

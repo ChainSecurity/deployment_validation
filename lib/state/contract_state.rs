@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 use std::str::FromStr;
 
-use alloy::primitives::{keccak256, Address, FixedBytes, B256, U256};
+use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
 use tracing::{debug, info};
 
@@ -173,7 +173,7 @@ impl<'a> ContractState<'a> {
 
                 if log.op == "CALL" || log.op == "STATICCALL" {
                     let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
-                    let mut a = Address::from_slice(&address_bytes[12..]);
+                    let a = Address::from_slice(&address_bytes[12..]);
                     depth_to_address.insert(log.depth + 1, a);
                 }
 

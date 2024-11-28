@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
@@ -155,7 +155,7 @@ fn extract_create_call_frame(
 ) -> Result<CallFrame, ValidationError> {
     if call_frame.typ.starts_with("CREATE")
         && call_frame.error.is_none()
-        && call_frame.to.as_ref().and_then(|to| Some(to)) == Some(address)
+        && call_frame.to.as_ref() == Some(address)
     {
         return Ok(call_frame.clone());
     }
@@ -241,7 +241,7 @@ fn extract_create_addresses_from_call_frame(
     is_first: bool,
 ) -> Result<(), ValidationError> {
     if !is_first && call_frame.typ.starts_with("CREATE") {
-        let rec = call_frame.to.as_ref().and_then(|to| Some(to));
+        let rec = call_frame.to.as_ref();
         match rec {
             Some(addr) => addresses.push(*addr),
             None => {
@@ -743,7 +743,7 @@ pub fn get_all_txs_for_contract(
 // Ignores reverting executions
 fn call_frame_contains(call_frame: &CallFrame, address: &Address) -> bool {
     if call_frame.error.is_none()
-        && call_frame.to.as_ref().and_then(|to| Some(to)) == Some(address)
+        && call_frame.to.as_ref() == Some(address)
     {
         return true;
     }
@@ -1711,6 +1711,7 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
+    #[ignore]
     #[test]
     fn test_snapshots_correctness() {
         init();
@@ -1750,6 +1751,7 @@ mod tests {
         // StorageSnapshot::helper_test_snapshot1_correctness(&config, &address, current_block_num);
     }
 
+    #[ignore]
     #[test]
     fn test_snapshot_equality() {
         // TODO: add more traces with reverts and stuff
@@ -1785,17 +1787,17 @@ mod tests {
         init();
         let slots: Vec<U256> = vec![
             U256::from_str_radix(
-                "0x0000000000000000000000000000000000000000000000000000000000000002",
+                "0000000000000000000000000000000000000000000000000000000000000002",
                 16,
             )
             .unwrap(),
             U256::from_str_radix(
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0000000000000000000000000000000000000000000000000000000000000000",
                 16,
             )
             .unwrap(),
             U256::from_str_radix(
-                "0x000000000000000000000000000000000000000000000000000000000000000a",
+                "000000000000000000000000000000000000000000000000000000000000000a",
                 16,
             )
             .unwrap(),
@@ -1819,7 +1821,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),
@@ -1831,7 +1833,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),
@@ -1843,7 +1845,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),

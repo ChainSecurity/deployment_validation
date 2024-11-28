@@ -1,6 +1,5 @@
 use std::env::VarError;
 use std::fmt;
-use std::fmt::format;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -21,8 +20,7 @@ use foundry_compilers;
 use alloy_signer_ledger::LedgerError;
 use alloy;
 use alloy_signer_local::LocalSignerError;
-use alloy::signers;
-use alloy::signers::{Signer};
+use alloy::signers::Signer;
 use alloy_dyn_abi;
 use alloy::primitives::{Address, B256, U256, Bytes, PrimitiveSignature};
 
@@ -555,7 +553,9 @@ impl CompleteDVF {
         match &self.signature {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
-                    let signature = PrimitiveSignature::from_str(sig_data).unwrap();
+                    println!("Debug sig value: {}", sig_data);
+                    // let signature = PrimitiveSignature::from_str(sig_data).unwrap();
+                    let signature: PrimitiveSignature = serde_json::from_str(sig_data).unwrap();
                     let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
                     let rec_address = signature.recover_address_from_msg(sig_message).map_err(
@@ -687,7 +687,8 @@ impl CompleteDVF {
         };
         if let Some(sig) = self.signature.as_mut() {
             let signature_str = serde_json::to_string(&signature).unwrap();
-            sig.sig_data = Some("0x".to_string() + &signature_str);
+            // sig.sig_data = Some("0x".to_string() + &signature_str);
+            sig.sig_data = Some(signature_str);
         };
         Ok(())
     }

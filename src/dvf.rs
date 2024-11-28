@@ -19,7 +19,6 @@ use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
 use dvf_libs::web3;
 use alloy::json_abi::Event;
-use alloy::rpc::types::RawLog;
 use alloy::primitives::{Address, B256};
 use indicatif::ProgressBar;
 use prettytable::{row, Table};

@@ -1399,9 +1399,9 @@ impl ProjectInfo {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
                     let bi: BuildInfo = BuildInfo::read(&build_info_file.path())?;
-                    if bi.output.contracts.values().flatten().find(|(name, _)| {
-                        name == &contract_name
-                    }).is_some() {
+                    if bi.output.contracts.values().flatten().any(|(name, _)| {
+                        name == contract_name
+                    }) {
                         build_infos.push(bi);
                     }
                 }
