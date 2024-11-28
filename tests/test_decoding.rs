@@ -38,7 +38,6 @@ mod tests {
             .unwrap()
     }
 
-    #[ignore]
     #[test]
     fn test_expected_results() {
         for contract_name in [
