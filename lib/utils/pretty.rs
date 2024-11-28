@@ -64,17 +64,20 @@ impl PrettyPrinter {
         PrettyPrinter { ns }
     }
 
-    // Based on: https://docs.rs/ethabi/latest/src/ethabi/signature.rs.html
-    // and https://docs.rs/ethabi/latest/src/ethabi/event.rs.html
     pub fn event_to_string(event: &Event) -> String {
-        let name = &event.name;
-        let types: String = event.inputs
-            .iter()
-            .map(|p| p.ty.clone())
-            .collect::<Vec<String>>()
-            .join(",");//@audit maybe p.name instead?
-        format!("{name}({types})")
+        event.signature()
     }
+
+    // pub fn event_to_string(event: &Event) -> String {
+    //     let name = &event.name;
+    //     let params:Vec<Vec<Param>> = event.inputs.iter().map(|p| p.components.clone()).collect();
+    //     let types: String = params
+    //         .iter()
+    //         .map(|p| p.ty.clone())
+    //         .collect::<Vec<String>>()
+    //         .join(",");//@audit maybe p.name instead?
+    //     format!("{name}({types})")
+    // }
 
     pub fn pretty_event_params(&self, abi_event: &Event, decoded_event: &DecodedEvent, newlines: bool) -> String {
         let mut decoded_params: Vec<String> = vec![];

@@ -4,6 +4,7 @@ use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
+use std::convert::Into;
 
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
@@ -17,13 +18,65 @@ use tracing::{debug, info};
 use crate::dvf::config::DVFConfig;
 use crate::dvf::parse::ValidationError;
 
-use alloy::primitives::{Address, B256, U256};
+use alloy::primitives::{Address, B256, U256, Bytes};
 use alloy_rpc_types_trace::parity::{Action, TraceOutput, LocalizedTransactionTrace};
-use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, DiffMode};
+use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, StructLog, DiffMode};
 use alloy::rpc::types::{TransactionReceipt, Log, Block, Transaction};
 
 const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
+
+mod pathological_rpc_deserde {
+    use serde::{self, Deserialize};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: super::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
+    }
+}
+
+// @note Some rpc returns gas in hex string
+// Copy pasted the alloy DefaultFrame with customized deserde impl
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntermediateDefaultFrame {
+    /// Whether the transaction failed
+    pub failed: bool,
+    /// How much gas was used.
+    #[serde(deserialize_with = "pathological_rpc_deserde::deserialize")]
+    pub gas: u64,
+    /// Output of the transaction
+    pub return_value: Bytes,
+    /// Recorded traces of the transaction
+    pub struct_logs: Vec<StructLog>,
+}
+
+impl Into<TraceWithAddress> for IntermediateTraceWithAddress {
+
+    fn into(self) -> TraceWithAddress {
+        let df = DefaultFrame {
+            failed: self.trace.failed,
+            gas: self.trace.gas,
+            return_value: self.trace.return_value,
+            struct_logs: self.trace.struct_logs,
+        };
+        TraceWithAddress {
+            trace: df,
+            address: self.address,
+            tx_id: self.tx_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IntermediateTraceWithAddress {
+    pub trace: IntermediateDefaultFrame,
+    pub address: Address,
+    pub tx_id: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TraceWithAddress {
