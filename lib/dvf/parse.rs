@@ -18,7 +18,6 @@ use clap::ArgMatches;
 use foundry_compilers;
 
 use alloy_signer_ledger::LedgerError;
-use alloy;
 use alloy_signer_local::LocalSignerError;
 use alloy::signers::Signer;
 use alloy_dyn_abi;
@@ -65,18 +64,6 @@ impl From<rustc_hex::FromHexError> for ValidationError {
     }
 }
 
-impl From<ethers::utils::hex::FromHexError> for ValidationError {
-    fn from(error: ethers::utils::hex::FromHexError) -> Self {
-        ValidationError::Error(format!("Error Decoding Hex: {}", error))
-    }
-}
-
-impl From<ethers::abi::Error> for ValidationError {
-    fn from(error: ethers::abi::Error) -> Self {
-        ValidationError::Error(format!("ABI Error: {}", error))
-    }
-}
-
 impl From<alloy_dyn_abi::Error> for ValidationError {
     fn from(error: alloy_dyn_abi::Error) -> Self {
         ValidationError::Error(format!("Alloy Dyn Abi Error: {}", error))
@@ -101,17 +88,17 @@ impl From<alloy::signers::Error> for ValidationError {
     }
 }
 
-// impl From<FromStrRadixErr> for ValidationError {
-//     fn from(error: FromStrRadixErr) -> Self {
-//         ValidationError::Error(format!("Error converting from hex: {}", error))
-//     }
-// }
+impl From<alloy::hex::FromHexError> for ValidationError {
+    fn from(error: alloy::hex::FromHexError) -> Self {
+        ValidationError::Error(format!("Alloy Hex Parse Error: {}", error))
+    }
+}
 
-// impl From<SolcError> for ValidationError {
-//     fn from(error: SolcError) -> Self {
-//         ValidationError::Error(format!("Error in solc: {}", error))
-//     }
-// }
+impl From<hex::FromHexError> for ValidationError {
+    fn from(error: hex::FromHexError) -> Self {
+        ValidationError::Error(format!("Hex Parse Error: {}", error))
+    }
+}
 
 impl From<LocalSignerError> for ValidationError {
     fn from(error: LocalSignerError) -> Self {
