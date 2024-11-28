@@ -4,12 +4,12 @@ mod tests {
     use assert_cmd::Command;
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::utils::pretty::ResolvedAddress;
-    use ethers::types::Address;
     use std::collections::HashMap;
-    use std::str::FromStr;
     use std::thread::sleep;
     use std::time::Duration;
     use tempfile::TempDir;
+    use std::str::FromStr;
+    use alloy::primitives::Address;
 
     #[test]
     fn test_invalid_bytecode() {
