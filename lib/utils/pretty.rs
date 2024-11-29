@@ -68,17 +68,6 @@ impl PrettyPrinter {
         event.signature()
     }
 
-    // pub fn event_to_string(event: &Event) -> String {
-    //     let name = &event.name;
-    //     let params:Vec<Vec<Param>> = event.inputs.iter().map(|p| p.components.clone()).collect();
-    //     let types: String = params
-    //         .iter()
-    //         .map(|p| p.ty.clone())
-    //         .collect::<Vec<String>>()
-    //         .join(",");//@audit maybe p.name instead?
-    //     format!("{name}({types})")
-    // }
-
     pub fn pretty_event_params(&self, abi_event: &Event, decoded_event: &DecodedEvent, newlines: bool) -> String {
         let mut decoded_params: Vec<String> = vec![];
         let mut next_index = 0;
@@ -107,13 +96,6 @@ impl PrettyPrinter {
             format!("({})", decoded_params.join(", "))
         }
     }
-
-    // pub fn pretty_event(&self, event: &Event, log: &Log, newlines: bool) -> String {
-    //     let decoded_event = event.decode_log(&log.data, true).unwrap();
-    //     let name = &event.name;
-    //     let params = self.pretty_event_params(&decoded_event, newlines);
-    //     format!("{name}{params}")
-    // }
 
     pub fn pretty_token(&self, dyn_val: &DynSolValue) -> String {
         match dyn_val {

@@ -540,7 +540,6 @@ impl CompleteDVF {
         match &self.signature {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
-                    println!("Debug sig value: {}", sig_data);
                     // let signature = PrimitiveSignature::from_str(sig_data).unwrap();
                     let signature: PrimitiveSignature = serde_json::from_str(sig_data).unwrap();
                     let sig_message = self.get_sig_message()?;
@@ -674,7 +673,6 @@ impl CompleteDVF {
         };
         if let Some(sig) = self.signature.as_mut() {
             let signature_str = serde_json::to_string(&signature).unwrap();
-            // sig.sig_data = Some("0x".to_string() + &signature_str);
             sig.sig_data = Some(signature_str);
         };
         Ok(())

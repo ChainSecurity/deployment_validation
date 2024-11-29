@@ -1439,7 +1439,6 @@ mod tests {
         }
     }
 
-    #[ignore]
     #[test]
     fn test_hardhat() {
         let port = 8556u16;

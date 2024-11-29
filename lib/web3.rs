@@ -1763,7 +1763,6 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
-    #[ignore]
     #[test]
     fn test_snapshots_correctness() {
         init();
@@ -1803,7 +1802,6 @@ mod tests {
         // StorageSnapshot::helper_test_snapshot1_correctness(&config, &address, current_block_num);
     }
 
-    #[ignore]
     #[test]
     fn test_snapshot_equality() {
         // TODO: add more traces with reverts and stuff
