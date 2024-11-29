@@ -20,7 +20,9 @@ use crate::dvf::parse::ValidationError;
 use alloy::primitives::{Address, B256, U256, Bytes};
 use alloy_rpc_types_trace::parity::{Action, TraceOutput, LocalizedTransactionTrace};
 use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, StructLog, DiffMode};
-use alloy::rpc::types::{TransactionReceipt, Log, Block, Transaction};
+use alloy::rpc::types::{TransactionReceipt, Log, Block, Transaction, EIP1186AccountProofResponse};
+
+use reth_trie::root;
 
 const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
@@ -571,6 +573,28 @@ pub fn get_block_number_for_tx(
     Err(ValidationError::Error(
         "Invalid response from eth_getTransactionByHash".to_string(),
     ))
+}
+
+// Not every rpc supports eth_getAccount.
+// So we have to retrieve the account by querying an empty storage proof
+pub fn get_eth_account_at_block(config: &DVFConfig, account: &Address, block: u64) -> Result<B256, ValidationError> {
+    let block_hex = format!("{:#x}", block);
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getProof",
+        "params": [
+            account, 
+            [], // slots
+            block_hex,
+            ],
+        "id": 1
+    });
+
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let proof_resp: EIP1186AccountProofResponse = serde_json::from_value(result)?;
+
+    Ok(proof_resp.storage_hash)
 }
 
 fn get_deployment_tx_from_blockscout(
@@ -1314,9 +1338,16 @@ impl StorageSnapshot {
             // And diffs for all txs
             if let Ok(all_diffs) = get_many_diff_traces(config, &tx_hashes) {
                 // And compute snapshot from there
-                Self::snapshot_from_diff_traces(&all_diffs, address)
+                let snapshot = Self::snapshot_from_diff_traces(&all_diffs, address);
+                // verify snapshot with account storage merkle root
+                Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
+                snapshot
+
             } else {
-                Self::snapshot_from_tx_ids(config, address, &tx_hashes)?
+                let snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes)?;
+                // verify snapshot with account storage merkle root
+                Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
+                snapshot
             }
         };
         debug!("Storage Snapshot: {:?}", snapshot);
@@ -1325,6 +1356,25 @@ impl StorageSnapshot {
             snapshot,
             unused_parts,
         })
+    }
+
+    // Reconstruct and verify the account storage root
+    pub fn validate_snapshot_with_mpt_root(config: &DVFConfig, snapshot: &HashMap<U256, [u8; 32]>, address: &Address, block_num: u64) {
+        // retrieve account info from rpc
+        let account_storage_root = get_eth_account_at_block(config, address, block_num).unwrap();
+        
+        // snapshot type casting
+        let snapshot: HashMap<B256, U256> = snapshot
+            .iter()
+            .map(
+                |(k, v)| 
+                (B256::from(*k), U256::from_be_slice(v.as_slice()))
+            )
+            .collect();
+
+        let reconstructed_root = root::storage_root_unhashed(snapshot);
+
+        assert_eq!(reconstructed_root, account_storage_root); 
     }
 
     fn init_unused_parts(snapshot: &HashMap<U256, [u8; 32]>) -> HashMap<U256, [bool; 32]> {
@@ -1755,6 +1805,7 @@ impl StorageSnapshot {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use reth_trie::root;
 
     use super::*;
     use env_logger;
@@ -1830,6 +1881,41 @@ mod tests {
             deployment_block_num,
             init_block_num,
         );
+    }
+
+    #[test]
+    fn test_validate_snapshot_with_merkle_root() {
+        init();
+        let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let init_block_num = get_eth_block_number(&config).unwrap() - 1;
+
+        let account_storage_root = get_eth_account_at_block(&config, &address, init_block_num).unwrap();
+
+        let snapshot: HashMap<ruint::Uint<256, 4>, [u8; 32]> = get_eth_storage_snapshot(&config, &address, init_block_num).unwrap();
+        let snapshot: HashMap<B256, U256> = snapshot
+            .into_iter()
+            .map(
+                |(k, v)| 
+                (B256::from(k), U256::from_be_slice(v.as_slice()))
+            )
+            .collect();
+
+        let reconstructed_root = root::storage_root_unhashed(snapshot);
+
+        println!("expected: {:?}", account_storage_root);
+        println!("reconstructed: {:?}", reconstructed_root);
+
+        assert_eq!(account_storage_root, reconstructed_root);
     }
 
     #[test]
