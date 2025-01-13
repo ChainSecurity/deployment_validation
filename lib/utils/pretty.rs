@@ -3,7 +3,7 @@ use std::ops::BitAnd;
 use std::str::FromStr;
 
 use alloy::json_abi::Event;
-use alloy::primitives::{Address, U256, I256, Sign};
+use alloy::primitives::{Address, Sign, I256, U256};
 
 use alloy_dyn_abi::{DecodedEvent, DynSolValue};
 use prettytable::Table;
@@ -68,7 +68,12 @@ impl PrettyPrinter {
         event.signature()
     }
 
-    pub fn pretty_event_params(&self, abi_event: &Event, decoded_event: &DecodedEvent, newlines: bool) -> String {
+    pub fn pretty_event_params(
+        &self,
+        abi_event: &Event,
+        decoded_event: &DecodedEvent,
+        newlines: bool,
+    ) -> String {
         let mut decoded_params: Vec<String> = vec![];
         let mut next_index = 0;
         let mut next_body = 0;
@@ -117,7 +122,11 @@ impl PrettyPrinter {
             DynSolValue::Function(func) => {
                 format!("function {:?}", func)
             }
-            DynSolValue::CustomStruct { name: _name, prop_names: _prop_name, tuple } => {
+            DynSolValue::CustomStruct {
+                name: _name,
+                prop_names: _prop_name,
+                tuple,
+            } => {
                 let decoded: Vec<String> = tuple.iter().map(|a| self.pretty_token(a)).collect();
                 format!("({})", decoded.join(", "))
             }
@@ -179,8 +188,7 @@ impl PrettyPrinter {
                     if long {
                         format!(
                             "{}\nLink:\nhttps://etherscan.io/address/{:?}",
-                            resolved.name,
-                            a,
+                            resolved.name, a,
                         )
                     } else {
                         resolved.name.clone()
@@ -404,19 +412,10 @@ mod tests {
         let b7 = vec![0x00, 0x01];
         assert_eq!(I256::ONE, convert_bytes_to_i256(&b7, "t_int16"));
         let b8 = vec![0, 0x00, 0x02];
-        assert_eq!(
-            I256::ONE + I256::ONE,
-            convert_bytes_to_i256(&b8, "t_int16")
-        );
+        assert_eq!(I256::ONE + I256::ONE, convert_bytes_to_i256(&b8, "t_int16"));
         let b9 = vec![0u8; 32];
         assert_eq!(I256::ZERO, convert_bytes_to_i256(&b9, "t_int256"));
-        for i in vec![
-            I256::ZERO,
-            I256::ONE,
-            I256::MINUS_ONE,
-            I256::MAX,
-            I256::MAX,
-        ] {
+        for i in vec![I256::ZERO, I256::ONE, I256::MINUS_ONE, I256::MAX, I256::MAX] {
             let bytes: [u8; 32] = i.to_be_bytes();
             assert_eq!(i, convert_bytes_to_i256(&bytes.to_vec(), "t_int256"));
         }

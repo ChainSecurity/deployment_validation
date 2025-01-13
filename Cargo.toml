@@ -25,53 +25,53 @@ path = "lib/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = "4.7.0"
+actix-web = "4.9.0"
 alloy = { version = "0.6.4", features = ["full"] }
-alloy-chains = { version = "0.1.47", features = ["serde"] }
-alloy-dyn-abi = { version = "0.8.12", features = ["eip712"] }
-alloy-json-abi = "0.8.12"
-alloy-node-bindings = "0.7.0"
+alloy-chains = { version = "0.1.55", features = ["serde"] }
+alloy-dyn-abi = { version = "0.8.18", features = ["eip712"] }
+alloy-json-abi = "0.8.18"
+alloy-node-bindings = "0.7.3"
 alloy-rpc-types = "0.6.4"
 alloy-rpc-types-trace = "0.6.4"
 alloy-signer = { version = "0.6.4", features = ["eip712"] }
 alloy-signer-ledger = "0.6.4"
 alloy-signer-local = "0.6.4"
-async-trait = "0.1.69"
+async-trait = "0.1.85"
 bigint = "1"
-bytes = "1.4.0"
-clap = { version = "3.1.6", features = ["derive"] }
-colored = "1.0.0"
-console = "0.15.7"
+bytes = "1.9.0"
+clap = { version = "3.2.25", features = ["derive"] }
+colored = "1.9.4"
+console = "0.15.10"
 dirs-next = "2.0.0"
 dotenv = "0.15.0"
 foundry-block-explorers = "0.9.0"
 foundry-compilers = "0.11.6"
-foundry-compilers-core = "0.12.3"
+foundry-compilers-core = "0.12.9"
 hex = "0.4"
-indicatif = "0.17.6"
+indicatif = "0.17.9"
 prettytable-rs = "0.10.0"
 rand = "0.8.5"
 regex = "1"
 reqwest = { version = "0.11", features = ["json", "blocking"] }
-reth-trie = { git = "https://github.com/paradigmxyz/reth", tag = "v1.1.2"}
-ruint = "1.12.3"
+reth-trie = { git = "https://github.com/paradigmxyz/reth", tag = "v1.1.5"}
+ruint = "1.12.4"
 rustc-hex = "2.1.0"
-scanf = "1.2.1"
-semver = { version = "1.0.17", features = ["serde"] }
-serde = { version = "1.0.144", features = ["derive"] }
-serde_json = "1.0.85"
+scanf = "1.2.3"
+semver = { version = "1.0.24", features = ["serde"] }
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.135"
 sha3 = "0.10.8"
 substring = "1.4.5"
-tempfile = "3.6.0"
-thiserror = "1.0.40"
-time = "0.3.36"
-tiny-keccak = { version = "2.0.0", features = ["sha3", "keccak"] }
+tempfile = "3.15.0"
+thiserror = "1.0.69"
+time = "0.3.37"
+tiny-keccak = { version = "2.0.2", features = ["sha3", "keccak"] }
 tokio = { version = "1", features = ["full"] }
-toml = "0.7.4"
-tracing = "0.1.34"
-tracing-subscriber = { version = "0.3.11", default-features = true, features = ["env-filter", "fmt"] }
+toml = "0.7.8"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", default-features = true, features = ["env-filter", "fmt"] }
 zip = "0.6.6"
 
 [dev-dependencies]
-assert_cmd = "2.0.12"
-env_logger = "0.11.5"
+assert_cmd = "2.0.16"
+env_logger = "0.11.6"

@@ -5,12 +5,12 @@ use std::path::PathBuf;
 
 use alloy::json_abi::Constructor;
 use clap::ValueEnum;
-use serde_json::Value;
-use tempfile::Builder;
 use semver::Version;
-use tempfile::TempDir;
+use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
+use tempfile::Builder;
+use tempfile::TempDir;
 use tracing::{debug, info};
 
 use crate::bytecode_verification::types::Types;
@@ -22,21 +22,16 @@ use crate::types::Immutable;
 use colored::Colorize;
 use std::str::FromStr;
 
-use foundry_compilers::CompilerOutput;
-use foundry_compilers::buildinfo::BuildInfo as BInfo;
-use foundry_compilers::artifacts::Error as CompilerError;
-use foundry_compilers::artifacts::{
-    BytecodeHash, 
-    BytecodeObject, 
-    Contract as ContractArt, 
-    DeployedBytecode, 
-    NodeType, 
-    Node as EAstNode,
-    SourceFile
-};
-use foundry_compilers::solc::SolcVersionedInput;
 use alloy::json_abi::Event;
 use alloy::primitives::U256;
+use foundry_compilers::artifacts::Error as CompilerError;
+use foundry_compilers::artifacts::{
+    BytecodeHash, BytecodeObject, Contract as ContractArt, DeployedBytecode, Node as EAstNode,
+    NodeType, SourceFile,
+};
+use foundry_compilers::buildinfo::BuildInfo as BInfo;
+use foundry_compilers::solc::SolcVersionedInput;
+use foundry_compilers::CompilerOutput;
 
 type BuildInfo = BInfo<SolcVersionedInput, CompilerOutput<CompilerError>>;
 
@@ -1397,9 +1392,13 @@ impl ProjectInfo {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
                     let bi: BuildInfo = BuildInfo::read(&build_info_file.path())?;
-                    if bi.output.contracts.values().flatten().any(|(name, _)| {
-                        name == contract_name
-                    }) {
+                    if bi
+                        .output
+                        .contracts
+                        .values()
+                        .flatten()
+                        .any(|(name, _)| name == contract_name)
+                    {
                         build_infos.push(bi);
                     }
                 }
@@ -1567,8 +1566,20 @@ impl ProjectInfo {
             compiled_bytecode: compiled_bytecode_str,
             init_code: init_code_str,
             compiler_version: build_info.solc_version.clone(),
-            optimization_enabled: build_info.input.input.settings.optimizer.enabled.unwrap_or(false),
-            optimization_runs: build_info.input.input.settings.optimizer.runs.unwrap_or_default(),
+            optimization_enabled: build_info
+                .input
+                .input
+                .settings
+                .optimizer
+                .enabled
+                .unwrap_or(false),
+            optimization_runs: build_info
+                .input
+                .input
+                .settings
+                .optimizer
+                .runs
+                .unwrap_or_default(),
             cbor_metadata: build_info
                 .input
                 .input

@@ -9,14 +9,14 @@ use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
 
+use alloy::primitives::Address;
 use clap::ArgMatches;
 use clap::{App, Arg, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
 use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION};
-use alloy::primitives::Address;
 use foundry_block_explorers::contract::{SourceCodeEntry, SourceCodeMetadata};
-use foundry_block_explorers::Client;
 use foundry_block_explorers::errors::EtherscanError;
+use foundry_block_explorers::Client;
 use foundry_compilers::artifacts::Settings;
 use semver::Version;
 use tokio::runtime::Runtime;

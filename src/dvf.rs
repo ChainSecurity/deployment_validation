@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
 
+use alloy::json_abi::Event;
+use alloy::primitives::{Address, B256};
 use alloy_dyn_abi::EventExt;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, SubCommand};
 use colored::Colorize;
@@ -18,8 +20,6 @@ use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
 use dvf_libs::web3;
-use alloy::json_abi::Event;
-use alloy::primitives::{Address, B256};
 use indicatif::ProgressBar;
 use prettytable::{row, Table};
 use scanf::sscanf;
@@ -1031,7 +1031,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     if seen_event.topic0() == Some(&topic0) {
                         let log_inner = &seen_event.inner;
                         let decoded_event = abi_event.decode_log(log_inner, true)?;
-                        let pretty_event = pretty_printer.pretty_event_params(abi_event, &decoded_event, true);
+                        let pretty_event =
+                            pretty_printer.pretty_event_params(abi_event, &decoded_event, true);
 
                         // Add Event Name to table
                         if !table_head {
@@ -1066,10 +1067,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 );
                 let used_topics_0: HashSet<B256> =
                     all_events.iter().map(|e| e.selector()).collect();
-                let all_topics_0: HashSet<B256> = seen_events
-                    .iter()
-                    .map(|e| *e.topic0().unwrap())
-                    .collect();
+                let all_topics_0: HashSet<B256> =
+                    seen_events.iter().map(|e| *e.topic0().unwrap()).collect();
                 for unused_topic in all_topics_0.difference(&used_topics_0) {
                     // Collect Occurrences
                     let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];

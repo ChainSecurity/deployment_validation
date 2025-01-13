@@ -1,6 +1,7 @@
 #[cfg(test)]
 
 mod tests {
+    use alloy_node_bindings::{Anvil, AnvilInstance};
     use assert_cmd::Command;
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::dvf::parse::CompleteDVF;
@@ -15,7 +16,6 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
     use tempfile::NamedTempFile;
-    use alloy_node_bindings::{AnvilInstance, Anvil};
 
     #[derive(PartialEq, Clone)]
     enum LocalClientType {

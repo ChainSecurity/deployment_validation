@@ -17,12 +17,11 @@ use clap::ArgMatches;
 
 use foundry_compilers;
 
-use alloy_signer_ledger::LedgerError;
-use alloy_signer_local::LocalSignerError;
+use alloy::primitives::{Address, Bytes, PrimitiveSignature, B256, U256};
 use alloy::signers::Signer;
 use alloy_dyn_abi;
-use alloy::primitives::{Address, B256, U256, Bytes, PrimitiveSignature};
-
+use alloy_signer_ledger::LedgerError;
+use alloy_signer_local::LocalSignerError;
 
 use reqwest;
 use semver::Version;
@@ -378,7 +377,9 @@ impl DumpedDVF {
         let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
         let critical_events: Vec<DVFEventEntry> = vec![];
         let constructor_args: Vec<DVFConstructorArg> = vec![];
-        let implementation_address = matches.value_of("implementation").map(|_| Address::default());
+        let implementation_address = matches
+            .value_of("implementation")
+            .map(|_| Address::default());
         let implementation_name = matches.value_of("implementation").map(|x| x.to_string());
         let dumped = DumpedDVF {
             version: CURRENT_VERSION,
@@ -544,11 +545,14 @@ impl CompleteDVF {
                     let signature: PrimitiveSignature = serde_json::from_str(sig_data).unwrap();
                     let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
-                    let rec_address = signature.recover_address_from_msg(sig_message).map_err(
-                        |_| {
-                            ValidationError::Error(String::from("Error. Signature validation failed."))
-                        }
-                    )?;
+                    let rec_address =
+                        signature
+                            .recover_address_from_msg(sig_message)
+                            .map_err(|_| {
+                                ValidationError::Error(String::from(
+                                    "Error. Signature validation failed.",
+                                ))
+                            })?;
                     debug!("Provided Address: {:?}", &sig.signer);
                     debug!("Recovered address {:?}", rec_address);
                     if sig.signer != rec_address {

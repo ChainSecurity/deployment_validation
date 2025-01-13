@@ -17,10 +17,10 @@ use tracing::{debug, info};
 use crate::dvf::config::DVFConfig;
 use crate::dvf::parse::ValidationError;
 
-use alloy::primitives::{Address, B256, U256, Bytes};
-use alloy_rpc_types_trace::parity::{Action, TraceOutput, LocalizedTransactionTrace};
-use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, StructLog, DiffMode};
-use alloy::rpc::types::{TransactionReceipt, Log, Block, Transaction, EIP1186AccountProofResponse};
+use alloy::primitives::{Address, Bytes, B256, U256};
+use alloy::rpc::types::{Block, EIP1186AccountProofResponse, Log, Transaction, TransactionReceipt};
+use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, DiffMode, StructLog};
+use alloy_rpc_types_trace::parity::{Action, LocalizedTransactionTrace, TraceOutput};
 
 use reth_trie::root;
 
@@ -56,7 +56,6 @@ pub struct IntermediateDefaultFrame {
 }
 
 impl From<IntermediateTraceWithAddress> for TraceWithAddress {
-
     fn from(x: IntermediateTraceWithAddress) -> Self {
         let df = DefaultFrame {
             failed: x.trace.failed,
@@ -86,7 +85,10 @@ pub struct TraceWithAddress {
     pub tx_id: String,
 }
 
-pub fn get_block_traces(config: &DVFConfig, block_num: u64) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
+pub fn get_block_traces(
+    config: &DVFConfig,
+    block_num: u64,
+) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_block",
@@ -366,7 +368,10 @@ fn get_ots_contract_creator(
     Ok(result)
 }
 
-fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
+fn get_tx_trace(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_transaction",
@@ -577,13 +582,17 @@ pub fn get_block_number_for_tx(
 
 // Not every rpc supports eth_getAccount.
 // So we have to retrieve the account by querying an empty storage proof
-pub fn get_eth_account_at_block(config: &DVFConfig, account: &Address, block: u64) -> Result<B256, ValidationError> {
+pub fn get_eth_account_at_block(
+    config: &DVFConfig,
+    account: &Address,
+    block: u64,
+) -> Result<B256, ValidationError> {
     let block_hex = format!("{:#x}", block);
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "eth_getProof",
         "params": [
-            account, 
+            account,
             [], // slots
             block_hex,
             ],
@@ -818,9 +827,7 @@ pub fn get_all_txs_for_contract(
 // Checks if an address is used in this call frame (or subcalls)
 // Ignores reverting executions
 fn call_frame_contains(call_frame: &CallFrame, address: &Address) -> bool {
-    if call_frame.error.is_none()
-        && call_frame.to.as_ref() == Some(address)
-    {
+    if call_frame.error.is_none() && call_frame.to.as_ref() == Some(address) {
         return true;
     }
 
@@ -1233,7 +1240,9 @@ pub fn get_eth_storage_at(
 
 pub fn get_eth_block_timestamp(config: &DVFConfig, block_num: u64) -> Result<u64, ValidationError> {
     Ok(get_eth_block_by_num(config, block_num, false)?
-        .header.inner.timestamp)
+        .header
+        .inner
+        .timestamp)
 }
 
 fn get_eth_blockhash_by_num(config: &DVFConfig, block_num: u64) -> Result<String, ValidationError> {
@@ -1342,7 +1351,6 @@ impl StorageSnapshot {
                 // verify snapshot with account storage merkle root
                 Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
                 snapshot
-
             } else {
                 let snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes)?;
                 // verify snapshot with account storage merkle root
@@ -1359,22 +1367,24 @@ impl StorageSnapshot {
     }
 
     // Reconstruct and verify the account storage root
-    pub fn validate_snapshot_with_mpt_root(config: &DVFConfig, snapshot: &HashMap<U256, [u8; 32]>, address: &Address, block_num: u64) {
+    pub fn validate_snapshot_with_mpt_root(
+        config: &DVFConfig,
+        snapshot: &HashMap<U256, [u8; 32]>,
+        address: &Address,
+        block_num: u64,
+    ) {
         // retrieve account info from rpc
         let account_storage_root = get_eth_account_at_block(config, address, block_num).unwrap();
-        
+
         // snapshot type casting
         let snapshot: HashMap<B256, U256> = snapshot
             .iter()
-            .map(
-                |(k, v)| 
-                (B256::from(*k), U256::from_be_slice(v.as_slice()))
-            )
+            .map(|(k, v)| (B256::from(*k), U256::from_be_slice(v.as_slice())))
             .collect();
 
         let reconstructed_root = root::storage_root_unhashed(snapshot);
 
-        assert_eq!(reconstructed_root, account_storage_root); 
+        assert_eq!(reconstructed_root, account_storage_root);
     }
 
     fn init_unused_parts(snapshot: &HashMap<U256, [u8; 32]>) -> HashMap<U256, [bool; 32]> {
@@ -1804,8 +1814,8 @@ impl StorageSnapshot {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use reth_trie::root;
+    use std::str::FromStr;
 
     use super::*;
     use env_logger;
@@ -1899,15 +1909,14 @@ mod tests {
 
         let init_block_num = get_eth_block_number(&config).unwrap() - 1;
 
-        let account_storage_root = get_eth_account_at_block(&config, &address, init_block_num).unwrap();
+        let account_storage_root =
+            get_eth_account_at_block(&config, &address, init_block_num).unwrap();
 
-        let snapshot: HashMap<ruint::Uint<256, 4>, [u8; 32]> = get_eth_storage_snapshot(&config, &address, init_block_num).unwrap();
+        let snapshot: HashMap<ruint::Uint<256, 4>, [u8; 32]> =
+            get_eth_storage_snapshot(&config, &address, init_block_num).unwrap();
         let snapshot: HashMap<B256, U256> = snapshot
             .into_iter()
-            .map(
-                |(k, v)| 
-                (B256::from(k), U256::from_be_slice(v.as_slice()))
-            )
+            .map(|(k, v)| (B256::from(k), U256::from_be_slice(v.as_slice())))
             .collect();
 
         let reconstructed_root = root::storage_root_unhashed(snapshot);

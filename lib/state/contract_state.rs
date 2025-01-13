@@ -210,7 +210,8 @@ impl<'a> ContractState<'a> {
                         if length_in_bytes > U256::from(32_u64)
                             && length_in_bytes < U256::from(usize::MAX / 2)
                         {
-                            let usize_str_length = usize::try_from(length_in_bytes).unwrap() * 2 + 2;
+                            let usize_str_length =
+                                usize::try_from(length_in_bytes).unwrap() * 2 + 2;
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
@@ -587,7 +588,8 @@ impl<'a> ContractState<'a> {
                 // We skip the -1 as we round down anyway
                 string_length /= U256::from_limbs([2, 0, 0, 0]);
                 let mut string_index = U256::ZERO;
-                let mut current_slot = U256::from_be_slice(hash_u256(&state_variable.slot).as_slice());
+                let mut current_slot =
+                    U256::from_be_slice(hash_u256(&state_variable.slot).as_slice());
                 let mut raw_string: Vec<u8> = vec![];
                 let u256_32 = U256::from_limbs([32, 0, 0, 0]);
                 loop {

@@ -13,9 +13,9 @@ use dirs_next::home_dir;
 use alloy::primitives::Address;
 use alloy_chains::NamedChain;
 
-use alloy::signers::Signer;
 use alloy::signers::local::PrivateKeySigner; //LOCALWALLET
-use alloy_signer_ledger::{LedgerSigner, HDPath};
+use alloy::signers::Signer;
+use alloy_signer_ledger::{HDPath, LedgerSigner};
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
@@ -224,9 +224,10 @@ impl DVFConfig {
                     ),
                     DVFWalletType::Ledger(ledger_config) => {
                         let rt = tokio::runtime::Runtime::new().unwrap();
-                        AbstractWallet::Ledger(
-                            rt.block_on(LedgerSigner::new(ledger_config.get_hd_path(), Option::Some(chain_id)))?,
-                        )
+                        AbstractWallet::Ledger(rt.block_on(LedgerSigner::new(
+                            ledger_config.get_hd_path(),
+                            Option::Some(chain_id),
+                        ))?)
                     }
                 };
                 if temp_wallet.address() != signer.wallet_address {

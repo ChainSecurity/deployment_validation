@@ -10,7 +10,7 @@ mod tests {
     use dvf_libs::state::contract_state::ContractState;
     use dvf_libs::state::forge_inspect;
     use dvf_libs::utils::pretty::PrettyPrinter;
-    use dvf_libs::web3::{StorageSnapshot, TraceWithAddress, IntermediateTraceWithAddress};
+    use dvf_libs::web3::{IntermediateTraceWithAddress, StorageSnapshot, TraceWithAddress};
     use prettytable::Table;
 
     fn generate_results(

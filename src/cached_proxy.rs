@@ -1,6 +1,6 @@
 use actix_web::{web, web::get, web::post, App, HttpRequest, HttpServer, Responder};
-use clap::{Arg, Command};
 use alloy::primitives::keccak256;
+use clap::{Arg, Command};
 use reqwest::{header::HeaderMap, Url};
 use serde_json::Value;
 use std::fs::{create_dir_all, File};

@@ -268,13 +268,20 @@ impl CompareInitCode {
         }
 
         // decode constructor arguments
-        let decoded_args = project_info.constructor.as_ref().unwrap().abi_decode_input(&init_bytecode[compiled_init_code.len()..], true).expect("Unable to decode the constructor arguments.");
+        let decoded_args = project_info
+            .constructor
+            .as_ref()
+            .unwrap()
+            .abi_decode_input(&init_bytecode[compiled_init_code.len()..], true)
+            .expect("Unable to decode the constructor arguments.");
 
         for (arg, value) in project_info.constructor_args.iter_mut().zip(decoded_args) {
             let encoded_value = value.abi_encode_packed();
             let formatted_value = format!("0x{}", hex::encode(&encoded_value));
-            
-            let sol_type = value.as_type().unwrap_or_else(|| panic!("Unable to find constructor argument type for {}", arg.name));
+
+            let sol_type = value.as_type().unwrap_or_else(|| {
+                panic!("Unable to find constructor argument type for {}", arg.name)
+            });
 
             arg.value = formatted_value;
             arg.type_string = sol_type.sol_type_name().to_string()
@@ -369,12 +376,12 @@ mod tests {
 
         let constructor_inputs: Vec<Param> = vec![
             Param::parse("address arg1").unwrap(),
-            Param::parse("address arg2").unwrap()
+            Param::parse("address arg2").unwrap(),
         ];
 
         let constructor = Constructor {
             inputs: constructor_inputs,
-            state_mutability: StateMutability::NonPayable
+            state_mutability: StateMutability::NonPayable,
         };
 
         let mut p = ProjectInfo {
