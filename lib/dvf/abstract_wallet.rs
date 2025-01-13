@@ -103,7 +103,6 @@ impl Signer for AbstractWallet {
             AbstractWallet::LocalWallet(localwallet) => {
                 localwallet.sign_typed_data(payload, domain).await
             }
-            // .map_err(AbstractError::from),
         }
     }
 
@@ -118,7 +117,6 @@ impl Signer for AbstractWallet {
             AbstractWallet::LocalWallet(localwallet) => {
                 localwallet.sign_dynamic_typed_data(payload).await
             }
-            // .map_err(AbstractError::from),
         }
     }
 

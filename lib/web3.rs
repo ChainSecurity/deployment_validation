@@ -1338,6 +1338,12 @@ impl StorageSnapshot {
         let snapshot: HashMap<U256, [u8; 32]> = if let Ok(storage_snapshot) =
             get_eth_storage_snapshot(config, address, init_block_num)
         {
+            Self::validate_snapshot_with_mpt_root(
+                config,
+                &storage_snapshot,
+                address,
+                init_block_num,
+            );
             storage_snapshot
         } else {
             // Alternatively, get all txs
@@ -1812,6 +1818,40 @@ impl StorageSnapshot {
     }
 }
 
+pub fn get_eth_storage_snapshot(
+    config: &DVFConfig,
+    address: &Address,
+    init_block_num: u64,
+) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+    let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+
+    //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
+    let init_block_hash = get_eth_blockhash_by_num(config, init_block_num + 1)?;
+    debug!(
+        "Blockhash of {} is {}.",
+        init_block_num + 1,
+        init_block_hash
+    );
+
+    // Mapping of hash -> {'key': 0x00, 'value': 0x01}
+    let mut next_key: String =
+        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+    loop {
+        let storage_range =
+            get_eth_storage_range_response(config, address, &init_block_hash, next_key)?;
+        for hash in storage_range.storage.keys() {
+            let key: U256 = storage_range.storage[hash].key.into();
+            let value: [u8; 32] = storage_range.storage[hash].value.0;
+            snapshot.insert(key, value);
+        }
+        if storage_range.next_key.is_null() {
+            break;
+        }
+        next_key = serde_json::from_value(storage_range.next_key).unwrap();
+    }
+    Ok(snapshot)
+}
+
 #[cfg(test)]
 mod tests {
     use reth_trie::root;
@@ -1872,8 +1912,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -2010,8 +2049,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -2030,8 +2068,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -2077,8 +2114,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -2179,65 +2215,4 @@ mod tests {
     //         assert_ne!(traces, Traces::None);
     //     }
     // }
-}
-
-pub fn get_eth_storage_snapshot(
-    config: &DVFConfig,
-    address: &Address,
-    init_block_num: u64,
-) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
-    let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
-
-    //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
-    let init_block_hash = get_eth_blockhash_by_num(config, init_block_num + 1)?;
-    debug!(
-        "Blockhash of {} is {}.",
-        init_block_num + 1,
-        init_block_hash
-    );
-
-    // Mapping of hash -> {'key': 0x00, 'value': 0x01}
-    let mut next_key: String =
-        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
-    loop {
-        let storage_range =
-            get_eth_storage_range_response(config, address, &init_block_hash, next_key)?;
-        for hash in storage_range.storage.keys() {
-            let key: U256 = storage_range.storage[hash].key.into();
-            let value: [u8; 32] = storage_range.storage[hash].value.0;
-            snapshot.insert(key, value);
-        }
-        if storage_range.next_key.is_null() {
-            break;
-        }
-        next_key = serde_json::from_value(storage_range.next_key).unwrap();
-    }
-    Ok(snapshot)
-}
-
-pub fn compute_topic_0(sig: &String) -> Result<String, ValidationError> {
-    keccak256(sig)
-}
-
-pub fn compute_four_bytes(sig: &String) -> Result<String, ValidationError> {
-    let hash = keccak256(sig).unwrap();
-    Ok(hash[..10].to_string())
-}
-
-pub fn keccak256(sig: &String) -> Result<String, ValidationError> {
-    // Create a new Sha3 object.
-    let mut hasher = Keccak::v256();
-
-    // Prepare the output array.
-    let mut output = [0u8; 32];
-
-    // Write the event data to the Sha3 object.
-    hasher.update(sig.as_bytes());
-
-    // Read the hash result into the output array.
-    hasher.finalize(&mut output);
-
-    // Convert the output array to a hex string.
-    let hex_output = "0x".to_string() + &hex::encode(output);
-    Ok(hex_output)
 }
