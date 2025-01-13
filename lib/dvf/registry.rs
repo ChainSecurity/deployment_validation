@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-use ethers_core::types::Address;
+use alloy::primitives::Address;
 use tracing::debug;
 
 use crate::dvf::config::DVFConfig;

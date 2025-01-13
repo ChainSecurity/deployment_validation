@@ -9,14 +9,14 @@ use std::str::FromStr;
 
 use clap::ArgMatches;
 use dirs_next::home_dir;
-use ethers::types::H160;
-use ethers_core::rand::thread_rng;
-use ethers_core::types::Address;
-use ethers_core::types::Chain;
-use ethers_signers::HDPath;
-use ethers_signers::Ledger;
-use ethers_signers::LocalWallet;
-use ethers_signers::Signer;
+
+use alloy::primitives::Address;
+use alloy_chains::NamedChain;
+
+use alloy::signers::Signer;
+use alloy::signers::local::PrivateKeySigner; //LOCALWALLET
+use alloy_signer_ledger::{LedgerSigner, HDPath};
+
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use tempfile::{tempdir, NamedTempFile};
@@ -101,7 +101,7 @@ pub struct DVFConfig {
     #[serde(skip_serializing)]
     pub active_chain_id: Option<u64>,
     #[serde(default, skip_serializing)]
-    active_chain: Option<Chain>,
+    active_chain: Option<NamedChain>,
 }
 
 fn default_max_blocks() -> u64 {
@@ -210,22 +210,22 @@ impl DVFConfig {
 
     pub fn get_abstract_wallet(&self, chain_id: u64) -> Result<AbstractWallet, ValidationError> {
         let wallet = match &self.signer {
-            None => AbstractWallet::LocalWallet(LocalWallet::new(&mut thread_rng())),
+            None => AbstractWallet::LocalWallet(PrivateKeySigner::random()),
 
             Some(signer) => {
                 let temp_wallet = match &signer.wallet_type {
                     DVFWalletType::SecretKey(sk) => AbstractWallet::LocalWallet(
                         sk.secret_key
-                            .parse::<LocalWallet>()
+                            .parse::<PrivateKeySigner>()
                             .map_err(|_| {
                                 ValidationError::Error("Could not parse private key.".to_string())
                             })?
-                            .with_chain_id(chain_id),
+                            .with_chain_id(Option::Some(chain_id)),
                     ),
                     DVFWalletType::Ledger(ledger_config) => {
                         let rt = tokio::runtime::Runtime::new().unwrap();
                         AbstractWallet::Ledger(
-                            rt.block_on(Ledger::new(ledger_config.get_hd_path(), chain_id))?,
+                            rt.block_on(LedgerSigner::new(ledger_config.get_hd_path(), Option::Some(chain_id)))?,
                         )
                     }
                 };
@@ -386,12 +386,12 @@ impl DVFConfig {
             }
         }
 
-        let mut trusted_signers: Vec<H160> = vec![];
+        let mut trusted_signers: Vec<Address> = vec![];
         first_item = true;
         println!();
         println!("{}", "STEP 3".green());
         loop {
-            let mut signer = H160::zero();
+            let mut signer = Address::default();
             if first_item {
                 println!(
                     "Please provide a trusted signer or hit {} to go to the next step.",
@@ -563,7 +563,7 @@ impl DVFConfig {
                 break;
             }
 
-            let mut address = H160::zero();
+            let mut address = Address::default();
             if sscanf!(&input, "{}", address).is_ok() {
                 loop {
                     println!("Please enter your signing choice:");
@@ -726,7 +726,7 @@ impl DVFConfig {
             }
             Some(_) => self.active_chain_id = Some(chain_id),
         }
-        self.active_chain = Chain::try_from(chain_id).ok();
+        self.active_chain = NamedChain::try_from(chain_id).ok();
 
         let rpc_chain_id = web3::get_eth_chain_id(self)?;
         if rpc_chain_id != chain_id {
@@ -740,7 +740,7 @@ impl DVFConfig {
         Ok(())
     }
 
-    pub fn get_chain(&self) -> Chain {
+    pub fn get_chain(&self) -> NamedChain {
         self.active_chain.unwrap()
     }
 

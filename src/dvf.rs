@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
 
+use alloy_dyn_abi::EventExt;
 use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, SubCommand};
 use colored::Colorize;
 use console::style;
@@ -17,8 +18,8 @@ use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
 use dvf_libs::web3;
-use ethers::abi::{Event, RawLog};
-use ethers::types::{Address, H256};
+use alloy::json_abi::Event;
+use alloy::primitives::{Address, B256};
 use indicatif::ProgressBar;
 use prettytable::{row, Table};
 use scanf::sscanf;
@@ -206,13 +207,14 @@ fn validate_dvf(
 
         #[allow(clippy::needless_range_loop)]
         for i in 0..seen_events.len() {
-            if seen_events[i].topics != critical_event.occurrences[i].topics {
+            let log_inner = &seen_events[i].inner;
+            if log_inner.topics() != critical_event.occurrences[i].topics {
                 return Err(ValidationError::Invalid(format!(
                     "Mismatching topics for event occurrence {} of {}.",
                     i, critical_event.sig
                 )));
             }
-            if seen_events[i].data != critical_event.occurrences[i].data {
+            if log_inner.data.data != critical_event.occurrences[i].data {
                 return Err(ValidationError::Invalid(format!(
                     "Mismatching data for event occurrence {} of {}.",
                     i, critical_event.sig
@@ -290,7 +292,7 @@ fn is_valid_path(val: &str) -> Result<(), String> {
 fn is_valid_address(val: &str) -> Result<(), String> {
     match Address::from_str(val) {
         Ok(a) => {
-            if a != Address::zero() {
+            if a != Address::ZERO {
                 Ok(())
             } else {
                 Err(String::from("Zero is not a valid address."))
@@ -992,11 +994,11 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let all_events = match &imp_project_info {
                 None => project_info.events.clone(),
                 Some(imp_project) => {
-                    let mut set_of_sigs: HashSet<H256> = HashSet::new();
+                    let mut set_of_sigs: HashSet<B256> = HashSet::new();
                     let mut res: Vec<Event> = vec![];
                     for eventlist in [&project_info.events, &imp_project.events] {
                         for event in eventlist {
-                            let sig = event.signature();
+                            let sig = event.selector();
                             if set_of_sigs.contains(&sig) {
                                 info!(
                                     "Warning. Event {} omitted, as it is already known.",
@@ -1019,16 +1021,17 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             for abi_event in &all_events {
                 let sig = PrettyPrinter::event_to_string(abi_event);
                 debug!("Found the following event: {}", sig);
-                let topic0 = abi_event.signature();
+                let topic0 = abi_event.selector();
                 debug!("Topic0: {:?}", topic0);
                 let mut table_head = false;
 
                 // Collect Occurrences
                 let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
                 for seen_event in &seen_events {
-                    if seen_event.topics.first() == Some(&topic0) {
-                        let decoded_log = abi_event.parse_log(RawLog::from(seen_event.clone()))?;
-                        let pretty_event = pretty_printer.pretty_event_params(&decoded_log, true);
+                    if seen_event.topic0() == Some(&topic0) {
+                        let log_inner = &seen_event.inner;
+                        let decoded_event = abi_event.decode_log(log_inner, true)?;
+                        let pretty_event = pretty_printer.pretty_event_params(abi_event, &decoded_event, true);
 
                         // Add Event Name to table
                         if !table_head {
@@ -1039,8 +1042,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                         event_table.add_row(row![format!("- {}", pretty_event)]);
 
                         let occurrence = parse::DVFEventOccurrence {
-                            topics: seen_event.topics.clone(),
-                            data: seen_event.data.clone(),
+                            topics: log_inner.data.topics().to_vec(),
+                            data: log_inner.data.data.clone(),
                         };
                         occurrences.push(occurrence);
                         covered_events += 1;
@@ -1061,20 +1064,21 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     seen_events.len(),
                     covered_events
                 );
-                let used_topics_0: HashSet<H256> =
-                    all_events.iter().map(|e| e.signature()).collect();
-                let all_topics_0: HashSet<H256> = seen_events
+                let used_topics_0: HashSet<B256> =
+                    all_events.iter().map(|e| e.selector()).collect();
+                let all_topics_0: HashSet<B256> = seen_events
                     .iter()
-                    .map(|e| *e.topics.first().unwrap())
+                    .map(|e| *e.topic0().unwrap())
                     .collect();
                 for unused_topic in all_topics_0.difference(&used_topics_0) {
                     // Collect Occurrences
                     let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
                     for seen_event in &seen_events {
-                        if seen_event.topics.first() == Some(unused_topic) {
+                        let log_inner = &seen_event.inner;
+                        if seen_event.topic0() == Some(unused_topic) {
                             let occurrence = parse::DVFEventOccurrence {
-                                topics: seen_event.topics.clone(),
-                                data: seen_event.data.clone(),
+                                topics: log_inner.data.topics().to_vec(),
+                                data: log_inner.data.data.clone(),
                             };
                             occurrences.push(occurrence);
                         }
@@ -1361,14 +1365,15 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 let num_shared = std::cmp::min(seen_events.len(), critical_event.occurrences.len());
                 #[allow(clippy::needless_range_loop)]
                 for i in 0..num_shared {
-                    if seen_events[i].topics != critical_event.occurrences[i].topics {
+                    let log_innner = &seen_events[i].inner;
+                    if log_innner.topics() != critical_event.occurrences[i].topics {
                         println!(
                             "Mismatching topics for event occurrence {} of {}.",
                             i, critical_event.sig
                         );
                         replace_events = true;
                     }
-                    if seen_events[i].data != critical_event.occurrences[i].data {
+                    if log_innner.data.data != critical_event.occurrences[i].data {
                         println!(
                             "Mismatching data for event occurrence {} of {}.",
                             i, critical_event.sig
@@ -1380,9 +1385,10 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     // Collect Occurrences
                     let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
                     for seen_event in &seen_events {
+                        let log_inner = &seen_event.inner;
                         let occurrence = parse::DVFEventOccurrence {
-                            topics: seen_event.topics.clone(),
-                            data: seen_event.data.clone(),
+                            topics: log_inner.data.topics().to_vec(),
+                            data: log_inner.data.data.clone(),
                         };
                         occurrences.push(occurrence);
                     }

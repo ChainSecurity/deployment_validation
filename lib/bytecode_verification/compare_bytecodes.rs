@@ -1,4 +1,4 @@
-use alloy::dyn_abi::{JsonAbiExt};
+use alloy::dyn_abi::JsonAbiExt;
 use foundry_compilers::artifacts::BytecodeHash;
 use tracing::{debug, info};
 
@@ -273,8 +273,8 @@ impl CompareInitCode {
         for (arg, value) in project_info.constructor_args.iter_mut().zip(decoded_args) {
             let encoded_value = value.abi_encode_packed();
             let formatted_value = format!("0x{}", hex::encode(&encoded_value));
-
-            let sol_type = value.as_type().expect(format!("Unable to find constructor argument type for {}", arg.name).as_str());
+            
+            let sol_type = value.as_type().unwrap_or_else(|| panic!("Unable to find constructor argument type for {}", arg.name));
 
             arg.value = formatted_value;
             arg.type_string = sol_type.sol_type_name().to_string()
@@ -289,7 +289,6 @@ impl CompareInitCode {
 mod tests {
     use crate::types::ConstructorArg;
     use alloy::json_abi::{Constructor, Param, StateMutability};
-    use ethers::abi::ParamType;
     use semver::Version;
     use std::collections::HashMap;
 
@@ -359,18 +358,18 @@ mod tests {
             ConstructorArg {
                 name: "arg1".to_string(),
                 value: "1".to_string(),
-                type_string: "uint256".to_string(),
+                type_string: "address".to_string(),
             },
             ConstructorArg {
                 name: "arg2".to_string(),
                 value: "2".to_string(),
-                type_string: "uint128".to_string(),
+                type_string: "address".to_string(),
             },
         ];
 
         let constructor_inputs: Vec<Param> = vec![
-            Param::parse("uint256 arg1").unwrap(),
-            Param::parse("uint128 arg2").unwrap()
+            Param::parse("address arg1").unwrap(),
+            Param::parse("address arg2").unwrap()
         ];
 
         let constructor = Constructor {

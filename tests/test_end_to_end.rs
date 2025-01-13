@@ -4,7 +4,6 @@ mod tests {
     use assert_cmd::Command;
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::dvf::parse::CompleteDVF;
-    use ethers_core::utils::{Anvil, AnvilInstance};
     use std::fs::metadata;
     use std::fs::File;
     use std::fs::OpenOptions;
@@ -16,6 +15,7 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
     use tempfile::NamedTempFile;
+    use alloy_node_bindings::{AnvilInstance, Anvil};
 
     #[derive(PartialEq, Clone)]
     enum LocalClientType {

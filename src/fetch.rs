@@ -13,11 +13,11 @@ use clap::ArgMatches;
 use clap::{App, Arg, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
 use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION};
-use ethers_core::abi::Address;
-use ethers_etherscan::contract::SourceCodeEntry;
-use ethers_etherscan::errors::EtherscanError;
-use ethers_etherscan::Client;
-use ethers_solc::artifacts::Settings;
+use alloy::primitives::Address;
+use foundry_block_explorers::contract::{SourceCodeEntry, SourceCodeMetadata};
+use foundry_block_explorers::Client;
+use foundry_block_explorers::errors::EtherscanError;
+use foundry_compilers::artifacts::Settings;
 use semver::Version;
 use tokio::runtime::Runtime;
 use toml::Table;
@@ -355,17 +355,17 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     // Write sources
     // Check what kind of Etherscan Response we have (Single file, Multi file, ...)
     match &metadata.items[0].source_code {
-        ethers_etherscan::contract::SourceCodeMetadata::SourceCode(source_str) => {
+        SourceCodeMetadata::SourceCode(source_str) => {
             let sol_path = foundry_path
                 .join("src")
                 .join(&metadata.items[0].contract_name)
                 .with_extension("sol");
             fs::write(sol_path, source_str).expect("Unable to write file");
         }
-        ethers_etherscan::contract::SourceCodeMetadata::Sources(sources) => {
+        SourceCodeMetadata::Sources(sources) => {
             parse_sources(sources, foundry_path);
         }
-        ethers_etherscan::contract::SourceCodeMetadata::Metadata {
+        SourceCodeMetadata::Metadata {
             sources, settings, ..
         } => {
             // Parse settings
