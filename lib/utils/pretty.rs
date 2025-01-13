@@ -5,6 +5,7 @@ use std::str::FromStr;
 use alloy::json_abi::Event;
 use alloy::primitives::{Address, Sign, I256, U256};
 
+use alloy_chains::NamedChain;
 use alloy_dyn_abi::{DecodedEvent, DynSolValue};
 use prettytable::Table;
 use serde::Deserialize;
@@ -35,6 +36,7 @@ pub struct ResolvedAddress {
 #[derive(Debug)]
 pub struct PrettyPrinter {
     ns: HashMap<Address, ResolvedAddress>,
+    chain_id: u64,
 }
 
 const KNOWN_ADDRS: &str = include_str!("../../addresses/known.json");
@@ -61,7 +63,7 @@ impl PrettyPrinter {
             ns.extend(registry.collect_name_resolution(chain_id));
         }
         debug!("Name Resolution has {} entries.", ns.keys().len());
-        PrettyPrinter { ns }
+        PrettyPrinter { ns, chain_id }
     }
 
     pub fn event_to_string(event: &Event) -> String {
@@ -186,10 +188,15 @@ impl PrettyPrinter {
             match resolved.address_type {
                 AddressType::Contract | AddressType::Token | AddressType::Registry => {
                     if long {
-                        format!(
-                            "{}\nLink:\nhttps://etherscan.io/address/{:?}",
-                            resolved.name, a,
-                        )
+                        if let Ok(chain) = NamedChain::try_from(self.chain_id) {
+                            if let Some(urls) = chain.etherscan_urls() {
+                                return format!(
+                                    "{}\nLink:\n{}/address/{:?}",
+                                    resolved.name, urls.0, a
+                                );
+                            };
+                        }
+                        resolved.name.clone()
                     } else {
                         resolved.name.clone()
                     }
