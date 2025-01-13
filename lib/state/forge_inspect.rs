@@ -49,7 +49,7 @@ where
 {
     struct USizeVisitor;
 
-    impl<'de> Visitor<'de> for USizeVisitor {
+    impl Visitor<'_> for USizeVisitor {
         type Value = usize;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -72,7 +72,7 @@ where
 {
     struct U256Visitor;
 
-    impl<'de> Visitor<'de> for U256Visitor {
+    impl Visitor<'_> for U256Visitor {
         type Value = U256;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

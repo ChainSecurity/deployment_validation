@@ -447,7 +447,7 @@ where
 {
     struct U64Visitor;
 
-    impl<'de> Visitor<'de> for U64Visitor {
+    impl Visitor<'_> for U64Visitor {
         type Value = u64;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -1710,26 +1710,26 @@ impl StorageSnapshot {
 
     // Get Storage entry
     pub fn get_slot(&self, slot: &U256, offset: usize, size: usize) -> Vec<u8> {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => val[32 - offset - size..32 - offset].to_vec(),
             None => vec![0; size],
-        };
+        }
     }
 
     // Get Storage entry
     pub fn get_full_slot(&self, slot: &U256) -> [u8; 32] {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => *val,
             None => [0u8; 32],
-        };
+        }
     }
 
     // Get Storage entry
     pub fn get_u8_from_slot(&self, slot: &U256, offset: usize) -> u8 {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => val[32 - offset - 1],
             None => 0u8,
-        };
+        }
     }
 
     fn check_all_unused(&mut self, slot: &U256, offset: usize, size: usize) -> bool {
@@ -1755,13 +1755,13 @@ impl StorageSnapshot {
 
     // Related to: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#bytes-and-string
     pub fn is_final_bit_set(&self, slot: &U256) -> bool {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => {
                 let final_byte = val[31];
-                return final_byte % 2 == 1;
+                final_byte % 2 == 1
             }
             None => false,
-        };
+        }
     }
 
     // Collect all storage slots that have not previously been queried
