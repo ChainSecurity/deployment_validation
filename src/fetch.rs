@@ -12,7 +12,7 @@ use std::time::Duration;
 use alloy::primitives::Address;
 use alloy_chains::Chain;
 use clap::ArgMatches;
-use clap::{arg, command, ArgAction};
+use clap::{arg, command, ArgAction, value_parser};
 use dvf_libs::dvf::config::DVFConfig;
 use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION_STRING};
 use foundry_block_explorers::contract::{SourceCodeEntry, SourceCodeMetadata};
@@ -64,7 +64,7 @@ fn main() {
         .arg(arg!(-p --project <PATH> "Foundry project path").required(true))
         .arg(arg!(-a --address <ADDRESS> "Contract address").required(true))
         .arg(arg!(-v --verbose "Verbose mode").action(ArgAction::SetTrue))
-        .arg(arg!(--chainid <CHAINID> "Chain ID").default_value("1"))
+        .arg(arg!(--chainid <CHAINID> "Chain ID").default_value("1").value_parser(value_parser!(u64)))
         .get_matches();
 
     if matches.get_flag("verbose") {

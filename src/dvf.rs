@@ -7,13 +7,13 @@ use std::str::FromStr;
 use alloy::json_abi::Event;
 use alloy::primitives::{Address, B256};
 use alloy_dyn_abi::EventExt;
-use clap::{ArgMatches, Command, arg};
+use clap::{ArgMatches, Command, arg, value_parser};
 use colored::Colorize;
 use console::style;
 use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, CompareInitCode};
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
-use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
+use dvf_libs::dvf::config::{replace_tilde, DVFConfig, DEFAULT_CONFIG_LOCATION};
 use dvf_libs::dvf::parse::{self, BasicDVF, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
@@ -268,32 +268,32 @@ fn validate_dvf(
 }
 
 // Validator function
-fn is_valid_32_byte_hex(val: &str) -> Result<(), String> {
+fn is_valid_32_byte_hex(val: &str) -> Result<String, String> {
     if !val.starts_with("0x") {
         return Err(format!("Argument {} needs to start with 0x.", val));
     }
     if val.len() != 66 {
         return Err(format!("Argument {} needs to be 66 characters long.", val));
     }
-    Ok(())
+    Ok(val.to_string())
 }
 
 // Validator function
-fn is_valid_path(val: &str) -> Result<(), String> {
+fn is_valid_path(val: &str) -> Result<PathBuf, String> {
     let path = Path::new(val);
     if path.exists() {
-        Ok(())
+        Ok(path.to_path_buf())
     } else {
         Err(String::from("The path provided is not valid"))
     }
 }
 
 // Validator function
-fn is_valid_address(val: &str) -> Result<(), String> {
+fn is_valid_address(val: &str) -> Result<Address, String> {
     match Address::from_str(val) {
         Ok(a) => {
             if a != Address::ZERO {
-                Ok(())
+                Ok(a)
             } else {
                 Err(String::from("Zero is not a valid address."))
             }
@@ -303,9 +303,9 @@ fn is_valid_address(val: &str) -> Result<(), String> {
 }
 
 // Validator function
-fn is_valid_blocknum(val: &str) -> Result<(), String> {
+fn is_valid_blocknum(val: &str) -> Result<u64, String> {
     match val.parse::<u64>() {
-        Ok(_) => Ok(()),
+        Ok(b) => Ok(b),
         Err(e) => Err(format!("Could not parse block number: {:?}", e)),
     }
 }
@@ -348,7 +348,8 @@ fn main() {
             arg!(-c --config <FILE>)
                 .help("Path of config file, default location: undefined")
                 .action(clap::ArgAction::Set)
-                .value_parser(is_valid_path),
+                .default_value(DEFAULT_CONFIG_LOCATION)
+                .value_parser(value_parser!(String)),
         )
         .subcommand(
             Command::new("init")
@@ -373,7 +374,7 @@ fn main() {
                 .arg(
                     arg!(--chainid <CHAINID>)
                         .help("Chain ID where the contract is deployed")
-                        .value_parser(clap::value_parser!(u64))
+                        .value_parser(value_parser!(u64))
                         .default_value("1"),
                 )
                 .arg(
@@ -398,8 +399,8 @@ fn main() {
                 .arg(
                     arg!(--implementationenv <ENV>)
                         .help("Implementation project's development environment")
-                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
-                        .default_value("Foundry"),
+                        .value_parser(value_parser!(Environment))
+                        .default_value("foundry"),
                 )
                 .arg(
                     arg!(--implementationartifacts <PATH>)
@@ -409,8 +410,8 @@ fn main() {
                 .arg(
                     arg!(--env <ENV>)
                         .help("Project's development environment")
-                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
-                        .default_value("Foundry"),
+                        .value_parser(value_parser!(Environment)) 
+                        .default_value("foundry"),
                 )
                 .arg(
                     arg!(--artifacts <PATH>)
@@ -498,8 +499,8 @@ fn main() {
                 .arg(
                     arg!(--env <ENV>)
                         .help("Project's development environment")
-                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
-                        .default_value("Foundry"),
+                        .value_parser(clap::value_parser!(Environment))
+                        .default_value("foundry"),
                 )
                 .arg(
                     arg!(--artifacts <PATH>)
@@ -530,7 +531,7 @@ fn main() {
                 .arg(
                     arg!(--chainid <CHAINID>)
                         .help("Chain ID where the contract is deployed")
-                        .value_parser(clap::value_parser!(u64))
+                        .value_parser(value_parser!(u64))
                         .default_value("1"),
                 )
                 .arg(
@@ -546,8 +547,8 @@ fn main() {
                 .arg(
                     arg!(--env <ENV>)
                         .help("Project's development environment")
-                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
-                        .default_value("Foundry"),
+                        .value_parser(value_parser!(Environment))
+                        .default_value("foundry"),
                 )
                 .arg(
                     arg!(--artifacts <PATH>)
@@ -950,16 +951,15 @@ fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
     *i += 1;
 }
 
-fn get_project_paths(project: &str, artifacts: &str) -> (PathBuf, PathBuf) {
-    let path = PathBuf::from(project);
+fn get_project_paths(project: &PathBuf, artifacts: &str) -> PathBuf {
     // no way to access other clap arguments during argument parsing so we have to verify
     // artifacts paths here
     let build_info_dir = "build-info";
-    let mut artifacts_path = path.to_path_buf();
+    let mut artifacts_path = project.to_path_buf();
     artifacts_path.push(artifacts);
     artifacts_path.push(build_info_dir);
 
-    (path, artifacts_path)
+    artifacts_path
 }
 
 fn process(matches: ArgMatches) -> Result<(), ValidationError> {
@@ -970,21 +970,22 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Starting information gathering. This might take several minutes.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.get_one::<String>("project").unwrap();
+            let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let build_cache = sub_m.get_one::<String>("buildcache");
-            let (path, artifacts_path) = get_project_paths(project, artifacts);
+            let artifacts_path = get_project_paths(project, artifacts);
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
-            let imp_project = sub_m.get_one::<String>("implementationproject");
+            let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
             let mut imp_build_cache = sub_m.get_one::<String>("implementationbuildcache");
             let imp_artifacts = sub_m.get_one::<String>("implementationartifacts").unwrap();
             let imp_path: PathBuf;
             let imp_artifacts_path: PathBuf;
             if let Some(imp_project) = imp_project {
-                (imp_path, imp_artifacts_path) = get_project_paths(imp_project, imp_artifacts);
+                imp_artifacts_path = get_project_paths(imp_project, imp_artifacts);
+                imp_path = imp_project.clone();
             } else {
-                imp_path = path.clone();
+                imp_path = project.clone();
                 imp_artifacts_path = artifacts_path.clone();
                 imp_build_cache = build_cache;
                 imp_env = env
@@ -1042,7 +1043,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress(compile_output, &mut pc, &progress_mode);
             let mut project_info = ProjectInfo::new(
                 &dumped.contract_name,
-                &path,
+                &project,
                 env,
                 &artifacts_path,
                 build_cache,
@@ -1105,7 +1106,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress("Obtaining storage layout.", &mut pc, &progress_mode);
             // Fetch storage layout
             let layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
-                &path,
+                &project,
                 &dumped.contract_name,
                 project_info.absolute_path.clone(),
             );
@@ -1336,7 +1337,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("{pc}. Validate that the results in the table below are as expected.");
             pc += 1;
             verify_bytecode::print_generation_summary(
-                &project.to_string(),
+                &project.to_string_lossy().to_string(),
                 &dumped.contract_name,
                 &dumped.address,
                 compare_status,
@@ -1686,9 +1687,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Generating Build Cache.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.get_one::<String>("project").unwrap();
+            let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
-            let (path, artifacts_path) = get_project_paths(project, artifacts);
+            let artifacts_path = get_project_paths(project, artifacts);
 
             let mut pc = 1_u64;
             let progress_mode: ProgressMode = ProgressMode::GenerateBuildCache;
@@ -1696,7 +1697,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let build_cache_path = ProjectInfo::compile(&path, env, &artifacts_path)?;
+            let build_cache_path = ProjectInfo::compile(&project, env, &artifacts_path)?;
 
             println!("Build Cache: {}", build_cache_path.display());
             exit(0);
@@ -1705,9 +1706,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Starting bytecode check.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.get_one::<String>("project").unwrap();
+            let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
-            let (path, artifacts_path) = get_project_paths(project, artifacts);
+            let artifacts_path = get_project_paths(project, artifacts);
 
             let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
             let address = sub_m.get_one::<Address>("address").unwrap();
@@ -1731,7 +1732,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
             let mut project_info =
-                ProjectInfo::new(&contract_name, &path, env, &artifacts_path, build_cache)?;
+                ProjectInfo::new(&contract_name, &project, env, &artifacts_path, build_cache)?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");

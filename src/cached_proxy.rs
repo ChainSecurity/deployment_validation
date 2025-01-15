@@ -1,6 +1,6 @@
 use actix_web::{web, web::get, web::post, App, HttpRequest, HttpServer, Responder};
 use alloy::primitives::keccak256;
-use clap::{Arg, Command};
+use clap::{value_parser, Arg, Command};
 use reqwest::header::HeaderValue;
 use reqwest::{header::HeaderMap, header::HeaderName, Url};
 use serde_json::Value;
@@ -234,7 +234,8 @@ async fn main() -> std::io::Result<()> {
                 .short('p')
                 .long("port")
                 .value_name("PORT")
-                .default_value("5000"),
+                .default_value("5000")
+                .value_parser(value_parser!(u16)),
         )
         .arg(
             Arg::new("url")

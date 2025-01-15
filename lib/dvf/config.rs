@@ -30,7 +30,7 @@ use dotenv::dotenv;
 use scanf::sscanf;
 use std::env;
 
-const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
+pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
 const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
 const RPC_URLS_REPOSITORY: &str =
     "https://raw.githubusercontent.com/ethereum-lists/chains/master/_data/chains";
@@ -118,6 +118,7 @@ impl DVFConfig {
         if let Some(("generate-config", _)) = matches.subcommand() {
             return Ok(Self::default());
         }
+        println!("Matches: {:?}", matches);
         match matches.get_one::<String>("config") {
             Some(config_path_str) => {
                 if *config_path_str == "env".to_string() {

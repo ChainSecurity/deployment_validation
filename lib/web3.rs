@@ -1941,8 +1941,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
