@@ -118,7 +118,6 @@ impl DVFConfig {
         if let Some(("generate-config", _)) = matches.subcommand() {
             return Ok(Self::default());
         }
-        println!("Matches: {:?}", matches);
         match matches.get_one::<String>("config") {
             Some(config_path_str) => {
                 if *config_path_str == "env".to_string() {
