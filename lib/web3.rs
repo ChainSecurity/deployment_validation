@@ -20,7 +20,9 @@ use crate::dvf::parse::ValidationError;
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Block, EIP1186AccountProofResponse, Log, Transaction, TransactionReceipt};
 use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, DiffMode, StructLog};
-use alloy_rpc_types_trace::parity::{Action, LocalizedTransactionTrace, TraceOutput};
+use alloy_rpc_types_trace::parity::{
+    Action, LocalizedTransactionTrace, TraceOutput, TransactionTrace,
+};
 
 use reth_trie::root;
 
@@ -162,11 +164,11 @@ pub fn get_init_code(
     let mut failed_parity_traces: HashMap<Vec<usize>, bool> = HashMap::new();
 
     match get_tx_trace(config, tx_id) {
-        Ok(trace) => {
-            for frame in &trace {
-                let trace_address = &frame.trace.trace_address;
+        Ok(traces) => {
+            for trace in &traces {
+                let trace_address = &trace.trace_address;
 
-                if frame.trace.error.is_some()
+                if trace.error.is_some()
                     || (trace_address.len() > 1
                         && failed_parity_traces
                             .contains_key(&trace_address[..trace_address.len() - 1]))
@@ -176,7 +178,7 @@ pub fn get_init_code(
                 }
 
                 if let (Action::Create(create_action), Some(TraceOutput::Create(create_res))) =
-                    (&frame.trace.action, &frame.trace.result)
+                    (&trace.action, &trace.result)
                 {
                     if &create_res.address == address {
                         let init_code = format!("{:#x}", create_action.init);
@@ -320,10 +322,10 @@ pub fn get_internal_create_addresses(
 ) -> Result<Vec<Address>, ValidationError> {
     let mut addresses: Vec<Address> = vec![];
     match get_tx_trace(config, tx_id) {
-        Ok(trace) => {
-            for frame in &trace[1..] {
-                if let Action::Create(_) = frame.trace.action {
-                    if let Some(TraceOutput::Create(create_res)) = &frame.trace.result {
+        Ok(traces) => {
+            for trace in &traces[1..] {
+                if let Action::Create(_) = trace.action {
+                    if let Some(TraceOutput::Create(create_res)) = &trace.result {
                         addresses.push(create_res.address);
                     } else {
                         return Err(ValidationError::from(format!(
@@ -368,10 +370,7 @@ fn get_ots_contract_creator(
     Ok(result)
 }
 
-fn get_tx_trace(
-    config: &DVFConfig,
-    tx_id: &str,
-) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
+fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<TransactionTrace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_transaction",
@@ -380,7 +379,7 @@ fn get_tx_trace(
     });
     let result = send_blocking_web3_post(config, &request_body)?;
     // Parse the response as a JSON list
-    let trace: Vec<LocalizedTransactionTrace> = serde_json::from_value(result)?;
+    let trace: Vec<TransactionTrace> = serde_json::from_value(result)?;
     Ok(trace)
 }
 
@@ -540,6 +539,7 @@ fn send_blocking_web3_post(
 
     let node_url = config.get_rpc_url()?;
 
+    debug!("Web3 request_body: {:?}", request_body);
     let res = client
         .post(node_url)
         .json(&request_body)
@@ -550,6 +550,7 @@ fn send_blocking_web3_post(
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
+    debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(

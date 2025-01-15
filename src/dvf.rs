@@ -7,14 +7,14 @@ use std::str::FromStr;
 use alloy::json_abi::Event;
 use alloy::primitives::{Address, B256};
 use alloy_dyn_abi::EventExt;
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, SubCommand};
+use clap::{ArgMatches, Command, arg};
 use colored::Colorize;
 use console::style;
 use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, CompareInitCode};
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
-use dvf_libs::dvf::parse::{self, BasicDVF, ValidationError, CURRENT_VERSION};
+use dvf_libs::dvf::parse::{self, BasicDVF, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
@@ -335,6 +335,234 @@ fn parse_input_path(config: &DVFConfig, path_val: &str) -> Result<PathBuf, Valid
 }
 
 fn main() {
+
+    let matches = Command::new("dv")
+        .version(CURRENT_VERSION_STRING)
+        .about("Deployment Verification")
+        .author("ChainSecurity")
+        .arg(
+            arg!(-v --verbose "Sets the level of verbosity")
+                .action(clap::ArgAction::Count),
+        )
+        .arg(
+            arg!(-c --config <FILE>)
+                .help("Path of config file, default location: undefined")
+                .action(clap::ArgAction::Set)
+                .value_parser(is_valid_path),
+        )
+        .subcommand(
+            Command::new("init")
+                .about("Initializes a new DVF")
+                .arg(
+                    arg!(--initblock <BLOCK>)
+                        .help("The block number at which the state snapshot should be taken.")
+                        .value_parser(is_valid_blocknum),
+                )
+                .arg(
+                    arg!(--project <PATH>)
+                        .help("Path to the root folder of the source code project")
+                        .required(true)
+                        .value_parser(is_valid_path),
+                )
+                .arg(
+                    arg!(--address <ADDRESS>)
+                        .help("Address of the contract")
+                        .required(true)
+                        .value_parser(is_valid_address),
+                )
+                .arg(
+                    arg!(--chainid <CHAINID>)
+                        .help("Chain ID where the contract is deployed")
+                        .value_parser(clap::value_parser!(u64))
+                        .default_value("1"),
+                )
+                .arg(
+                    arg!(--contractname <NAME>)
+                        .help("Name of the contract")
+                        .required(true),
+                )
+                .arg(
+                    arg!(--implementation <NAME>)
+                        .help("Optional name of the implementation contract"),
+                )
+                .arg(
+                    arg!(--implementationproject <PATH>)
+                        .help("Path to the root folder of the implementation project")
+                        .value_parser(is_valid_path),
+                )
+                .arg(
+                    arg!(--factory)
+                        .help("Treat this contract as a factory, which changes bytecode verification")
+                        .action(clap::ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(--implementationenv <ENV>)
+                        .help("Implementation project's development environment")
+                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
+                        .default_value("Foundry"),
+                )
+                .arg(
+                    arg!(--implementationartifacts <PATH>)
+                        .help("Folder containing the implementation project artifacts")
+                        .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--env <ENV>)
+                        .help("Project's development environment")
+                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
+                        .default_value("Foundry"),
+                )
+                .arg(
+                    arg!(--artifacts <PATH>)
+                        .help("Folder containing the project artifacts")
+                        .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--buildcache <PATH>)
+                        .help("Folder containing build-info files"),
+                )
+                .arg(
+                    arg!(--implementationbuildcache <PATH>)
+                        .help("Folder containing the implementation contract's build-info files"),
+                )
+                .arg(
+                    arg!(<OUTPUT>)
+                        .help("Path of the generated DVF file")
+                        .required(true),
+                ),
+        )
+        .subcommand(
+            Command::new("id")
+                .about("Generates the DVF ID")
+                .arg(arg!(<DVF>).help("The provided DVF file - updated in-place")),
+        )
+        .subcommand(
+            Command::new("add-reference")
+                .about("Adds a reference")
+                .arg(
+                    arg!(--id <ID>)
+                        .help("Specifies the new reference ID")
+                        .required(true)
+                        .value_parser(is_valid_32_byte_hex),
+                )
+                .arg(
+                    arg!(--contractname <NAME>)
+                        .help("Contract Name of the reference")
+                        .required(true),
+                )
+                .arg(arg!(<DVF>).help("The DVF file - updated in-place").required(true)),
+        )
+        .subcommand(
+            Command::new("sign")
+                .about("Signs a DVF")
+                .arg(arg!(<DVF>).help("The DVF file - updated in-place").required(true)),
+        )
+        .subcommand(
+            Command::new("validate")
+                .about("Validates a DVF")
+                .arg(
+                    arg!(--validationblock <BLOCK>)
+                        .help("The block number used for validation")
+                        .value_parser(is_valid_blocknum),
+                )
+                .arg(
+                    arg!(--allowuntrusted)
+                        .help("Allows validation of unsigned or untrusted DVFs")
+                        .action(clap::ArgAction::SetTrue),
+                )
+                .arg(arg!(<DVF>).help("The DVF file").required(true)),
+        )
+        .subcommand(
+            Command::new("update")
+                .about("Updates a DVF")
+                .arg(
+                    arg!(--validationblock <BLOCK>)
+                        .help("The block number used for validation")
+                        .value_parser(is_valid_blocknum),
+                )
+                .arg(arg!(<DVF>).help("The DVF file")),
+        )
+        .subcommand(
+            Command::new("generate-config")
+                .about("Interactively generates a configuration file"),
+        )
+        .subcommand(
+            Command::new("generate-build-cache")
+                .about("Generates the build cache")
+                .arg(
+                    arg!(--project <PATH>)
+                        .help("Path to the root folder of the source code project")
+                        .required(true)
+                        .value_parser(is_valid_path),
+                )
+                .arg(
+                    arg!(--env <ENV>)
+                        .help("Project's development environment")
+                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
+                        .default_value("Foundry"),
+                )
+                .arg(
+                    arg!(--artifacts <PATH>)
+                        .help("Folder containing the artifacts")
+                        .default_value("artifacts"),
+                ),
+        )
+        .subcommand(
+            Command::new("bytecode-check")
+                .about("Performs just the bytecode check")
+                .arg(
+                    arg!(--initblock <BLOCK>)
+                        .help("The block number for querying code")
+                        .value_parser(is_valid_blocknum),
+                )
+                .arg(
+                    arg!(--project <PATH>)
+                        .help("Path to the root folder of the source code project")
+                        .required(true)
+                        .value_parser(is_valid_path),
+                )
+                .arg(
+                    arg!(--address <ADDRESS>)
+                        .help("Address of the contract")
+                        .required(true)
+                        .value_parser(is_valid_address),
+                )
+                .arg(
+                    arg!(--chainid <CHAINID>)
+                        .help("Chain ID where the contract is deployed")
+                        .value_parser(clap::value_parser!(u64))
+                        .default_value("1"),
+                )
+                .arg(
+                    arg!(--contractname <NAME>)
+                        .help("Name of the contract")
+                        .required(true),
+                )
+                .arg(
+                    arg!(--factory)
+                        .help("Treats this contract as a factory, altering bytecode verification")
+                        .action(clap::ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(--env <ENV>)
+                        .help("Project's development environment")
+                        .value_parser(clap::value_parser!(String)) // Replace with actual parser if needed
+                        .default_value("Foundry"),
+                )
+                .arg(
+                    arg!(--artifacts <PATH>)
+                        .help("Folder containing the artifacts")
+                        .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--buildcache <PATH>)
+                        .help("Folder containing build-info files"),
+                ),
+        )
+        .get_matches();
+
+    /*
+
     let matches = Command::new("dv")
         .version(CURRENT_VERSION.to_string().as_str())
         .about("Deployment Verification")
@@ -640,6 +868,7 @@ fn main() {
                 )
         )
         .get_matches();
+    */
 
     match matches.get_count("verbose") {
         0 => {} // Normal verbosity
@@ -741,15 +970,15 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Starting information gathering. This might take several minutes.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.value_of("project").unwrap();
-            let artifacts = sub_m.value_of("artifacts").unwrap();
-            let build_cache = sub_m.value_of("buildcache");
+            let project = sub_m.get_one::<String>("project").unwrap();
+            let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
+            let build_cache = sub_m.get_one::<String>("buildcache");
             let (path, artifacts_path) = get_project_paths(project, artifacts);
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
-            let imp_project = sub_m.value_of("implementationproject");
-            let mut imp_build_cache = sub_m.value_of("implementationbuildcache");
-            let imp_artifacts = sub_m.value_of("implementationartifacts").unwrap();
+            let imp_project = sub_m.get_one::<String>("implementationproject");
+            let mut imp_build_cache = sub_m.get_one::<String>("implementationbuildcache");
+            let imp_artifacts = sub_m.get_one::<String>("implementationartifacts").unwrap();
             let imp_path: PathBuf;
             let imp_artifacts_path: PathBuf;
             if let Some(imp_project) = imp_project {
@@ -761,7 +990,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 imp_env = env
             }
 
-            let user_output_path = Path::new(sub_m.value_of("OUTPUT").unwrap());
+            let user_output_path = Path::new(sub_m.get_one::<String>("OUTPUT").unwrap());
             // This is just a file name so we will place it in the configured folder
             let output_path: &Path = if is_filename_only_path(user_output_path) {
                 &make_relative_to_dvf_storage(&config, user_output_path)
@@ -785,15 +1014,11 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             dumped.deployment_block_num = deployment_block_num;
             dumped.deployment_tx = deployment_tx;
 
-            let init_block_num = match sub_m.value_of("initblock") {
-                // This has been validated so we can unwrap here
-                Some(b) => b.parse::<u64>().unwrap(),
-                None => deployment_block_num + 1,
-            };
+            let init_block_num = *sub_m.get_one::<u64>("initblock").unwrap_or(&(deployment_block_num + 1));
             dumped.init_block_num = init_block_num;
 
             let mut pc = 1_u64;
-            let progress_mode: ProgressMode = match sub_m.value_of("implementation").is_some() {
+            let progress_mode: ProgressMode = match sub_m.get_one::<String>("implementation").is_some() {
                 true => ProgressMode::InitProxy,
                 false => ProgressMode::Init,
             };
@@ -892,7 +1117,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let mut storage: Vec<StateVariable> = project_info.storage.clone();
             let mut types: HashMap<String, TypeDescription> = project_info.types.clone();
             let mut imp_project_info: Option<ProjectInfo> = None;
-            if let Some(implementation_name) = sub_m.value_of("implementation") {
+            if let Some(implementation_name) = sub_m.get_one::<String>("implementation") {
                 print_progress(
                     "Obtaining ABI of implementation contract.",
                     &mut pc,
@@ -1168,7 +1393,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             exit(0);
         }
         Some(("id", sub_m)) => {
-            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
             let mut filled = parse::CompleteDVF::from_path(input_path.as_path())?;
 
             filled.generate_id()?;
@@ -1178,11 +1403,11 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             exit(0);
         }
         Some(("add-reference", sub_m)) => {
-            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
             let mut filled = parse::CompleteDVF::from_path(&input_path)?;
-            let new_ref_id = sub_m.value_of("id").unwrap().to_string();
-            let new_ref_name = sub_m.value_of("contractname").unwrap().to_string();
-            filled.add_reference(&new_ref_id, &new_ref_name);
+            let new_ref_id = sub_m.get_one::<String>("id").unwrap();
+            let new_ref_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
+            filled.add_reference(new_ref_id, &new_ref_name);
             filled.generate_id()?;
             filled.clear_signature_data();
             filled.write_to_file(input_path.as_path())?;
@@ -1190,7 +1415,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             exit(0);
         }
         Some(("sign", sub_m)) => {
-            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
             let mut filled = parse::CompleteDVF::from_path(&input_path)?;
 
             filled.sign(&config)?;
@@ -1200,7 +1425,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             exit(0);
         }
         Some(("validate", sub_m)) => {
-            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
             let filled = match parse::CompleteDVF::from_path(&input_path) {
                 Ok(filled) => filled,
                 Err(e) => {
@@ -1217,11 +1442,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let registry = registry::Registry::from_config(&config)?;
             let allow_untrusted = sub_m.get_flag("allowuntrusted");
 
-            let validation_block_num: u64 = match sub_m.value_of("validationblock") {
-                // Has been validated already so we can unwrap
-                Some(v) => v.parse::<u64>().unwrap(),
-                None => web3::get_eth_block_number(&config)?,
-            };
+            let validation_block_num: u64 = *sub_m.get_one::<u64>("validationblock").unwrap_or(&web3::get_eth_block_number(&config)?);
+
             match validate_dvf(
                 &config,
                 &input_path,
@@ -1274,7 +1496,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             };
         }
         Some(("update", sub_m)) => {
-            let input_path: PathBuf = parse_input_path(&config, sub_m.value_of("DVF").unwrap())?;
+            let input_path: PathBuf = parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
@@ -1287,11 +1509,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Validate ChainID
             config.set_chain_id(filled.chain_id)?;
 
-            let validation_block_num = match sub_m.value_of("validationblock") {
-                // Has been validated so we can unwrap here
-                Some(vals) => vals.parse::<u64>().unwrap(),
-                None => web3::get_eth_block_number(&config)?,
-            };
+            let validation_block_num = *sub_m.get_one::<u64>("validationblock").unwrap_or(&web3::get_eth_block_number(&config)?);
 
             if validation_block_num < filled.deployment_block_num {
                 return Err(ValidationError::from(
@@ -1417,7 +1635,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
         }
         Some(("generate-config", _sub_m)) => {
             let newconfig = DVFConfig::from_interactive_cli()?;
-            let default_path = DVFConfig::default_path()?;
+            let default_path = DVFConfig::default_path();
 
             println!();
             println!(
@@ -1468,8 +1686,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Generating Build Cache.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.value_of("project").unwrap();
-            let artifacts = sub_m.value_of("artifacts").unwrap();
+            let project = sub_m.get_one::<String>("project").unwrap();
+            let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let (path, artifacts_path) = get_project_paths(project, artifacts);
 
             let mut pc = 1_u64;
@@ -1487,13 +1705,13 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Starting bytecode check.");
 
             let env = *sub_m.get_one::<Environment>("env").unwrap();
-            let project = sub_m.value_of("project").unwrap();
-            let artifacts = sub_m.value_of("artifacts").unwrap();
+            let project = sub_m.get_one::<String>("project").unwrap();
+            let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let (path, artifacts_path) = get_project_paths(project, artifacts);
 
-            let contract_name = sub_m.value_of("contractname").unwrap().to_string();
-            let address = Address::from_str(sub_m.value_of("address").unwrap())?;
-            let build_cache = sub_m.value_of("buildcache");
+            let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
+            let address = sub_m.get_one::<Address>("address").unwrap();
+            let build_cache = sub_m.get_one::<String>("buildcache");
             let chain_id = *sub_m.get_one("chainid").unwrap();
 
             config.set_chain_id(chain_id)?;
@@ -1502,11 +1720,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let deployment_block_num = web3::get_deployment_block(&config, &address)?;
             info!("Deployment Block: {}", deployment_block_num);
 
-            let init_block_num = match sub_m.value_of("initblock") {
-                // This has been validated so we can unwrap here
-                Some(b) => b.parse::<u64>().unwrap(),
-                None => web3::get_eth_block_number(&config)?,
-            };
+            let init_block_num = *sub_m.get_one::<u64>("initblock").unwrap_or(&web3::get_eth_block_number(&config)?);
 
             let mut pc = 1_u64;
             let progress_mode: ProgressMode = ProgressMode::BytecodeCheck;
