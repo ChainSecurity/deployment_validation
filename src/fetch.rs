@@ -10,7 +10,6 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use alloy::primitives::Address;
-use alloy_chains::Chain;
 use clap::ArgMatches;
 use clap::{App, Arg, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
@@ -247,10 +246,11 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     };
     config.set_chain_id(chain_id)?;
 
-    // TODO: Up package to move to etherscan v2 when <https://github.com/foundry-rs/block-explorers/pull/73> is merged
     let client = Client::builder()
         .with_api_key(config.get_etherscan_api_key()?)
-        .chain(Chain::from(chain_id))
+        .with_url(config.get_etherscan_url()?)
+        .unwrap()
+        .with_api_url(config.get_etherscan_api_url()?)
         .unwrap()
         .build()
         .unwrap();
