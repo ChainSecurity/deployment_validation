@@ -99,7 +99,7 @@ NodeJS is only required if you are running `dv` in a Hardhat project. Foundry is
 To install `dv`, clone this repository and build:
 
 ```
-git clone TODO: add repo URI
+git clone https://github.com/ChainSecurity/deployment_validation
 cd deployment-validation
 cargo install --path .
 ```
@@ -117,7 +117,7 @@ Depending on your system's configuration, this command might have to be adapted.
 To run `dv` with the pre-configured Docker image, clone this repository and run:
 
 ```
-git clone TODO: add repo URI
+git clone https://github.com/ChainSecurity/deployment_validation
 cd deployment-validation
 docker build -t dv .
 ```
