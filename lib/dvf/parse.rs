@@ -377,8 +377,7 @@ impl DumpedDVF {
         let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
         let critical_events: Vec<DVFEventEntry> = vec![];
         let constructor_args: Vec<DVFConstructorArg> = vec![];
-        let implementation_address = matches
-            .get_one::<Address>("implementation").copied();
+        let implementation_address = matches.get_one::<Address>("implementation").copied();
         let implementation_name = matches.get_one::<String>("implementation").cloned();
         let dumped = DumpedDVF {
             version: CURRENT_VERSION,

@@ -517,7 +517,10 @@ fn send_blocking_blockscout_get(
         .send()?
         .json::<BlockscoutApiResponse>()?;
 
-    if res.status == "0" && res.message.starts_with("No") && res.message.ends_with("transactions found") {
+    if res.status == "0"
+        && res.message.starts_with("No")
+        && res.message.ends_with("transactions found")
+    {
         return Ok(json!([]));
     }
     if res.message != "OK" || res.status != "1" {
@@ -1384,7 +1387,7 @@ impl StorageSnapshot {
         block_num: u64,
     ) {
         // retrieve account info from rpc
-        let account_storage_root = match get_eth_account_at_block(config, address, block_num){
+        let account_storage_root = match get_eth_account_at_block(config, address, block_num) {
             Ok(storage_root) => storage_root,
             Err(_) => {
                 warn!("Failed to retrieve account storage root from RPC. Skipping validation.");
