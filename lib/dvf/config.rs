@@ -120,7 +120,7 @@ impl DVFConfig {
         }
         match matches.get_one::<String>("config") {
             Some(config_path_str) => {
-                if *config_path_str == "env".to_string() {
+                if config_path_str == "env" {
                     Self::from_env(None)
                 } else {
                     Self::from_path(Path::new(config_path_str))

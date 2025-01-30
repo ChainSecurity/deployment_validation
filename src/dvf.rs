@@ -951,7 +951,7 @@ fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
     *i += 1;
 }
 
-fn get_project_paths(project: &PathBuf, artifacts: &str) -> PathBuf {
+fn get_project_paths(project: &Path, artifacts: &str) -> PathBuf {
     // no way to access other clap arguments during argument parsing so we have to verify
     // artifacts paths here
     let build_info_dir = "build-info";
@@ -1043,7 +1043,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress(compile_output, &mut pc, &progress_mode);
             let mut project_info = ProjectInfo::new(
                 &dumped.contract_name,
-                &project,
+                project,
                 env,
                 &artifacts_path,
                 build_cache,
@@ -1106,7 +1106,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress("Obtaining storage layout.", &mut pc, &progress_mode);
             // Fetch storage layout
             let layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
-                &project,
+                project,
                 &dumped.contract_name,
                 project_info.absolute_path.clone(),
             );
@@ -1697,7 +1697,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let build_cache_path = ProjectInfo::compile(&project, env, &artifacts_path)?;
+            let build_cache_path = ProjectInfo::compile(project, env, &artifacts_path)?;
 
             println!("Build Cache: {}", build_cache_path.display());
             exit(0);
@@ -1718,7 +1718,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             config.set_chain_id(chain_id)?;
 
             // Parse optional initblock or take deployment_block_num + 1
-            let deployment_block_num = web3::get_deployment_block(&config, &address)?;
+            let deployment_block_num = web3::get_deployment_block(&config, address)?;
             info!("Deployment Block: {}", deployment_block_num);
 
             let init_block_num = *sub_m.get_one::<u64>("initblock").unwrap_or(&web3::get_eth_block_number(&config)?);
@@ -1727,12 +1727,12 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let progress_mode: ProgressMode = ProgressMode::BytecodeCheck;
 
             print_progress("Fetching on-chain bytecode.", &mut pc, &progress_mode);
-            let rpc_code = web3::get_eth_code(&config, &address, init_block_num)?;
+            let rpc_code = web3::get_eth_code(&config, address, init_block_num)?;
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
             let mut project_info =
-                ProjectInfo::new(&contract_name, &project, env, &artifacts_path, build_cache)?;
+                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");

@@ -74,7 +74,7 @@ async fn generic_function(
     let response = match method.as_str() {
         "GET" => client
             .get(&url)
-            .headers(headers.into())
+            .headers(headers)
             .query(&query_pairs)
             .body(data.to_vec())
             .send()
