@@ -109,7 +109,7 @@ impl Registry {
             if path.is_file()
                 && path
                     .file_name()
-                    .map_or(false, |f| f.to_string_lossy().contains(address))
+                    .is_some_and(|f| f.to_string_lossy().contains(address))
             {
                 results.push(path);
             }

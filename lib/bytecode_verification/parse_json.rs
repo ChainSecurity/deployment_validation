@@ -33,7 +33,7 @@ use foundry_compilers::buildinfo::BuildInfo as BInfo;
 use foundry_compilers::solc::SolcVersionedInput;
 use foundry_compilers::CompilerOutput;
 
-type BuildInfo = BInfo<SolcVersionedInput, CompilerOutput<CompilerError>>;
+type BuildInfo = BInfo<SolcVersionedInput, CompilerOutput<CompilerError, ContractArt>>;
 
 struct TmpVariableDeclaration {
     name: String,
@@ -1375,7 +1375,7 @@ impl ProjectInfo {
         project: &Path,
         env: Environment,
         artifacts_path: &Path,
-        build_cache: Option<&str>,
+        build_cache: Option<&String>,
     ) -> Result<Self, ValidationError> {
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),

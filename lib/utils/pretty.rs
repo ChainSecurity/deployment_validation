@@ -356,7 +356,15 @@ impl PrettyPrinter {
 
     // Decodes a value of the given type, adds it to the table and returns it
     pub fn add_decoded_to_table(&self, var_type: &String, value: &String, table: &mut Table) {
-        assert!(ContractState::is_basic_type(var_type));
+        // TODO: Add support for user defined types
+        if ContractState::is_user_defined_type(var_type) {
+            return;
+        }
+        if !ContractState::is_basic_type(var_type) {
+            // TODO: Fix this
+            debug!("Skipping non-basic type: {}", var_type);
+            return;
+        }
         let pretty_value = self.pretty_value_long(var_type, value, true);
 
         if !pretty_value.is_empty() {

@@ -6,7 +6,6 @@ use std::io::Read;
 use std::io::Write;
 use std::num::ParseIntError;
 use std::path::Path;
-use std::str::FromStr;
 
 use ruint;
 
@@ -36,6 +35,7 @@ use crate::dvf::abstract_wallet::AbstractError;
 use crate::dvf::config::DVFConfig;
 
 pub const CURRENT_VERSION: Version = Version::new(0, 9, 1);
+pub const CURRENT_VERSION_STRING: &str = "0.9.1";
 const LOWEST_SUPPORTED_VERSION: Version = Version::new(0, 9, 0);
 const HIGHEST_SUPPORTED_VERSION: Version = Version::new(0, 9, 1);
 
@@ -377,14 +377,12 @@ impl DumpedDVF {
         let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
         let critical_events: Vec<DVFEventEntry> = vec![];
         let constructor_args: Vec<DVFConstructorArg> = vec![];
-        let implementation_address = matches
-            .value_of("implementation")
-            .map(|_| Address::default());
-        let implementation_name = matches.value_of("implementation").map(|x| x.to_string());
+        let implementation_address = matches.get_one::<Address>("implementation").copied();
+        let implementation_name = matches.get_one::<String>("implementation").cloned();
         let dumped = DumpedDVF {
             version: CURRENT_VERSION,
-            contract_name: matches.value_of("contractname").unwrap().to_string(),
-            address: Address::from_str(matches.value_of("address").unwrap())?,
+            contract_name: matches.get_one::<String>("contractname").unwrap().clone(),
+            address: *matches.get_one::<Address>("address").unwrap(),
             chain_id: *matches.get_one("chainid").unwrap(),
             codehash: String::new(),
             deployment_tx: String::new(),

@@ -30,7 +30,8 @@ use dotenv::dotenv;
 use scanf::sscanf;
 use std::env;
 
-const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
+pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
+const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
 const RPC_URLS_REPOSITORY: &str =
     "https://raw.githubusercontent.com/ethereum-lists/chains/master/_data/chains";
 
@@ -117,9 +118,14 @@ impl DVFConfig {
         if let Some(("generate-config", _)) = matches.subcommand() {
             return Ok(Self::default());
         }
-        match matches.value_of("config") {
-            Some("env") => Self::from_env(None),
-            Some(config_path_str) => Self::from_path(Path::new(config_path_str)),
+        match matches.get_one::<String>("config") {
+            Some(config_path_str) => {
+                if config_path_str == "env" {
+                    Self::from_env(None)
+                } else {
+                    Self::from_path(Path::new(config_path_str))
+                }
+            }
             None => Self::from_default_path(),
         }
     }
@@ -200,12 +206,16 @@ impl DVFConfig {
         Ok(config)
     }
 
-    pub fn default_path() -> Result<PathBuf, ValidationError> {
-        replace_tilde(DEFAULT_CONFIG_LOCATION)
+    pub fn default_path() -> PathBuf {
+        if let Ok(p) = replace_tilde(DEFAULT_CONFIG_LOCATION) {
+            p
+        } else {
+            PathBuf::from_str(DEFAULT_FALLBACK_CONFIG_LOCATION).unwrap()
+        }
     }
 
     pub fn from_default_path() -> Result<Self, ValidationError> {
-        Self::from_path(&Self::default_path()?)
+        Self::from_path(&Self::default_path())
     }
 
     pub fn get_abstract_wallet(&self, chain_id: u64) -> Result<AbstractWallet, ValidationError> {

@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use clap::ArgMatches;
-use clap::{App, Arg, ArgAction};
+use clap::{Arg, ArgAction};
+use clap::{ArgMatches, Command};
 use dvf_libs::dvf::config::DVFConfig;
-use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION};
+use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect;
 use dvf_libs::utils::pretty::PrettyPrinter;
@@ -15,33 +15,28 @@ use prettytable::Table;
 use tracing::debug;
 
 fn main() {
-    let matches = App::new("gentest")
-        .version(CURRENT_VERSION.to_string().as_str())
+    let matches = Command::new("gentest")
+        .version(CURRENT_VERSION_STRING)
         .about("Generate test case with storage snapshot and trace")
         .arg(
-            Arg::with_name("config")
+            Arg::new("config")
                 .short('c')
                 .long("config")
-                .help(
-                    format!(
-                        "Path of config file, default location: {}",
-                        DVFConfig::default_path()
-                            .unwrap_or(PathBuf::from("undefined"))
-                            .display()
-                    )
-                    .as_str(),
-                )
+                .help(format!(
+                    "Path of config file, default location: {}",
+                    DVFConfig::default_path().display()
+                ))
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::with_name("txid")
+            Arg::new("txid")
                 .long("txid")
                 .help("Transaction ID")
                 .required(true)
                 .action(ArgAction::Set),
         )
         .arg(
-            Arg::with_name("name")
+            Arg::new("name")
                 .long("name")
                 .help("Contract Name")
                 .required(true)
@@ -54,7 +49,7 @@ fn main() {
                 .action(ArgAction::SetTrue),
         )
         .arg(
-            Arg::with_name("chainid")
+            Arg::new("chainid")
                 .long("chainid")
                 .help("Chain ID")
                 .action(ArgAction::Set),
@@ -70,15 +65,10 @@ fn main() {
 }
 fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
     let mut config = DVFConfig::from_matches(matches)?;
-    let tx_id = matches.value_of("txid").unwrap().to_string();
-    let name = matches.value_of("name").unwrap().to_string();
+    let tx_id = matches.get_one::<String>("txid").unwrap().to_string();
+    let name = matches.get_one::<String>("name").unwrap().to_string();
 
-    let chain_id = match matches.value_of("chainid") {
-        Some(c) => c
-            .parse::<u64>()
-            .expect("Invalid input for chain id. Please provide an integer."),
-        None => 1,
-    };
+    let chain_id = *matches.get_one::<u64>("chainid").unwrap_or(&1);
     config.set_chain_id(chain_id)?;
 
     let trace_w_a = web3::get_eth_debug_trace(&config, &tx_id)?;
