@@ -3,71 +3,70 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{exit, Command};
 use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
 
+use alloy::primitives::Address;
 use clap::ArgMatches;
-use clap::{App, Arg, ArgAction};
+use clap::{arg, command, value_parser, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
-use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION};
-use ethers_core::abi::Address;
-use ethers_etherscan::contract::SourceCodeEntry;
-use ethers_etherscan::errors::EtherscanError;
-use ethers_etherscan::Client;
-use ethers_solc::artifacts::Settings;
+use dvf_libs::dvf::parse::{ValidationError, CURRENT_VERSION_STRING};
+use foundry_block_explorers::contract::{SourceCodeEntry, SourceCodeMetadata};
+use foundry_block_explorers::errors::EtherscanError;
+use foundry_block_explorers::Client;
+use foundry_compilers::artifacts::Settings;
 use semver::Version;
 use tokio::runtime::Runtime;
 use toml::Table;
 use toml::Value;
 use tracing::debug;
 
+/*
+#[derive(Parser)]
+#[command(name = "Fetch-From-Etherscan")]
+#[command(version = CURRENT_VERSION.to_string().as_str())]
+#[command(about = "Fetch from etherscan and create foundry project", long_about = None)]
+struct Cli{
+    /// Config file
+    #[arg(short, long, default_value = "test", value_name = "FILE")]
+    config: PathBuf,
+
+    /// Foundry project path
+    #[arg(short, long, value_name = "PATH")]
+    project: PathBuf,
+
+    /// Contract address
+    #[arg(short, long, value_name = "ADDRESS")]
+    address: Address,
+
+    /// Verbose mode
+    #[arg(short, long)]
+    verbose: bool,
+
+    /// Chain ID
+    #[arg(long, value_name = "CHAINID")]
+    chainid: Option<u64>,
+}*/
+
 fn main() {
-    let matches = App::new("fetch")
-        .version(CURRENT_VERSION.to_string().as_str())
+    //let matches = Command::new("Fetch-From-Etherscan")
+    //    .version(CURRENT_VERSION.to_string().as_str())
+    //    .about("Fetch from etherscan and create foundry project")
+
+    let matches = command!()
+        .version(CURRENT_VERSION_STRING)
         .about("Fetch from etherscan and create foundry project")
+        .arg(arg!(-c --config <FILE> "Config file").default_value("test"))
+        .arg(arg!(-p --project <PATH> "Foundry project path").required(true))
+        .arg(arg!(-a --address <ADDRESS> "Contract address").required(true))
+        .arg(arg!(-v --verbose "Verbose mode").action(ArgAction::SetTrue))
         .arg(
-            Arg::with_name("config")
-                .short('c')
-                .long("config")
-                .help(
-                    format!(
-                        "Path of config file, default location: {}",
-                        DVFConfig::default_path()
-                            .unwrap_or(PathBuf::from("undefined"))
-                            .display()
-                    )
-                    .as_str(),
-                )
-                .action(ArgAction::Set),
-        )
-        .arg(
-            Arg::with_name("project")
-                .long("project")
-                .help("Sets path to foundry")
-                .required(true)
-                .action(ArgAction::Set),
-        )
-        .arg(
-            Arg::with_name("address")
-                .long("address")
-                .help("Contract address")
-                .required(true)
-                .action(ArgAction::Set),
-        )
-        .arg(
-            Arg::new("verbose")
-                .short('v')
-                .long("verbose")
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::with_name("chainid")
-                .long("chainid")
-                .help("Chain ID")
-                .action(ArgAction::Set),
+            arg!(--chainid <CHAINID> "Chain ID")
+                .default_value("1")
+                .value_parser(value_parser!(u64)),
         )
         .get_matches();
 
@@ -233,17 +232,12 @@ fn parse_sources(sources: &HashMap<String, SourceCodeEntry>, foundry_path: &Path
 
 fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     let mut config = DVFConfig::from_matches(matches)?;
-    let foundry_path_str = matches.value_of("project").unwrap().to_string();
+    let foundry_path_str = matches.get_one::<String>("project").unwrap();
     std::fs::create_dir_all(foundry_path_str.clone())?;
     let foundry_path = Path::new(&foundry_path_str);
-    let address_str = matches.value_of("address").unwrap().to_string();
+    let address_str = matches.get_one::<String>("address").unwrap();
 
-    let chain_id = match matches.value_of("chainid") {
-        Some(c) => c
-            .parse::<u64>()
-            .expect("Invalid input for chain id. Please provide an integer."),
-        None => 1,
-    };
+    let chain_id = *matches.get_one::<u64>("chainid").unwrap();
     config.set_chain_id(chain_id)?;
 
     let client = Client::builder()
@@ -355,17 +349,17 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     // Write sources
     // Check what kind of Etherscan Response we have (Single file, Multi file, ...)
     match &metadata.items[0].source_code {
-        ethers_etherscan::contract::SourceCodeMetadata::SourceCode(source_str) => {
+        SourceCodeMetadata::SourceCode(source_str) => {
             let sol_path = foundry_path
                 .join("src")
                 .join(&metadata.items[0].contract_name)
                 .with_extension("sol");
             fs::write(sol_path, source_str).expect("Unable to write file");
         }
-        ethers_etherscan::contract::SourceCodeMetadata::Sources(sources) => {
+        SourceCodeMetadata::Sources(sources) => {
             parse_sources(sources, foundry_path);
         }
-        ethers_etherscan::contract::SourceCodeMetadata::Metadata {
+        SourceCodeMetadata::Metadata {
             sources, settings, ..
         } => {
             // Parse settings
@@ -560,13 +554,10 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
 
     let contract_name = metadata.items[0].contract_name.clone();
 
-    let config_str = match matches.value_of("config") {
-        Some(config_path_str) => format!("-c {config_path_str} "),
-        None => String::new(),
-    };
+    let config_str = matches.get_one::<String>("config").unwrap();
 
     println!("Saved sources of {} at {}.", address_str, foundry_path_str);
     println!("You can run:");
-    println!("dv {config_str}init --address {address_str} --project {foundry_path_str} --chainid {chain_id} --contractname {contract_name} {contract_name}_{address_str}.dvf.json");
+    println!("dv -c {config_str} init --address {address_str} --project {foundry_path_str} --chainid {chain_id} --contractname {contract_name} {contract_name}_{address_str}.dvf.json");
     Ok(())
 }

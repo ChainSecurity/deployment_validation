@@ -1,17 +1,10 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
-use ethers::core::types::{Block, CallFrame, Transaction};
-use ethers::types::serde_helpers::{deserialize_stringified_numeric, StringifiedNumeric};
-use ethers::types::BigEndianHash;
-use ethers::types::Log;
-use ethers::types::{Action, DiffMode, Res, Trace, TransactionReceipt, TxHash};
-use ethers::types::{Address, Bytes};
-use ethers::types::{H256, U256};
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
 use reqwest::blocking::Client;
@@ -19,13 +12,73 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 use tiny_keccak::Hasher;
 use tiny_keccak::Keccak;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::dvf::config::DVFConfig;
 use crate::dvf::parse::ValidationError;
 
+use alloy::primitives::{Address, Bytes, B256, U256};
+use alloy::rpc::types::{Block, EIP1186AccountProofResponse, Log, Transaction, TransactionReceipt};
+use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, DiffMode, StructLog};
+use alloy_rpc_types_trace::parity::{
+    Action, LocalizedTransactionTrace, TraceOutput, TransactionTrace,
+};
+
+use reth_trie::root;
+
 const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
+
+mod pathological_rpc_deserde {
+    use serde::{self, Deserialize};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: super::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
+    }
+}
+
+// @note Some rpc returns gas in hex string
+// Copy pasted the alloy DefaultFrame with customized deserde impl
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntermediateDefaultFrame {
+    /// Whether the transaction failed
+    pub failed: bool,
+    /// How much gas was used.
+    #[serde(deserialize_with = "pathological_rpc_deserde::deserialize")]
+    pub gas: u64,
+    /// Output of the transaction
+    pub return_value: Bytes,
+    /// Recorded traces of the transaction
+    pub struct_logs: Vec<StructLog>,
+}
+
+impl From<IntermediateTraceWithAddress> for TraceWithAddress {
+    fn from(x: IntermediateTraceWithAddress) -> Self {
+        let df = DefaultFrame {
+            failed: x.trace.failed,
+            gas: x.trace.gas,
+            return_value: x.trace.return_value,
+            struct_logs: x.trace.struct_logs,
+        };
+        TraceWithAddress {
+            trace: df,
+            address: x.address,
+            tx_id: x.tx_id,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IntermediateTraceWithAddress {
+    pub trace: IntermediateDefaultFrame,
+    pub address: Address,
+    pub tx_id: String,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TraceWithAddress {
@@ -34,7 +87,10 @@ pub struct TraceWithAddress {
     pub tx_id: String,
 }
 
-pub fn get_block_traces(config: &DVFConfig, block_num: u64) -> Result<Vec<Trace>, ValidationError> {
+pub fn get_block_traces(
+    config: &DVFConfig,
+    block_num: u64,
+) -> Result<Vec<LocalizedTransactionTrace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_block",
@@ -42,7 +98,7 @@ pub fn get_block_traces(config: &DVFConfig, block_num: u64) -> Result<Vec<Trace>
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
-    let traces: Vec<Trace> = serde_json::from_value(result)?;
+    let traces: Vec<LocalizedTransactionTrace> = serde_json::from_value(result)?;
     Ok(traces)
 }
 
@@ -108,11 +164,11 @@ pub fn get_init_code(
     let mut failed_parity_traces: HashMap<Vec<usize>, bool> = HashMap::new();
 
     match get_tx_trace(config, tx_id) {
-        Ok(trace) => {
-            for frame in &trace {
-                let trace_address = &frame.trace_address;
+        Ok(traces) => {
+            for trace in &traces {
+                let trace_address = &trace.trace_address;
 
-                if frame.error.is_some()
+                if trace.error.is_some()
                     || (trace_address.len() > 1
                         && failed_parity_traces
                             .contains_key(&trace_address[..trace_address.len() - 1]))
@@ -121,8 +177,8 @@ pub fn get_init_code(
                     continue;
                 }
 
-                if let (Action::Create(create_action), Some(Res::Create(create_res))) =
-                    (&frame.action, &frame.result)
+                if let (Action::Create(create_action), Some(TraceOutput::Create(create_res))) =
+                    (&trace.action, &trace.result)
                 {
                     if &create_res.address == address {
                         let init_code = format!("{:#x}", create_action.init);
@@ -157,17 +213,15 @@ fn extract_create_call_frame(
 ) -> Result<CallFrame, ValidationError> {
     if call_frame.typ.starts_with("CREATE")
         && call_frame.error.is_none()
-        && call_frame.to.as_ref().and_then(|to| to.as_address()) == Some(address)
+        && call_frame.to.as_ref() == Some(address)
     {
         return Ok(call_frame.clone());
     }
 
-    if let Some(calls) = &call_frame.calls {
-        for call in calls {
-            if call.error.is_none() {
-                if let Ok(call_frame) = extract_create_call_frame(call, address) {
-                    return Ok(call_frame);
-                }
+    for call in &call_frame.calls {
+        if call.error.is_none() {
+            if let Ok(call_frame) = extract_create_call_frame(call, address) {
+                return Ok(call_frame);
             }
         }
     }
@@ -245,20 +299,18 @@ fn extract_create_addresses_from_call_frame(
     is_first: bool,
 ) -> Result<(), ValidationError> {
     if !is_first && call_frame.typ.starts_with("CREATE") {
-        let rec = call_frame.to.as_ref().and_then(|to| to.as_address());
+        let rec = call_frame.to.as_ref();
         match rec {
             Some(addr) => addresses.push(*addr),
             None => {
                 // This is a reverting create
                 // We insert zero to keep it aligned with later parsing
-                addresses.push(Address::zero());
+                addresses.push(Address::from([0; 20]));
             }
         };
     }
-    if let Some(calls) = &call_frame.calls {
-        for call in calls {
-            extract_create_addresses_from_call_frame(call, addresses, false)?;
-        }
+    for call in &call_frame.calls {
+        extract_create_addresses_from_call_frame(call, addresses, false)?;
     }
     Ok(())
 }
@@ -270,10 +322,10 @@ pub fn get_internal_create_addresses(
 ) -> Result<Vec<Address>, ValidationError> {
     let mut addresses: Vec<Address> = vec![];
     match get_tx_trace(config, tx_id) {
-        Ok(trace) => {
-            for frame in &trace[1..] {
-                if let Action::Create(_) = frame.action {
-                    if let Some(Res::Create(create_res)) = &frame.result {
+        Ok(traces) => {
+            for trace in &traces[1..] {
+                if let Action::Create(_) = trace.action {
+                    if let Some(TraceOutput::Create(create_res)) = &trace.result {
                         addresses.push(create_res.address);
                     } else {
                         return Err(ValidationError::from(format!(
@@ -318,7 +370,7 @@ fn get_ots_contract_creator(
     Ok(result)
 }
 
-fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<Trace>, ValidationError> {
+fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<TransactionTrace>, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_transaction",
@@ -327,7 +379,7 @@ fn get_tx_trace(config: &DVFConfig, tx_id: &str) -> Result<Vec<Trace>, Validatio
     });
     let result = send_blocking_web3_post(config, &request_body)?;
     // Parse the response as a JSON list
-    let trace: Vec<Trace> = serde_json::from_value(result)?;
+    let trace: Vec<TransactionTrace> = serde_json::from_value(result)?;
     Ok(trace)
 }
 
@@ -394,7 +446,7 @@ where
 {
     struct U64Visitor;
 
-    impl<'de> Visitor<'de> for U64Visitor {
+    impl Visitor<'_> for U64Visitor {
         type Value = u64;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -465,6 +517,12 @@ fn send_blocking_blockscout_get(
         .send()?
         .json::<BlockscoutApiResponse>()?;
 
+    if res.status == "0"
+        && res.message.starts_with("No")
+        && res.message.ends_with("transactions found")
+    {
+        return Ok(json!([]));
+    }
     if res.message != "OK" || res.status != "1" {
         debug!("Blockscout Error: {}, {}", res.message, res.status);
         return Err(ValidationError::from(format!(
@@ -487,6 +545,7 @@ fn send_blocking_web3_post(
 
     let node_url = config.get_rpc_url()?;
 
+    debug!("Web3 request_body: {:?}", request_body);
     let res = client
         .post(node_url)
         .json(&request_body)
@@ -497,6 +556,7 @@ fn send_blocking_web3_post(
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
+    debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(
@@ -525,6 +585,32 @@ pub fn get_block_number_for_tx(
     Err(ValidationError::Error(
         "Invalid response from eth_getTransactionByHash".to_string(),
     ))
+}
+
+// Not every rpc supports eth_getAccount.
+// So we have to retrieve the account by querying an empty storage proof
+pub fn get_eth_account_at_block(
+    config: &DVFConfig,
+    account: &Address,
+    block: u64,
+) -> Result<B256, ValidationError> {
+    let block_hex = format!("{:#x}", block);
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getProof",
+        "params": [
+            account,
+            [], // slots
+            block_hex,
+            ],
+        "id": 1
+    });
+
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    let proof_resp: EIP1186AccountProofResponse = serde_json::from_value(result)?;
+
+    Ok(proof_resp.storage_hash)
 }
 
 fn get_deployment_tx_from_blockscout(
@@ -564,9 +650,9 @@ fn get_deployment_from_parity_trace(
         let block_traces = get_block_traces(config, i)?;
         for trace in block_traces {
             // Filter reverted
-            if trace.error.is_none() {
+            if trace.trace.error.is_none() {
                 // Look Through creates
-                if let Some(Res::Create(create_res)) = &trace.result {
+                if let Some(TraceOutput::Create(create_res)) = &trace.trace.result {
                     if create_res.address == *address {
                         if let Some(tx_hash) = trace.transaction_hash {
                             debug!("Searched Deployment Tx: {:?}", tx_hash);
@@ -595,14 +681,16 @@ fn get_deployment_from_geth_trace(
     debug!("Searching geth traces for deployment tx of {:?}", address);
     for i in start_block_num..end_block_num + 1 {
         let block = get_eth_block_by_num(config, i, true)?;
-        for tx in block.transactions {
-            let tx_hash = format!("{:#x}", tx.hash);
-            let call_frame = get_eth_debug_call_trace(config, &tx_hash)?;
-            let mut addresses: Vec<Address> = vec![];
-            extract_create_addresses_from_call_frame(&call_frame, &mut addresses, false)?;
-            debug!("Found {:?}", addresses);
-            if addresses.contains(address) {
-                return Ok((i, tx_hash));
+        if let Some(txs) = block.transactions.as_transactions() {
+            for tx in txs {
+                let tx_hash = format!("{:#x}", tx.inner.tx_hash());
+                let call_frame = get_eth_debug_call_trace(config, &tx_hash)?;
+                let mut addresses: Vec<Address> = vec![];
+                extract_create_addresses_from_call_frame(&call_frame, &mut addresses, false)?;
+                debug!("Found {:?}", addresses);
+                if addresses.contains(address) {
+                    return Ok((i, tx_hash));
+                }
             }
         }
     }
@@ -746,17 +834,13 @@ pub fn get_all_txs_for_contract(
 // Checks if an address is used in this call frame (or subcalls)
 // Ignores reverting executions
 fn call_frame_contains(call_frame: &CallFrame, address: &Address) -> bool {
-    if call_frame.error.is_none()
-        && call_frame.to.as_ref().and_then(|to| to.as_address()) == Some(address)
-    {
+    if call_frame.error.is_none() && call_frame.to.as_ref() == Some(address) {
         return true;
     }
 
-    if let Some(calls) = &call_frame.calls {
-        for call in calls {
-            if call_frame_contains(call, address) {
-                return true;
-            }
+    for call in &call_frame.calls {
+        if call_frame_contains(call, address) {
+            return true;
         }
     }
     false
@@ -781,10 +865,12 @@ fn get_all_txs_for_contract_from_geth_traces(
     let mut res: Vec<String> = Vec::new();
     for i in start_block..end_block + 1 {
         let block = get_eth_block_by_num(config, i, true)?;
-        for tx in block.transactions {
-            let tx_hash = format!("{:#x}", tx.hash);
-            if tx_geth_trace_contains(config, &tx_hash, address)? {
-                res.push(tx_hash);
+        if let Some(txs) = block.transactions.as_transactions() {
+            for tx in txs {
+                let tx_hash = format!("{:#x}", tx.inner.tx_hash());
+                if tx_geth_trace_contains(config, &tx_hash, address)? {
+                    res.push(tx_hash);
+                }
             }
         }
     }
@@ -798,7 +884,7 @@ fn get_all_txs_for_contract_from_parity_traces(
     start_block: u64,
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
-    let mut res: Vec<TxHash> = Vec::new();
+    let mut res: Vec<B256> = Vec::new();
     // TODO: Use trace_filter
     for block_num in start_block..end_block + 1 {
         let block_traces = get_block_traces(config, block_num)?;
@@ -806,7 +892,7 @@ fn get_all_txs_for_contract_from_parity_traces(
         debug!("{:?}", block_traces);
         for trace in block_traces {
             // See if contract was created here
-            if let Some(Res::Create(create_res)) = &trace.result {
+            if let Some(TraceOutput::Create(create_res)) = &trace.trace.result {
                 if create_res.address == *address {
                     if let Some(tx_hash) = trace.transaction_hash {
                         if !res.contains(&tx_hash) {
@@ -814,7 +900,7 @@ fn get_all_txs_for_contract_from_parity_traces(
                         }
                     }
                 }
-            } else if let Action::Call(call) = &trace.action {
+            } else if let Action::Call(call) = &trace.trace.action {
                 if call.to == *address {
                     if let Some(tx_hash) = trace.transaction_hash {
                         if !res.contains(&tx_hash) {
@@ -822,7 +908,7 @@ fn get_all_txs_for_contract_from_parity_traces(
                         }
                     }
                 }
-            } else if let Action::Suicide(suicide) = &trace.action {
+            } else if let Action::Selfdestruct(suicide) = &trace.trace.action {
                 if suicide.refund_address == *address {
                     if let Some(tx_hash) = trace.transaction_hash {
                         if !res.contains(&tx_hash) {
@@ -830,7 +916,7 @@ fn get_all_txs_for_contract_from_parity_traces(
                         }
                     }
                 }
-            } else if let Action::Reward(reward) = &trace.action {
+            } else if let Action::Reward(reward) = &trace.trace.action {
                 if reward.author == *address {
                     if let Some(tx_hash) = trace.transaction_hash {
                         if !res.contains(&tx_hash) {
@@ -1035,7 +1121,7 @@ pub fn get_eth_events(
     address: &Address,
     from_block: u64,
     to_block: u64,
-    topics: &Vec<H256>,
+    topics: &Vec<B256>,
 ) -> Result<Vec<Log>, ValidationError> {
     if to_block - from_block > config.max_blocks_per_event_query {
         let pb = ProgressBar::new(to_block - from_block);
@@ -1083,8 +1169,8 @@ pub fn get_eth_events(
 
 #[derive(Debug, Serialize, Deserialize)]
 struct StorageRangeEntry {
-    pub key: H256,
-    pub value: H256,
+    pub key: B256,
+    pub value: B256,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -1151,7 +1237,7 @@ pub fn get_eth_storage_at(
     });
     let result = send_blocking_web3_post(config, &request_body)?;
 
-    let val: H256 = serde_json::from_value(result).unwrap_or_default();
+    let val: B256 = serde_json::from_value(result).unwrap_or_default();
     debug!(
         "The storage value of the contract {} at {} in {} is {}",
         address, block_num, slot, val
@@ -1161,14 +1247,15 @@ pub fn get_eth_storage_at(
 
 pub fn get_eth_block_timestamp(config: &DVFConfig, block_num: u64) -> Result<u64, ValidationError> {
     Ok(get_eth_block_by_num(config, block_num, false)?
-        .timestamp
-        .low_u64())
+        .header
+        .inner
+        .timestamp)
 }
 
 fn get_eth_blockhash_by_num(config: &DVFConfig, block_num: u64) -> Result<String, ValidationError> {
     Ok(format!(
         "{:?}",
-        get_eth_block_by_num(config, block_num, false)?.hash
+        get_eth_block_by_num(config, block_num, false)?.header.hash
     ))
 }
 
@@ -1214,9 +1301,7 @@ pub fn get_eth_codehash(
 }
 
 fn u256_to_bytes(u: &U256) -> [u8; 32] {
-    let mut res = [0u8; 32];
-    u.to_big_endian(&mut res);
-    res
+    u.to_be_bytes::<32>()
 }
 fn commit_storage_to_snapshot(
     last_storage: &HashMap<u64, HashMap<U256, U256>>,
@@ -1260,6 +1345,12 @@ impl StorageSnapshot {
         let snapshot: HashMap<U256, [u8; 32]> = if let Ok(storage_snapshot) =
             get_eth_storage_snapshot(config, address, init_block_num)
         {
+            Self::validate_snapshot_with_mpt_root(
+                config,
+                &storage_snapshot,
+                address,
+                init_block_num,
+            );
             storage_snapshot
         } else {
             // Alternatively, get all txs
@@ -1269,9 +1360,15 @@ impl StorageSnapshot {
             // And diffs for all txs
             if let Ok(all_diffs) = get_many_diff_traces(config, &tx_hashes) {
                 // And compute snapshot from there
-                Self::snapshot_from_diff_traces(&all_diffs, address)
+                let snapshot = Self::snapshot_from_diff_traces(&all_diffs, address);
+                // verify snapshot with account storage merkle root
+                Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
+                snapshot
             } else {
-                Self::snapshot_from_tx_ids(config, address, &tx_hashes)?
+                let snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes)?;
+                // verify snapshot with account storage merkle root
+                Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
+                snapshot
             }
         };
         debug!("Storage Snapshot: {:?}", snapshot);
@@ -1280,6 +1377,33 @@ impl StorageSnapshot {
             snapshot,
             unused_parts,
         })
+    }
+
+    // Reconstruct and verify the account storage root
+    pub fn validate_snapshot_with_mpt_root(
+        config: &DVFConfig,
+        snapshot: &HashMap<U256, [u8; 32]>,
+        address: &Address,
+        block_num: u64,
+    ) {
+        // retrieve account info from rpc
+        let account_storage_root = match get_eth_account_at_block(config, address, block_num) {
+            Ok(storage_root) => storage_root,
+            Err(_) => {
+                warn!("Failed to retrieve account storage root from RPC. Skipping validation.");
+                return;
+            }
+        };
+
+        // snapshot type casting
+        let snapshot: HashMap<B256, U256> = snapshot
+            .iter()
+            .map(|(k, v)| (B256::from(*k), U256::from_be_slice(v.as_slice())))
+            .collect();
+
+        let reconstructed_root = root::storage_root_unhashed(snapshot);
+
+        assert_eq!(reconstructed_root, account_storage_root);
     }
 
     fn init_unused_parts(snapshot: &HashMap<U256, [u8; 32]>) -> HashMap<U256, [bool; 32]> {
@@ -1297,24 +1421,20 @@ impl StorageSnapshot {
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for diff_trace in diff_traces.iter() {
             if let Some(diff) = diff_trace.pre.get(address) {
-                if let Some(storage_diff) = &diff.storage {
-                    for (slot, value) in storage_diff.iter() {
-                        // a non-zero value in the `pre` field means that the value will be 0 after
-                        // the transaction
-                        if !value.is_zero() {
-                            snapshot.remove(&slot.into_uint());
-                        }
+                for (slot, value) in &diff.storage {
+                    // a non-zero value in the `pre` field means that the value will be 0 after
+                    // the transaction
+                    if !value.is_zero() {
+                        snapshot.remove(&(*slot).into());
                     }
                 }
             }
             if let Some(diff) = diff_trace.post.get(address) {
-                if let Some(storage_diff) = &diff.storage {
-                    for (slot, value) in storage_diff.iter() {
-                        // a non-zero value in the `post` field means that the value will change after
-                        // the transaction
-                        if !value.is_zero() {
-                            snapshot.insert(slot.into_uint(), value.0);
-                        }
+                for (slot, value) in &diff.storage {
+                    // a non-zero value in the `post` field means that the value will change after
+                    // the transaction
+                    if !value.is_zero() {
+                        snapshot.insert((*slot).into(), value.0);
                     }
                 }
             }
@@ -1387,10 +1507,8 @@ impl StorageSnapshot {
             }
 
             if log.op == "CALL" || log.op == "STATICCALL" {
-                let mut address_bytes = [0u8; 32];
-                stack[stack.len() - 2].to_big_endian(&mut address_bytes);
-                let mut a = Address::zero();
-                a.assign_from_slice(&address_bytes[12..]);
+                let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+                let a = Address::from_slice(&address_bytes[12..]);
                 depth_to_address.insert(log.depth + 1, a);
             }
 
@@ -1605,26 +1723,26 @@ impl StorageSnapshot {
 
     // Get Storage entry
     pub fn get_slot(&self, slot: &U256, offset: usize, size: usize) -> Vec<u8> {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => val[32 - offset - size..32 - offset].to_vec(),
             None => vec![0; size],
-        };
+        }
     }
 
     // Get Storage entry
     pub fn get_full_slot(&self, slot: &U256) -> [u8; 32] {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => *val,
             None => [0u8; 32],
-        };
+        }
     }
 
     // Get Storage entry
     pub fn get_u8_from_slot(&self, slot: &U256, offset: usize) -> u8 {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => val[32 - offset - 1],
             None => 0u8,
-        };
+        }
     }
 
     fn check_all_unused(&mut self, slot: &U256, offset: usize, size: usize) -> bool {
@@ -1650,13 +1768,13 @@ impl StorageSnapshot {
 
     // Related to: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html#bytes-and-string
     pub fn is_final_bit_set(&self, slot: &U256) -> bool {
-        return match self.snapshot.get(slot) {
+        match self.snapshot.get(slot) {
             Some(val) => {
                 let final_byte = val[31];
-                return final_byte % 2 == 1;
+                final_byte % 2 == 1
             }
             None => false,
-        };
+        }
     }
 
     // Collect all storage slots that have not previously been queried
@@ -1713,8 +1831,43 @@ impl StorageSnapshot {
     }
 }
 
+pub fn get_eth_storage_snapshot(
+    config: &DVFConfig,
+    address: &Address,
+    init_block_num: u64,
+) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
+    let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
+
+    //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
+    let init_block_hash = get_eth_blockhash_by_num(config, init_block_num + 1)?;
+    debug!(
+        "Blockhash of {} is {}.",
+        init_block_num + 1,
+        init_block_hash
+    );
+
+    // Mapping of hash -> {'key': 0x00, 'value': 0x01}
+    let mut next_key: String =
+        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
+    loop {
+        let storage_range =
+            get_eth_storage_range_response(config, address, &init_block_hash, next_key)?;
+        for hash in storage_range.storage.keys() {
+            let key: U256 = storage_range.storage[hash].key.into();
+            let value: [u8; 32] = storage_range.storage[hash].value.0;
+            snapshot.insert(key, value);
+        }
+        if storage_range.next_key.is_null() {
+            break;
+        }
+        next_key = serde_json::from_value(storage_range.next_key).unwrap();
+    }
+    Ok(snapshot)
+}
+
 #[cfg(test)]
 mod tests {
+    use reth_trie::root;
     use std::str::FromStr;
 
     use super::*;
@@ -1772,8 +1925,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -1794,21 +1946,54 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_snapshot_with_merkle_root() {
+        init();
+        let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                panic!();
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let init_block_num = get_eth_block_number(&config).unwrap() - 1;
+
+        let account_storage_root =
+            get_eth_account_at_block(&config, &address, init_block_num).unwrap();
+
+        let snapshot: HashMap<ruint::Uint<256, 4>, [u8; 32]> =
+            get_eth_storage_snapshot(&config, &address, init_block_num).unwrap();
+        let snapshot: HashMap<B256, U256> = snapshot
+            .into_iter()
+            .map(|(k, v)| (B256::from(k), U256::from_be_slice(v.as_slice())))
+            .collect();
+
+        let reconstructed_root = root::storage_root_unhashed(snapshot);
+
+        println!("expected: {:?}", account_storage_root);
+        println!("reconstructed: {:?}", reconstructed_root);
+
+        assert_eq!(account_storage_root, reconstructed_root);
+    }
+
+    #[test]
     fn test_snapshot_get() {
         init();
         let slots: Vec<U256> = vec![
             U256::from_str_radix(
-                "0x0000000000000000000000000000000000000000000000000000000000000002",
+                "0000000000000000000000000000000000000000000000000000000000000002",
                 16,
             )
             .unwrap(),
             U256::from_str_radix(
-                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0000000000000000000000000000000000000000000000000000000000000000",
                 16,
             )
             .unwrap(),
             U256::from_str_radix(
-                "0x000000000000000000000000000000000000000000000000000000000000000a",
+                "000000000000000000000000000000000000000000000000000000000000000a",
                 16,
             )
             .unwrap(),
@@ -1832,7 +2017,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),
@@ -1844,7 +2029,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),
@@ -1856,7 +2041,7 @@ mod tests {
         assert_eq!(
             snapshot.get_slot(
                 &U256::from_str_radix(
-                    "0x0000000000000000000000000000000000000000000000000000000000000123",
+                    "0000000000000000000000000000000000000000000000000000000000000123",
                     16
                 )
                 .unwrap(),
@@ -1876,8 +2061,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -1896,8 +2080,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -1943,8 +2126,7 @@ mod tests {
             Ok(config) => config,
             Err(err) => {
                 println!("{}", err);
-                assert!(false);
-                return;
+                panic!();
             }
         };
         config.set_chain_id(1).unwrap();
@@ -2045,129 +2227,4 @@ mod tests {
     //         assert_ne!(traces, Traces::None);
     //     }
     // }
-}
-
-pub fn get_eth_storage_snapshot(
-    config: &DVFConfig,
-    address: &Address,
-    init_block_num: u64,
-) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
-    let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
-
-    //`init_block_num` + 1 is needed because debug_storageRangeAt queries at the beginning of the block while other methods query at the end of the block
-    let init_block_hash = get_eth_blockhash_by_num(config, init_block_num + 1)?;
-    debug!(
-        "Blockhash of {} is {}.",
-        init_block_num + 1,
-        init_block_hash
-    );
-
-    // Mapping of hash -> {'key': 0x00, 'value': 0x01}
-    let mut next_key: String =
-        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string();
-    loop {
-        let storage_range =
-            get_eth_storage_range_response(config, address, &init_block_hash, next_key)?;
-        for hash in storage_range.storage.keys() {
-            let key: U256 = storage_range.storage[hash].key.into_uint();
-            let value: [u8; 32] = storage_range.storage[hash].value.0;
-            snapshot.insert(key, value);
-        }
-        if storage_range.next_key.is_null() {
-            break;
-        }
-        next_key = serde_json::from_value(storage_range.next_key).unwrap();
-    }
-    Ok(snapshot)
-}
-
-pub fn compute_topic_0(sig: &String) -> Result<String, ValidationError> {
-    keccak256(sig)
-}
-
-pub fn compute_four_bytes(sig: &String) -> Result<String, ValidationError> {
-    let hash = keccak256(sig).unwrap();
-    Ok(hash[..10].to_string())
-}
-
-pub fn keccak256(sig: &String) -> Result<String, ValidationError> {
-    // Create a new Sha3 object.
-    let mut hasher = Keccak::v256();
-
-    // Prepare the output array.
-    let mut output = [0u8; 32];
-
-    // Write the event data to the Sha3 object.
-    hasher.update(sig.as_bytes());
-
-    // Read the hash result into the output array.
-    hasher.finalize(&mut output);
-
-    // Convert the output array to a hex string.
-    let hex_output = "0x".to_string() + &hex::encode(output);
-    Ok(hex_output)
-}
-
-// copied from ethers::types to add a custom deserializer for StructLog.stack
-// because RPCs send decimal numbers instead of hex numbers in some cases
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DefaultFrame {
-    pub failed: bool,
-    #[serde(deserialize_with = "deserialize_stringified_numeric")]
-    pub gas: U256,
-    #[serde(rename = "returnValue")]
-    pub return_value: Bytes,
-    #[serde(rename = "structLogs")]
-    pub struct_logs: Vec<StructLog>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StructLog {
-    pub depth: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    pub gas: u64,
-    #[serde(rename = "gasCost")]
-    pub gas_cost: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub memory: Option<Vec<String>>,
-    pub op: String,
-    pub pc: u64,
-    #[serde(default, rename = "refund", skip_serializing_if = "Option::is_none")]
-    pub refund_counter: Option<u64>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_stringified_numeric_opt_vec"
-    )]
-    pub stack: Option<Vec<U256>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub storage: Option<BTreeMap<H256, H256>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mem_size: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub return_data: Option<String>,
-}
-
-pub fn deserialize_stringified_numeric_opt_vec<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<U256>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    if let Some(nums) = Option::<Vec<StringifiedNumeric>>::deserialize(deserializer)? {
-        let mut output: Vec<U256> = vec![];
-        for num in nums {
-            match num.try_into() {
-                Ok(n) => output.push(n),
-                Err(e) => {
-                    return Err(serde::de::Error::custom(e));
-                }
-            };
-        }
-        Ok(Some(output))
-    } else {
-        Ok(None)
-    }
 }

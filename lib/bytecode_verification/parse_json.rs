@@ -3,31 +3,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use alloy::json_abi::Constructor;
 use clap::ValueEnum;
-use ethers::solc::{utils, CompilerInput, CompilerOutput};
-use ethers_solc::artifacts::SourceFile;
-use ethers_solc::error::SolcError;
-use serde::Deserialize;
-use serde::Serialize;
-use serde_json::Value;
-use tempfile::Builder;
-//use ethers::abi::Contract as Abi;
-use ethers::solc::artifacts::ast::Node as EAstNode;
-use ethers::solc::artifacts::BytecodeHash;
-use ethers::solc::artifacts::BytecodeObject;
-use ethers::solc::artifacts::Contract as ContractArt;
-use ethers::solc::artifacts::DeployedBytecode;
-//use ethers::solc::artifacts::Ast;
-//use ethers::solc::artifacts::ast::VariableDeclaration;
-use ethers::abi::Event;
-use ethers::solc::artifacts::ast::NodeType;
 use semver::Version;
-use tempfile::TempDir;
-//use serde_json::{Value, from_value, Map};
-//use std::fs::File;
-//use std::io::Read;
+use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
+use tempfile::Builder;
+use tempfile::TempDir;
 use tracing::{debug, info};
 
 use crate::bytecode_verification::types::Types;
@@ -37,8 +20,20 @@ use crate::state::forge_inspect::TypeDescription;
 use crate::types::ConstructorArg;
 use crate::types::Immutable;
 use colored::Colorize;
-use ethers::types::U256;
 use std::str::FromStr;
+
+use alloy::json_abi::Event;
+use alloy::primitives::U256;
+use foundry_compilers::artifacts::Error as CompilerError;
+use foundry_compilers::artifacts::{
+    BytecodeHash, BytecodeObject, Contract as ContractArt, DeployedBytecode, Node as EAstNode,
+    NodeType, SourceFile,
+};
+use foundry_compilers::buildinfo::BuildInfo as BInfo;
+use foundry_compilers::solc::SolcVersionedInput;
+use foundry_compilers::CompilerOutput;
+
+type BuildInfo = BInfo<SolcVersionedInput, CompilerOutput<CompilerError, ContractArt>>;
 
 struct TmpVariableDeclaration {
     name: String,
@@ -55,6 +50,7 @@ pub struct ProjectInfo {
     pub cbor_metadata: Option<BytecodeHash>,
     pub immutables: Vec<Immutable>,
     pub constructor_args: Vec<ConstructorArg>,
+    pub constructor: Option<Constructor>,
     pub events: Vec<Event>,
     pub other_bytecodes: Vec<String>,
     pub storage: Vec<StateVariable>,
@@ -177,7 +173,7 @@ impl ProjectInfo {
 
     /// Extracts the type definitions of a given AST node (type_name).
     fn find_storage_struct_types(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         type_defs: &Types,
         type_name: &Value,
         types: &mut HashMap<String, TypeDescription>,
@@ -438,7 +434,7 @@ impl ProjectInfo {
     /// Parses the AST of a contract for struct definitions of a certain set of struct AST IDs.
     /// Creates a set of StorageVariables and TypeDescriptions describing the structs.
     fn find_storage_struct_data(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
         struct_slots: &Vec<(u64, U256, Option<String>)>,
@@ -587,7 +583,7 @@ impl ProjectInfo {
     /// explicitly defined as storage variables.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_storage_structs(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
         storage: &mut Vec<StateVariable>,
@@ -622,7 +618,7 @@ impl ProjectInfo {
     /// storage pointer.
     /// Creates a set of tuples mapping struct AST IDs to the respective storage slots.
     fn find_storage_struct_slots(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         exported_ids: &Vec<usize>,
         struct_slots: &mut Vec<(u64, U256, Option<String>)>,
@@ -841,7 +837,7 @@ impl ProjectInfo {
     /// output.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_direct_storage_writes(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
         storage: &mut Vec<StateVariable>,
@@ -868,14 +864,12 @@ impl ProjectInfo {
         if value["nodeType"] == "FunctionCall" && value["expression"]["name"] == "keccak256" {
             if let Some(arguments) = value.get("arguments") {
                 if !arguments.as_array().unwrap().is_empty() {
-                    let mut slot = U256::from_str(
-                        arguments[0]["typeDescriptions"]["typeIdentifier"]
-                            .as_str()
-                            .unwrap()
-                            .replace("t_stringliteral_", "")
-                            .as_str(),
-                    )
-                    .unwrap();
+                    let mut hex_wo_prefix = arguments[0]["typeDescriptions"]["typeIdentifier"]
+                        .as_str()
+                        .unwrap()
+                        .replace("t_stringliteral_", "");
+                    hex_wo_prefix.insert_str(0, "0x");
+                    let mut slot = U256::from_str(hex_wo_prefix.as_str()).unwrap();
                     if let Some(binary_op) = binary_op {
                         slot -= U256::from(binary_op);
                     }
@@ -929,7 +923,7 @@ impl ProjectInfo {
     /// variables.
     /// Returns a tuple (variable name, variable type, variable value)
     fn find_variable_declaration(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         id: u64,
     ) -> Option<(String, String, U256)> {
@@ -1121,7 +1115,7 @@ impl ProjectInfo {
     /// written to storage using assembly.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
     fn find_direct_storage_write_variables(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
         exported_ids: &Vec<usize>,
@@ -1329,7 +1323,7 @@ impl ProjectInfo {
 
     // Parses the AST to find all associated contracts (libraries & parent contracts)
     fn find_exported_ids(
-        sources: &BTreeMap<String, SourceFile>,
+        sources: &BTreeMap<PathBuf, SourceFile>,
         contract_name: &String,
         exported_ids: &mut Vec<usize>,
     ) {
@@ -1381,7 +1375,7 @@ impl ProjectInfo {
         project: &Path,
         env: Environment,
         artifacts_path: &Path,
-        build_cache: Option<&str>,
+        build_cache: Option<&String>,
     ) -> Result<Self, ValidationError> {
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),
@@ -1397,8 +1391,14 @@ impl ProjectInfo {
         match build_info_path.read_dir() {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
-                    let bi: BuildInfo = BuildInfo::read(build_info_file.path())?;
-                    if bi.output.find(contract_name).is_some() {
+                    let bi: BuildInfo = BuildInfo::read(&build_info_file.path())?;
+                    if bi
+                        .output
+                        .contracts
+                        .values()
+                        .flatten()
+                        .any(|(name, _)| name == contract_name)
+                    {
                         build_infos.push(bi);
                     }
                 }
@@ -1480,22 +1480,25 @@ impl ProjectInfo {
         // Collect Events
         let mut events = vec![];
         if let Some(cabi) = &contract.abi {
-            for sig in cabi.abi.events.keys() {
-                events.extend(cabi.abi.events[sig].clone());
+            for sig in cabi.events.keys() {
+                events.extend(cabi.events[sig].clone());
             }
         }
 
         // Collect Constructor Arguments
         let mut constructor_args: Vec<ConstructorArg> = vec![];
+        let mut constructor: Option<Constructor> = None;
         if let Some(cabi) = &contract.abi {
-            if let Some(constructor) = &cabi.abi.constructor {
+            constructor = cabi.constructor.clone();
+            if constructor.is_some() {
                 constructor_args = constructor
+                    .as_ref()
+                    .unwrap()
                     .inputs
                     .iter()
                     .map(|input| ConstructorArg {
                         name: input.name.clone(),
-                        kind: input.kind.clone(),
-                        type_string: input.kind.clone().to_string(),
+                        type_string: String::new(),
                         value: String::new(),
                     })
                     .collect();
@@ -1563,9 +1566,22 @@ impl ProjectInfo {
             compiled_bytecode: compiled_bytecode_str,
             init_code: init_code_str,
             compiler_version: build_info.solc_version.clone(),
-            optimization_enabled: build_info.input.settings.optimizer.enabled.unwrap_or(false),
-            optimization_runs: build_info.input.settings.optimizer.runs.unwrap_or_default(),
+            optimization_enabled: build_info
+                .input
+                .input
+                .settings
+                .optimizer
+                .enabled
+                .unwrap_or(false),
+            optimization_runs: build_info
+                .input
+                .input
+                .settings
+                .optimizer
+                .runs
+                .unwrap_or_default(),
             cbor_metadata: build_info
+                .input
                 .input
                 .settings
                 .metadata
@@ -1573,6 +1589,7 @@ impl ProjectInfo {
                 .and_then(|md| md.bytecode_hash),
             immutables,
             constructor_args,
+            constructor,
             events,
             other_bytecodes,
             storage,
@@ -1642,23 +1659,5 @@ impl std::fmt::Display for Environment {
             .expect("no values are skipped")
             .get_name()
             .fmt(f)
-    }
-}
-
-// Replaces ethers_solc::buildinfo::BuildInfo
-// Needed because older Hardhat versions apparently don't store the file ID in the
-// JSON, resulting in parsing errors.
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildInfo {
-    pub solc_version: Version,
-    pub input: CompilerInput,
-    pub output: CompilerOutput,
-}
-
-impl BuildInfo {
-    /// Deserializes the `BuildInfo` object from the given file
-    pub fn read(path: impl AsRef<Path>) -> Result<Self, SolcError> {
-        utils::read_json_file(path)
     }
 }

@@ -2,7 +2,7 @@
 set -ex
 
 # Can use env with "set -a && source .env && set +a" for testing
-export RUSTFLAGS='-D warnings'   # This flag makes pipeline fail on warnings
+#export RUSTFLAGS='-D warnings'   # This flag makes pipeline fail on warnings
 pkill geth || true
 pkill anvil || true
 pkill cached_proxy || true

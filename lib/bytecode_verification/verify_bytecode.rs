@@ -2,8 +2,8 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use alloy::primitives::Address;
 use colored::Colorize;
-use ethers::abi::Address;
 use prettytable::Table;
 use tracing::debug;
 

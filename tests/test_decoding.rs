@@ -10,7 +10,7 @@ mod tests {
     use dvf_libs::state::contract_state::ContractState;
     use dvf_libs::state::forge_inspect;
     use dvf_libs::utils::pretty::PrettyPrinter;
-    use dvf_libs::web3::{StorageSnapshot, TraceWithAddress};
+    use dvf_libs::web3::{IntermediateTraceWithAddress, StorageSnapshot, TraceWithAddress};
     use prettytable::Table;
 
     fn generate_results(
@@ -58,7 +58,8 @@ mod tests {
             let path = format!("./tests/data/trace_{}.json", contract_name);
             println!("Reading {}", path);
             let trace_str = fs::read_to_string(&path).unwrap();
-            let trace_w_a: TraceWithAddress = serde_json::from_str(&trace_str).unwrap();
+            let trace_w_a: IntermediateTraceWithAddress = serde_json::from_str(&trace_str).unwrap();
+            let trace_w_a: TraceWithAddress = trace_w_a.into();
 
             let empty_config = DVFConfig::default();
             let mut snapshot =

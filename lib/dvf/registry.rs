@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
-use ethers_core::types::Address;
+use alloy::primitives::Address;
 use tracing::debug;
 
 use crate::dvf::config::DVFConfig;
@@ -109,7 +109,7 @@ impl Registry {
             if path.is_file()
                 && path
                     .file_name()
-                    .map_or(false, |f| f.to_string_lossy().contains(address))
+                    .is_some_and(|f| f.to_string_lossy().contains(address))
             {
                 results.push(path);
             }

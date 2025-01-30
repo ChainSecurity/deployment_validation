@@ -5,7 +5,7 @@ use std::process::Command;
 use std::str::FromStr;
 use tempfile::TempDir;
 
-use ethers::types::U256;
+use alloy::primitives::U256;
 use serde::de::{self, Deserializer, Visitor};
 use serde::Deserialize;
 use tracing::{debug, info};
@@ -49,7 +49,7 @@ where
 {
     struct USizeVisitor;
 
-    impl<'de> Visitor<'de> for USizeVisitor {
+    impl Visitor<'_> for USizeVisitor {
         type Value = usize;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -72,7 +72,7 @@ where
 {
     struct U256Visitor;
 
-    impl<'de> Visitor<'de> for U256Visitor {
+    impl Visitor<'_> for U256Visitor {
         type Value = U256;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -83,7 +83,7 @@ where
         where
             E: de::Error,
         {
-            Ok(U256::from_dec_str(v).unwrap())
+            Ok(U256::from_str_radix(v, 10).unwrap())
         }
     }
     deserializer.deserialize_string(U256Visitor)
@@ -179,6 +179,7 @@ impl ForgeInspect {
             .arg("--force")
             .arg("--root") // required because forge will use Git root (not necessarily project root) by default
             .arg(".")
+            .arg("--json")
             .arg("--out")
             .arg(temp_path.as_os_str())
             .arg("--cache-path")

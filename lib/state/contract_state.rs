@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Add;
 use std::str::FromStr;
 
-use ethers::types::{Address, U256};
-use ethers::utils::keccak256;
+use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
 use tracing::{debug, info};
 
@@ -17,10 +16,8 @@ use crate::state::forge_inspect::{ForgeInspect, StateVariable, TypeDescription};
 use crate::utils::pretty::PrettyPrinter;
 use crate::web3::{get_internal_create_addresses, StorageSnapshot, TraceWithAddress};
 
-fn hash_u256(u: &U256) -> [u8; 32] {
-    let mut input = [0u8; 32];
-    u.to_big_endian(&mut input);
-    keccak256(input)
+fn hash_u256(u: &U256) -> B256 {
+    keccak256(u.to_be_bytes::<32>())
 }
 
 // Take a hex-string with leading 0x and
@@ -121,8 +118,8 @@ impl<'a> ContractState<'a> {
 
     fn fetch_memory_slice(start_idx: &U256, length: &U256, memory: &Vec<String>) -> String {
         let mem_str = Self::memory_as_string(memory);
-        let start_idx = start_idx.as_usize() * 2;
-        let length = length.as_usize() * 2;
+        let start_idx = start_idx.to::<usize>() * 2;
+        let length = length.to::<usize>() * 2;
 
         mem_str[start_idx..(start_idx + length)].to_string()
     }
@@ -148,7 +145,7 @@ impl<'a> ContractState<'a> {
             // Mapping key, Some if previous op was a SHA3
             let mut key: Option<String> = None;
             // Mapping storage index, only meaningful when key is Some
-            let mut index: U256 = U256::one();
+            let mut index: U256 = U256::from(1);
             for log in trace_w_a.trace.struct_logs {
                 // Boring state
                 if log.stack.is_none() {
@@ -170,15 +167,13 @@ impl<'a> ContractState<'a> {
                     } else {
                         // Insert dummy address as we don't care about this address
                         // That way we avoid fetching it
-                        depth_to_address.insert(log.depth + 1, Address::zero());
+                        depth_to_address.insert(log.depth + 1, Address::from([0; 20]));
                     }
                 }
 
                 if log.op == "CALL" || log.op == "STATICCALL" {
-                    let mut address_bytes = [0u8; 32];
-                    stack[stack.len() - 2].to_big_endian(&mut address_bytes);
-                    let mut a = Address::zero();
-                    a.assign_from_slice(&address_bytes[12..]);
+                    let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+                    let a = Address::from_slice(&address_bytes[12..]);
                     depth_to_address.insert(log.depth + 1, a);
                 }
 
@@ -215,7 +210,8 @@ impl<'a> ContractState<'a> {
                         if length_in_bytes > U256::from(32_u64)
                             && length_in_bytes < U256::from(usize::MAX / 2)
                         {
-                            let usize_str_length = length_in_bytes.as_usize() * 2 + 2;
+                            let usize_str_length =
+                                usize::try_from(length_in_bytes).unwrap() * 2 + 2;
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
@@ -297,7 +293,7 @@ impl<'a> ContractState<'a> {
         }
 
         for unused_part in unused_parts {
-            let crit_var = DVFStorageEntry {
+            let crit_var: DVFStorageEntry = DVFStorageEntry {
                 slot: unused_part.slot,
                 offset: unused_part.offset,
                 var_name: String::from("unknown"),
@@ -451,7 +447,7 @@ impl<'a> ContractState<'a> {
                 )?);
             }
             let mut current_slot = match self.is_dynamic_array(&state_variable.var_type) {
-                true => U256::from(hash_u256(&state_variable.slot)),
+                true => U256::from_be_slice(hash_u256(&state_variable.slot).as_slice()),
                 false => state_variable.slot,
             };
             for i in 0..num {
@@ -471,7 +467,7 @@ impl<'a> ContractState<'a> {
                     current_offset = 0;
                 // Check if we need to skip one slot
                 } else if current_offset + base_num_bytes + base_num_bytes > 32 {
-                    current_slot = current_slot.add(U256::one());
+                    current_slot = current_slot.add(U256::from(1));
                     current_offset = 0;
                 } else {
                     current_offset += base_num_bytes;
@@ -584,19 +580,20 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                 )?);
-                let mut string_length = U256::from_big_endian(&snapshot.get_slot(
+                let mut string_length = U256::from_be_slice(&snapshot.get_slot(
                     &length_var.slot,
                     length_var.offset,
                     32,
                 ));
                 // We skip the -1 as we round down anyway
-                string_length /= U256([2, 0, 0, 0]);
-                let mut string_index = U256::zero();
-                let mut current_slot = U256::from(hash_u256(&state_variable.slot));
+                string_length /= U256::from_limbs([2, 0, 0, 0]);
+                let mut string_index = U256::ZERO;
+                let mut current_slot =
+                    U256::from_be_slice(hash_u256(&state_variable.slot).as_slice());
                 let mut raw_string: Vec<u8> = vec![];
-                let u256_32 = U256([32, 0, 0, 0]);
+                let u256_32 = U256::from_limbs([32, 0, 0, 0]);
                 loop {
-                    let value_length = cmp::min(string_length.as_usize(), 32);
+                    let value_length = cmp::min(string_length.as_limbs()[0] as usize, 32); //@note take the least significant limbs
                     let value =
                         snapshot.get_slot_and_mark(&current_slot, 32 - value_length, value_length);
                     raw_string.extend_from_slice(&value);
@@ -616,8 +613,8 @@ impl<'a> ContractState<'a> {
                         break;
                     }
                     string_length -= u256_32;
-                    string_index += U256::one();
-                    current_slot += U256::one();
+                    string_index += U256::from(1);
+                    current_slot += U256::from(1);
                 }
                 let mut full_string = String::new();
                 if Self::is_string(&state_variable.var_type) {

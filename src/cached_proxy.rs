@@ -1,7 +1,8 @@
 use actix_web::{web, web::get, web::post, App, HttpRequest, HttpServer, Responder};
-use clap::{Arg, Command};
-use ethers::utils::keccak256;
-use reqwest::{header::HeaderMap, Url};
+use alloy::primitives::keccak256;
+use clap::{value_parser, Arg, Command};
+use reqwest::header::HeaderValue;
+use reqwest::{header::HeaderMap, header::HeaderName, Url};
 use serde_json::Value;
 use std::fs::{create_dir_all, File};
 use std::io::{Read, Write};
@@ -38,7 +39,10 @@ async fn generic_function(
     let mut headers = HeaderMap::new();
     for (key, value) in req.headers().iter() {
         if key.as_str().contains("api-key") || key.as_str().contains("content") {
-            headers.insert(key, value.clone());
+            headers.insert(
+                HeaderName::from_bytes(key.as_str().as_bytes()).unwrap(),
+                HeaderValue::from_bytes(value.as_bytes()).unwrap(),
+            );
         }
     }
 
@@ -138,7 +142,10 @@ async fn generic_path_function<T: AsRef<str> + std::fmt::Display>(
     let mut headers = HeaderMap::new();
     for (key, value) in req.headers().iter() {
         if key.as_str().contains("api-key") || key.as_str().contains("content") {
-            headers.insert(key, value.clone());
+            headers.insert(
+                HeaderName::from_bytes(key.as_str().as_bytes()).unwrap(),
+                HeaderValue::from_bytes(value.as_bytes()).unwrap(),
+            );
         }
     }
 
@@ -228,29 +235,27 @@ async fn main() -> std::io::Result<()> {
                 .long("port")
                 .value_name("PORT")
                 .default_value("5000")
-                .takes_value(true),
+                .value_parser(value_parser!(u16)),
         )
         .arg(
             Arg::new("url")
                 .short('u')
                 .long("url")
                 .value_name("URL")
-                .default_value("")
-                .takes_value(true),
+                .default_value(""),
         )
         .arg(
             Arg::new("cachedir")
                 .short('d')
                 .long("cachedir")
                 .value_name("CACHEDIR")
-                .takes_value(true)
                 .required(true),
         )
         .get_matches();
 
-    let port: u16 = matches.value_of("port").unwrap().parse().unwrap();
-    let url = matches.value_of("url").unwrap().to_string();
-    let cachedir = matches.value_of("cachedir").unwrap().to_string();
+    let port: u16 = *matches.get_one::<u16>("port").unwrap();
+    let url = matches.get_one::<String>("url").unwrap().to_string();
+    let cachedir = matches.get_one::<String>("cachedir").unwrap().to_string();
 
     create_dir_all(&cachedir)?;
 
