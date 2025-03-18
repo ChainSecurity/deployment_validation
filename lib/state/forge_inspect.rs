@@ -177,6 +177,7 @@ impl ForgeInspect {
             .current_dir(project_path)
             .arg("inspect")
             .arg("--force")
+            .arg("--json")
             .arg("--root") // required because forge will use Git root (not necessarily project root) by default
             .arg(".")
             .arg("--json")
