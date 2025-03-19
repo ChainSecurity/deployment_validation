@@ -401,7 +401,7 @@ impl DumpedDVF {
                 source_url: Some(String::from("https://github.com/source/code")),
                 security_contact: Some(String::from("security@example.org")),
                 implementation_name,
-                implementation_address: None // currently no source for this
+                implementation_address: None, // currently no source for this
             }),
         };
         dumped.check_version()?;

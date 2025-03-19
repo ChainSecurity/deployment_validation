@@ -1362,15 +1362,13 @@ impl StorageSnapshot {
             // And diffs for all txs
             if let Ok(all_diffs) = get_many_diff_traces(config, &tx_hashes) {
                 // And compute snapshot from there
-                let snapshot = Self::snapshot_from_diff_traces(&all_diffs, address);
+                Self::snapshot_from_diff_traces(&all_diffs, address)
                 // verify snapshot with account storage merkle root
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
-                snapshot
             } else {
-                let snapshot = Self::snapshot_from_tx_ids(config, address, &tx_hashes)?;
+                Self::snapshot_from_tx_ids(config, address, &tx_hashes)?
                 // verify snapshot with account storage merkle root
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
-                snapshot
             }
         };
         debug!("Storage Snapshot: {:?}", snapshot);
