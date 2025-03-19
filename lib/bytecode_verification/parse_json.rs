@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use alloy::json_abi::Constructor;
 use clap::ValueEnum;
+use foundry_compilers::artifacts::{SolcInput, Contract, Error};
 use semver::Version;
 use serde_json::Value;
 use std::path::Path;
@@ -1387,11 +1388,12 @@ impl ProjectInfo {
             Environment::Hardhat => "<npx hardhat clean>",
         };
 
-        let mut build_infos = Vec::<BuildInfo>::new();
+        let mut build_infos: Vec<BInfo<SolcInput, CompilerOutput<Error, Contract>>> = Vec::<BInfo<SolcInput, CompilerOutput<Error, Contract>>>::new();
         match build_info_path.read_dir() {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
-                    let bi: BuildInfo = BuildInfo::read(&build_info_file.path())?;
+                    println!("{}", &build_info_file.path().to_str().unwrap());
+                    let bi: BInfo<SolcInput, CompilerOutput<Error, Contract>> = BInfo::read(&build_info_file.path())?;
                     if bi
                         .output
                         .contracts
@@ -1568,20 +1570,17 @@ impl ProjectInfo {
             compiler_version: build_info.solc_version.clone(),
             optimization_enabled: build_info
                 .input
-                .input
                 .settings
                 .optimizer
                 .enabled
                 .unwrap_or(false),
             optimization_runs: build_info
                 .input
-                .input
                 .settings
                 .optimizer
                 .runs
                 .unwrap_or_default(),
             cbor_metadata: build_info
-                .input
                 .input
                 .settings
                 .metadata
