@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 use alloy::json_abi::Constructor;
 use clap::ValueEnum;
-use foundry_compilers::artifacts::{SolcInput, Contract, Error};
 use semver::Version;
 use serde_json::Value;
 use std::path::Path;
@@ -28,13 +27,12 @@ use alloy::primitives::U256;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
     BytecodeHash, BytecodeObject, Contract as ContractArt, DeployedBytecode, Node as EAstNode,
-    NodeType, SourceFile,
+    NodeType, SolcInput, SourceFile,
 };
 use foundry_compilers::buildinfo::BuildInfo as BInfo;
-use foundry_compilers::solc::SolcVersionedInput;
 use foundry_compilers::CompilerOutput;
 
-type BuildInfo = BInfo<SolcVersionedInput, CompilerOutput<CompilerError, ContractArt>>;
+type BuildInfo = BInfo<SolcInput, CompilerOutput<CompilerError, ContractArt>>;
 
 struct TmpVariableDeclaration {
     name: String,
@@ -1388,12 +1386,12 @@ impl ProjectInfo {
             Environment::Hardhat => "<npx hardhat clean>",
         };
 
-        let mut build_infos: Vec<BInfo<SolcInput, CompilerOutput<Error, Contract>>> = Vec::<BInfo<SolcInput, CompilerOutput<Error, Contract>>>::new();
+        let mut build_infos = Vec::<BuildInfo>::new();
         match build_info_path.read_dir() {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
                     println!("{}", &build_info_file.path().to_str().unwrap());
-                    let bi: BInfo<SolcInput, CompilerOutput<Error, Contract>> = BInfo::read(&build_info_file.path())?;
+                    let bi = BuildInfo::read(&build_info_file.path())?;
                     if bi
                         .output
                         .contracts
@@ -1568,18 +1566,8 @@ impl ProjectInfo {
             compiled_bytecode: compiled_bytecode_str,
             init_code: init_code_str,
             compiler_version: build_info.solc_version.clone(),
-            optimization_enabled: build_info
-                .input
-                .settings
-                .optimizer
-                .enabled
-                .unwrap_or(false),
-            optimization_runs: build_info
-                .input
-                .settings
-                .optimizer
-                .runs
-                .unwrap_or_default(),
+            optimization_enabled: build_info.input.settings.optimizer.enabled.unwrap_or(false),
+            optimization_runs: build_info.input.settings.optimizer.runs.unwrap_or_default(),
             cbor_metadata: build_info
                 .input
                 .settings
