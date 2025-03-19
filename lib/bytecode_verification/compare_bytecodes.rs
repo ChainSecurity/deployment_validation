@@ -166,7 +166,10 @@ impl CompareBytecode {
         if factory_mode {
             let mut other_bytecodes: Vec<Vec<u8>> = vec![];
             for other_bytecode in &project_info.other_bytecodes {
-                other_bytecodes.push(hex::decode(other_bytecode.trim_start_matches("0x")).unwrap());
+                // TODO: bytecode may contain placehodlers for linked libraries (e.g., "__$a8edeab004e053fbdc8344e3d53a225696$__"). handle this
+                if let Ok(hex_bytecode) = hex::decode(other_bytecode.trim_start_matches("0x")) {
+                    other_bytecodes.push(hex_bytecode);
+                }
             }
             ignore_subcontracts_metadata(
                 &other_bytecodes,
@@ -246,7 +249,9 @@ impl CompareInitCode {
         if factory_mode {
             let mut other_bytecodes: Vec<Vec<u8>> = vec![];
             for other_bytecode in &project_info.other_bytecodes {
-                other_bytecodes.push(hex::decode(other_bytecode.trim_start_matches("0x")).unwrap());
+                if let Ok(hex_bytecode) = hex::decode(other_bytecode.trim_start_matches("0x")) {
+                    other_bytecodes.push(hex_bytecode);
+                }
             }
             ignore_subcontracts_metadata(
                 &other_bytecodes,
