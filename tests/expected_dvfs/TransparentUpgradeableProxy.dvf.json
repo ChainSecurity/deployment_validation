@@ -930,7 +930,6 @@
     "audit_report": "https://example.org/report.pdf",
     "source_url": "https://github.com/source/code",
     "security_contact": "security@example.org",
-    "implementation_name": "MyToken",
-    "implementation_address": "0x0000000000000000000000000000000000000000"
+    "implementation_name": "MyToken"
   }
 }
