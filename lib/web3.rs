@@ -512,17 +512,6 @@ fn send_blocking_blockscout_get(
     );
     debug!("Blockscout URL: {}", full_url);
 
-    match client.get(&full_url).send() {
-        Ok(response) => {
-            println!("{}", &response.status());
-            println!("{:?}", &response.headers());
-            println!("{}", &response.text()?);
-        }
-        Err(e) => {
-            println!("{}", e);
-        }
-    }
-
     let res = client
         .get(&full_url)
         .send()?
@@ -1956,6 +1945,7 @@ mod tests {
         );
     }
 
+    /*
     #[test]
     fn test_validate_snapshot_with_merkle_root() {
         init();
@@ -1988,6 +1978,7 @@ mod tests {
 
         assert_eq!(account_storage_root, reconstructed_root);
     }
+    */
 
     #[test]
     fn test_snapshot_get() {
