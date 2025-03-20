@@ -510,7 +510,18 @@ fn send_blocking_blockscout_get(
         request,
         config.get_blockscout_api_key()?
     );
-    println!("Blockscout URL: {}", full_url);
+    debug!("Blockscout URL: {}", full_url);
+
+    match client.get(&full_url).send() {
+        Ok(response) => {
+            println!("{}", &response.status());
+            println!("{:?}", &response.headers());
+            println!("{}", &response.text()?);
+        },
+        Err(e) => {
+            println!("{}", e);
+        }
+    }
 
     let res = client
         .get(&full_url)
@@ -992,9 +1003,9 @@ fn get_some_txs_for_contract_from_blockscout(
         );
 
         let result = send_blocking_blockscout_get(config, &url)?;
-        println!("Trying to parse");
+        debug!("Trying to parse");
         let internal_txs: Vec<TransactionDetail> = serde_json::from_value(result).unwrap();
-        println!("Parsing worked.");
+        debug!("Parsing worked.");
         let num_internal_txs = internal_txs.len();
         for internal_tx in internal_txs {
             if !txs.contains(&internal_tx) {
@@ -1008,7 +1019,7 @@ fn get_some_txs_for_contract_from_blockscout(
         }
     }
 
-    println!("Found {} {} transactions.", txs.len(), internal_str);
+    debug!("Found {} {} transactions.", txs.len(), internal_str);
     Ok(txs)
 }
 
