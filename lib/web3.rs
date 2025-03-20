@@ -517,7 +517,7 @@ fn send_blocking_blockscout_get(
             println!("{}", &response.status());
             println!("{:?}", &response.headers());
             println!("{}", &response.text()?);
-        },
+        }
         Err(e) => {
             println!("{}", e);
         }
