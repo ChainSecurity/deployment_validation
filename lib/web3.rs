@@ -1919,8 +1919,8 @@ mod tests {
     #[test]
     fn test_snapshot_equality() {
         tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
         // TODO: add more traces with reverts and stuff
         init();
         let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
@@ -1951,8 +1951,8 @@ mod tests {
     #[test]
     fn test_validate_snapshot_with_merkle_root() {
         tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+            .with_max_level(tracing::Level::DEBUG)
+            .init();
         init();
         let address = Address::from_str("0x27dab51C2c5B6AF23DF64143c61ffCFa36F35E6d").unwrap();
         let mut config = match DVFConfig::from_env(None) {
