@@ -1867,7 +1867,7 @@ pub fn get_eth_storage_snapshot(
 
 #[cfg(test)]
 mod tests {
-    use reth_trie::root;
+    //use reth_trie::root;
     use std::str::FromStr;
 
     use super::*;
@@ -1930,12 +1930,9 @@ mod tests {
         };
         config.set_chain_id(1).unwrap();
 
-        /*
-            Since the API call `debug_storageRangeAt` only works on recent blocks, we will have to work with a recent init block number:
-            init_block_num = <current_block> - 1 (we remove 1, otherwise `get_eth_storage_snapshot` will fail because this method add 1 to init_block_num)
-        */
         let deployment_block_num = 19012544;
-        let init_block_num = get_eth_block_number(&config).unwrap() - 1;
+        //let init_block_num = get_eth_block_number(&config).unwrap() - 1;
+        let init_block_num = 22088076; // can't use latest block as this won't work with the cache
 
         StorageSnapshot::helper_test_snapshot_equality(
             &config,
