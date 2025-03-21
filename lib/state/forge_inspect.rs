@@ -180,7 +180,6 @@ impl ForgeInspect {
             .arg("--json")
             .arg("--root") // required because forge will use Git root (not necessarily project root) by default
             .arg(".")
-            .arg("--json")
             .arg("--out")
             .arg(temp_path.as_os_str())
             .arg("--cache-path")
