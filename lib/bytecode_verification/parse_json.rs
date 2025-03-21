@@ -684,7 +684,11 @@ impl ProjectInfo {
                                                                             for source in
                                                                                 sources.values()
                                                                             {
-                                                                                if let Some(ast) = source.ast.clone() {
+                                                                                if let Some(ast) =
+                                                                                    source
+                                                                                        .ast
+                                                                                        .clone()
+                                                                                {
                                                                                     for top_node in
                                                                                         &ast.nodes
                                                                                     {
@@ -717,7 +721,12 @@ impl ProjectInfo {
                                                                                 for source in
                                                                                     sources.values()
                                                                                 {
-                                                                                    if let Some(ast) = source.ast.clone() {
+                                                                                    if let Some(
+                                                                                        ast,
+                                                                                    ) = source
+                                                                                        .ast
+                                                                                        .clone()
+                                                                                    {
                                                                                         for top_node in
                                                                                             &ast.nodes
                                                                                         {
@@ -1162,7 +1171,9 @@ impl ProjectInfo {
                                                                 .as_u64()
                                                                 .unwrap();
                                                             for source in sources.values() {
-                                                                if let Some(ast) = source.ast.clone() {
+                                                                if let Some(ast) =
+                                                                    source.ast.clone()
+                                                                {
                                                                     for top_node in &ast.nodes {
                                                                         let var_type = match Self::find_variable_declaration(
                                                                             sources,
@@ -1172,7 +1183,8 @@ impl ProjectInfo {
                                                                             Some((_, vt, _)) => Some(vt),
                                                                             None => Self::find_parameter_declaration(top_node, var_id).map(|(_, vt, _, _)| vt)
                                                                         };
-                                                                        if let Some(var_type) = var_type
+                                                                        if let Some(var_type) =
+                                                                            var_type
                                                                         {
                                                                             types.insert(
                                                                                 var_type.clone(),
@@ -1192,9 +1204,10 @@ impl ProjectInfo {
                                                                             // get the slot that is written to by parsing the
                                                                             // value (= slot) and name of the variable used in
                                                                             // the first sstore() argument
-                                                                            let slot_arg = &arguments
-                                                                                .as_array()
-                                                                                .unwrap()[0];
+                                                                            let slot_arg =
+                                                                                &arguments
+                                                                                    .as_array()
+                                                                                    .unwrap()[0];
                                                                             if slot_arg["nodeType"]
                                                                                 == "YulIdentifier"
                                                                             {
@@ -1525,7 +1538,7 @@ impl ProjectInfo {
                     }
                 }
             } else {
-                debug!("Empty AST found: {}", file);
+                debug!("Empty AST found: {}", file.display());
             }
         }
         // get exported AST IDs of the current contract to prevent parsing storage slots of other contracts

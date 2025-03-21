@@ -5,17 +5,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
-<<<<<<< HEAD
-=======
 use colored::Colorize;
-use ethers::core::types::{Block, CallFrame, Transaction};
-use ethers::types::serde_helpers::{deserialize_stringified_numeric, StringifiedNumeric};
-use ethers::types::BigEndianHash;
-use ethers::types::Log;
-use ethers::types::{Action, DiffMode, Res, Trace, TransactionReceipt, TxHash};
-use ethers::types::{Address, Bytes};
-use ethers::types::{H256, U256};
->>>>>>> 1826aee (some more fixes)
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
 use reqwest::blocking::Client;
@@ -1020,7 +1010,7 @@ fn get_some_txs_for_contract_from_blockscout(
     }
 
     debug!("Found {} {} transactions.", txs.len(), internal_str);
-    if txs.len() == 0 {
+    if txs.is_empty() {
         if internal {
             println!("{}", "Warning: 0 internal transactions found".yellow());
         } else {
