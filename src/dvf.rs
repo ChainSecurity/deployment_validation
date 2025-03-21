@@ -13,7 +13,7 @@ use console::style;
 use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, CompareInitCode};
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
-use dvf_libs::dvf::config::{replace_tilde, DVFConfig, DEFAULT_CONFIG_LOCATION};
+use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
 use dvf_libs::dvf::parse::{self, BasicDVF, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
@@ -344,7 +344,6 @@ fn main() {
             arg!(-c --config <FILE>)
                 .help("Path of config file, default location: undefined")
                 .action(clap::ArgAction::Set)
-                .default_value(DEFAULT_CONFIG_LOCATION)
                 .value_parser(value_parser!(String)),
         )
         .subcommand(
