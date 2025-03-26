@@ -174,8 +174,6 @@ impl fmt::Display for ValidationError {
     }
 }
 
-pub trait BasicDVF: Serialize {}
-
 fn bytes_to_hex<T, S>(bytes: &T, serializer: S) -> Result<S::Ok, S::Error>
 where
     T: AsRef<[u8]>,
