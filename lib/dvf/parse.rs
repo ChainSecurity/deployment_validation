@@ -174,28 +174,7 @@ impl fmt::Display for ValidationError {
     }
 }
 
-pub trait BasicDVF: Serialize {
-    fn check_version(&self) -> Result<(), ValidationError> {
-        let version = self.get_version();
-        if version < &LOWEST_SUPPORTED_VERSION {
-            return Err(ValidationError::Error("DV Version too old.".to_string()));
-        }
-        if version > &HIGHEST_SUPPORTED_VERSION {
-            return Err(ValidationError::Error("DV Version too new.".to_string()));
-        }
-        Ok(())
-    }
-
-    fn get_version(&self) -> &Version;
-
-    fn write_to_file(&self, path: &Path) -> Result<(), ValidationError> {
-        let output = serde_json::to_string_pretty(&self)?;
-
-        let mut file = File::create(path)?;
-        file.write_all(output.as_bytes())?;
-        Ok(())
-    }
-}
+pub trait BasicDVF: Serialize {}
 
 fn bytes_to_hex<T, S>(bytes: &T, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -351,123 +330,6 @@ pub struct Unvalidated {
     implementation_address: Option<Address>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DumpedDVF {
-    version: Version,
-    pub contract_name: String,
-    pub address: Address,
-    pub chain_id: u64,
-    pub deployment_block_num: u64,
-    pub init_block_num: u64,
-    pub deployment_tx: String,
-    pub codehash: String,
-    pub insecure: bool,
-    pub immutables: Vec<DVFImmutableEntry>,
-    pub constructor_args: Vec<DVFConstructorArg>,
-    pub critical_storage_variables: Vec<DVFStorageEntry>,
-    pub critical_events: Vec<DVFEventEntry>,
-    pub expiry_in_epoch_seconds: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unvalidated_metadata: Option<Unvalidated>,
-}
-
-impl DumpedDVF {
-    pub fn from_cli(matches: &ArgMatches) -> Result<Self, ValidationError> {
-        let immutables: Vec<DVFImmutableEntry> = vec![];
-        let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
-        let critical_events: Vec<DVFEventEntry> = vec![];
-        let constructor_args: Vec<DVFConstructorArg> = vec![];
-        let implementation_name = matches.get_one::<String>("implementation").cloned();
-        let dumped = DumpedDVF {
-            version: CURRENT_VERSION,
-            contract_name: matches.get_one::<String>("contractname").unwrap().clone(),
-            address: *matches.get_one::<Address>("address").unwrap(),
-            chain_id: *matches.get_one("chainid").unwrap(),
-            codehash: String::new(),
-            deployment_tx: String::new(),
-            deployment_block_num: 0,
-            init_block_num: 0,
-            insecure: false,
-            immutables,
-            constructor_args,
-            critical_storage_variables,
-            critical_events,
-            expiry_in_epoch_seconds: None,
-            unvalidated_metadata: Some(Unvalidated {
-                author_name: Some(String::from("Author")),
-                description: Some(String::from("System Description")),
-                hardfork: Some(vec![String::from("paris"), String::from("shanghai")]),
-                audit_report: Some(String::from("https://example.org/report.pdf")),
-                source_url: Some(String::from("https://github.com/source/code")),
-                security_contact: Some(String::from("security@example.org")),
-                implementation_name,
-                implementation_address: None, // currently no source for this
-            }),
-        };
-        dumped.check_version()?;
-        Ok(dumped)
-    }
-
-    pub fn get_fname(&self) -> String {
-        format!("dumped_{:?}.dvf.json", &self.address)
-    }
-
-    pub fn copy_immutables(&mut self, project_info: &ProjectInfo, pretty_printer: &PrettyPrinter) {
-        self.immutables = project_info
-            .immutables
-            .iter()
-            .map(|x| -> DVFImmutableEntry {
-                let translated_type = format!("t_{}", &x.type_string);
-                DVFImmutableEntry {
-                    var_name: x.name.clone(),
-                    value: x.value.clone(),
-                    value_hint: match pretty_printer
-                        .pretty_value_short(&translated_type, &x.value, true)
-                        .as_str()
-                    {
-                        "" => None,
-                        other => Some(other.to_string()),
-                    },
-                }
-            })
-            .collect::<Vec<DVFImmutableEntry>>();
-    }
-
-    pub fn copy_constructor_args(
-        &mut self,
-        project_info: &ProjectInfo,
-        pretty_printer: &PrettyPrinter,
-    ) {
-        self.constructor_args = project_info
-            .constructor_args
-            .iter()
-            .map(|x| -> DVFConstructorArg {
-                // TODO: This is wrong. Hotfixed for now
-                // Needs a proper translation, e.g. uint[] => t_array_uint...
-                // Then those types might be unknown
-                let translated_type = format!("t_{}", &x.type_string);
-                DVFConstructorArg {
-                    var_name: x.name.clone(),
-                    value: x.value.clone(),
-                    value_hint: match pretty_printer
-                        .pretty_value_short(&translated_type, &x.value, true)
-                        .as_str()
-                    {
-                        "" => None,
-                        other => Some(other.to_string()),
-                    },
-                }
-            })
-            .collect::<Vec<DVFConstructorArg>>();
-    }
-}
-
-impl BasicDVF for DumpedDVF {
-    fn get_version(&self) -> &Version {
-        &self.version
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DVFSignature {
     pub sig_data: Option<String>,
@@ -519,6 +381,94 @@ impl CompleteDVF {
         filled.check_version()?;
 
         Ok(filled)
+    }
+
+    pub fn from_cli(matches: &ArgMatches) -> Result<Self, ValidationError> {
+        let immutables: Vec<DVFImmutableEntry> = vec![];
+        let critical_storage_variables: Vec<DVFStorageEntry> = vec![];
+        let critical_events: Vec<DVFEventEntry> = vec![];
+        let constructor_args: Vec<DVFConstructorArg> = vec![];
+        let implementation_name = matches.get_one::<String>("implementation").cloned();
+        let dumped = CompleteDVF {
+            version: CURRENT_VERSION,
+            id: None,
+            contract_name: matches.get_one::<String>("contractname").unwrap().clone(),
+            address: *matches.get_one::<Address>("address").unwrap(),
+            chain_id: *matches.get_one("chainid").unwrap(),
+            codehash: String::new(),
+            deployment_tx: String::new(),
+            deployment_block_num: 0,
+            init_block_num: 0,
+            insecure: Some(false),
+            immutables,
+            constructor_args,
+            critical_storage_variables,
+            critical_events,
+            expiry_in_epoch_seconds: None,
+            references: None,
+            unvalidated_metadata: Some(Unvalidated {
+                author_name: Some(String::from("Author")),
+                description: Some(String::from("System Description")),
+                hardfork: Some(vec![String::from("paris"), String::from("shanghai")]),
+                audit_report: Some(String::from("https://example.org/report.pdf")),
+                source_url: Some(String::from("https://github.com/source/code")),
+                security_contact: Some(String::from("security@example.org")),
+                implementation_name,
+                implementation_address: None, // currently no source for this
+            }),
+            signature: None,
+        };
+        dumped.check_version()?;
+        Ok(dumped)
+    }
+
+    pub fn copy_immutables(&mut self, project_info: &ProjectInfo, pretty_printer: &PrettyPrinter) {
+        self.immutables = project_info
+            .immutables
+            .iter()
+            .map(|x| -> DVFImmutableEntry {
+                let translated_type = format!("t_{}", &x.type_string);
+                DVFImmutableEntry {
+                    var_name: x.name.clone(),
+                    value: x.value.clone(),
+                    value_hint: match pretty_printer
+                        .pretty_value_short(&translated_type, &x.value, true)
+                        .as_str()
+                    {
+                        "" => None,
+                        other => Some(other.to_string()),
+                    },
+                }
+            })
+            .collect::<Vec<DVFImmutableEntry>>();
+    }
+
+    pub fn copy_constructor_args(
+        &mut self,
+        project_info: &ProjectInfo,
+        pretty_printer: &PrettyPrinter,
+    ) {
+        self.constructor_args = project_info
+            .constructor_args
+            .iter()
+            .map(|x| -> DVFConstructorArg {
+                // TODO: This is wrong. Hotfixed for now
+                // Needs a proper translation, e.g. uint[] => t_array_uint...
+                // Then those types might be unknown
+                let translated_type = format!("t_{}", &x.type_string);
+                DVFConstructorArg {
+                    var_name: x.name.clone(),
+                    value: x.value.clone(),
+                    value_hint: match pretty_printer
+                        .pretty_value_short(&translated_type, &x.value, true)
+                        .as_str()
+                    {
+                        "" => None,
+                        other => Some(other.to_string()),
+                    },
+                }
+            })
+            .collect::<Vec<DVFConstructorArg>>();
     }
 
     pub fn add_reference(&mut self, new_ref_id: &str, new_ref_name: &str) {
@@ -688,9 +638,26 @@ impl CompleteDVF {
             None => String::from("generated.dvf.json"),
         }
     }
-}
 
-impl BasicDVF for CompleteDVF {
+    fn check_version(&self) -> Result<(), ValidationError> {
+        let version = self.get_version();
+        if version < &LOWEST_SUPPORTED_VERSION {
+            return Err(ValidationError::Error("DV Version too old.".to_string()));
+        }
+        if version > &HIGHEST_SUPPORTED_VERSION {
+            return Err(ValidationError::Error("DV Version too new.".to_string()));
+        }
+        Ok(())
+    }
+
+    pub fn write_to_file(&self, path: &Path) -> Result<(), ValidationError> {
+        let output = serde_json::to_string_pretty(&self)?;
+
+        let mut file = File::create(path)?;
+        file.write_all(output.as_bytes())?;
+        Ok(())
+    }
+
     fn get_version(&self) -> &Version {
         &self.version
     }

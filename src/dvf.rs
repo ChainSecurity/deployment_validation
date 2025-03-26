@@ -14,7 +14,7 @@ use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, Compar
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
-use dvf_libs::dvf::parse::{self, BasicDVF, ValidationError, CURRENT_VERSION_STRING};
+use dvf_libs::dvf::parse::{self, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
@@ -998,7 +998,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 user_output_path
             };
 
-            let mut dumped = parse::DumpedDVF::from_cli(sub_m)?;
+            let mut dumped = parse::CompleteDVF::from_cli(sub_m)?;
             config.set_chain_id(dumped.chain_id)?;
 
             let registry = registry::Registry::from_config(&config)?;
@@ -1388,6 +1388,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 "{}. Decide if this validation should have an expiry date. Also you can fill in additional, unvalidated metadata.", pc
             );
 
+            dumped.generate_id()?;
             dumped.write_to_file(output_path)?;
             println!("Wrote DVF to {}!", output_path.display());
             exit(0);
