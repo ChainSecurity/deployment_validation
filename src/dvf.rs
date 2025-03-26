@@ -69,6 +69,7 @@ fn aggregate_results(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validate_dvf(
     config: &DVFConfig,
     input_file: &Path,
@@ -76,11 +77,13 @@ fn validate_dvf(
     registry: &Registry,
     seen_ids: &mut HashSet<String>,
     allow_untrusted: bool,
+    continue_on_mismatch: bool,
     expected_contract_name: Option<String>,
 ) -> Result<(), ValidationError> {
     let mut pc = 1_u64;
     let progress_mode = ProgressMode::Validation;
     print_progress("Consistency Checks.", &mut pc, &progress_mode);
+    let mut mismatch_found = false;
 
     let filled = parse::CompleteDVF::from_path(input_file)?;
 
@@ -173,7 +176,7 @@ fn validate_dvf(
         let start_index: usize = 32 - storage_variable.offset - size;
         let end_index: usize = start_index + size;
         if !storage_variable.compare(&current_val[start_index..end_index]) {
-            return Err(ValidationError::Invalid(format!(
+            let message = format!(
                 "Value mismatch for {} (slot {:#x}, offset {}).\nNew value: 0x{}\nOperator:  {}\nOld value: 0x{}",
                 &storage_variable.var_name,
                 &storage_variable.slot,
@@ -181,7 +184,13 @@ fn validate_dvf(
                 hex::encode(&current_val[start_index..end_index]),
                 &storage_variable.comparison_operator,
                 hex::encode(&storage_variable.value)
-            )));
+            );
+            if continue_on_mismatch {
+                mismatch_found = true;
+                println!("{}", message);
+            } else {
+                return Err(ValidationError::Invalid(message));
+            }
         }
     }
 
@@ -209,21 +218,39 @@ fn validate_dvf(
         for i in 0..seen_events.len() {
             let log_inner = &seen_events[i].inner;
             if log_inner.topics() != critical_event.occurrences[i].topics {
-                return Err(ValidationError::Invalid(format!(
+                let message = format!(
                     "Mismatching topics for event occurrence {} of {}.",
                     i, critical_event.sig
-                )));
+                );
+                if continue_on_mismatch {
+                    mismatch_found = true;
+                    println!("{}", message);
+                } else {
+                    return Err(ValidationError::Invalid(message));
+                }
             }
             if log_inner.data.data != critical_event.occurrences[i].data {
-                return Err(ValidationError::Invalid(format!(
+                let message = format!(
                     "Mismatching data for event occurrence {} of {}.",
                     i, critical_event.sig
-                )));
+                );
+                if continue_on_mismatch {
+                    mismatch_found = true;
+                    println!("{}", message);
+                } else {
+                    return Err(ValidationError::Invalid(message));
+                }
             }
         }
         pb.inc(1);
     }
     pb.finish_and_clear();
+
+    if mismatch_found {
+        return Err(ValidationError::Invalid(String::from(
+            "See previous mismatches.",
+        )));
+    }
 
     // Check insecure flag
     if let Some(insecure) = filled.insecure {
@@ -254,6 +281,7 @@ fn validate_dvf(
                             registry,
                             seen_ids,
                             allow_untrusted,
+                            false,
                             Some(reference.contract_name.clone()),
                         ));
                     }
@@ -469,6 +497,11 @@ fn main() {
                 .arg(
                     arg!(--allowuntrusted)
                         .help("Allows validation of unsigned or untrusted DVFs")
+                        .action(clap::ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(--continue)
+                        .help("Do not stop on the first mismatch but continue to show more")
                         .action(clap::ArgAction::SetTrue),
                 )
                 .arg(arg!(<DVF>).help("The DVF file").required(true)),
@@ -1445,6 +1478,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             let registry = registry::Registry::from_config(&config)?;
             let allow_untrusted = sub_m.get_flag("allowuntrusted");
+            let continue_on_mismatch = sub_m.get_flag("continue");
 
             let validation_block_num: u64 = *sub_m
                 .get_one::<u64>("validationblock")
@@ -1457,6 +1491,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 &registry,
                 &mut HashSet::new(),
                 allow_untrusted,
+                continue_on_mismatch,
                 None,
             ) {
                 Ok(()) => {
