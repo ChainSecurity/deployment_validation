@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0x6ed973cd9102a7ae9411dadb18136715f45be470673477da3f18133c0e11af7d",
   "contract_name": "Hardhat",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0x30ed560dda15ef4ebc622204085ec569a421b71c76c86ce66ac784fe5f7ef16e",
+  "deployment_tx": "0xb264412cc8abfe95406a4b6ae5d76c4ce6ab0697433ce4de2c98d73bd3c85510",
   "codehash": "0xbce107a9a9e3b91927625e76119fa0960066f24f9c9962b9c892d3991dbace2c",
   "insecure": false,
   "immutables": [],
@@ -63,7 +64,6 @@
       ]
     }
   ],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

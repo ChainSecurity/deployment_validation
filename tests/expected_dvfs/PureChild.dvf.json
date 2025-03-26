@@ -1,12 +1,13 @@
 {
   "version": "0.9.1",
+  "id": "0xe3af1644de7c8d3e9cde8f4fbba500b7eb3d88034d557a8e4966cc6602397b5d",
   "contract_name": "PureChild",
   "address": "0xa16e02e87b7454126e5e10d957a927a7f5b5d2be",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 3,
-  "deployment_tx": "0x6eb47896d68f12f29c9ccbedac5ff3490195cb9d47606d2ff3db92c9093e5b80",
-  "codehash": "0xc5eec0d383cb629c5a5259e04cc18b18293b04ce07dc5fca488e7edb3bc8e007",
+  "deployment_tx": "0xc3f03c210e501eaca1459141ce84bb36675ca2a1cc28d6d716c9794d2b9d4e88",
+  "codehash": "0x58f7c91b706c7b2e5694cdb86ba16504d4d8851df9522b29299fe8bb95403d57",
   "insecure": false,
   "immutables": [],
   "constructor_args": [],
@@ -40,7 +41,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

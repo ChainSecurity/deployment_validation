@@ -394,6 +394,9 @@ mod tests {
                     .success();
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
+                // Uncomment to regenerate expected files
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
+
                 assert_eq_files(
                     &outfile.path(),
                     &Path::new(&testcase.expected),
@@ -445,6 +448,10 @@ mod tests {
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+
                 assert_eq_files(
                     &Path::new(&updated_path),
                     &Path::new(&testcase.updated),
@@ -640,6 +647,15 @@ mod tests {
                 .success();
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
+            // Uncomment to regenerate expected files
+            /*
+            std::fs::copy(
+                outfile.path(),
+                Path::new("tests/expected_dvfs/MyToken.dvf.json"),
+            )
+            .unwrap();
+            */
+
             assert_eq_files(
                 &outfile.path(),
                 &Path::new("tests/expected_dvfs/MyToken.dvf.json"),
@@ -691,6 +707,15 @@ mod tests {
                 .assert()
                 .success();
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+            // Uncomment to regenerate expected files
+            /*
+            std::fs::copy(
+                proxy_outfile.path(),
+                Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
+            )
+            .unwrap();
+            */
 
             // @note that this fails, since the wrong name is stored in the registry
             assert_eq_files(
@@ -850,6 +875,9 @@ mod tests {
                     .assert()
                     .success();
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
                 assert_eq_files(
                     &outfile.path(),
@@ -1116,12 +1144,17 @@ mod tests {
                 // Remove the extra byte again
                 truncate_last_byte(src_name);
 
+                let new_fname = &format!(
+                    "tests/expected_dvfs/WorkingChild_{}.dvf.json",
+                    deployed_address
+                );
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
+
                 assert_eq_files(
                     &child_outfile.path(),
-                    &Path::new(&format!(
-                        "tests/expected_dvfs/WorkingChild_{}.dvf.json",
-                        deployed_address
-                    )),
+                    &Path::new(new_fname),
                     client_type.clone(),
                 )
                 .unwrap();
@@ -1232,6 +1265,9 @@ mod tests {
 
                 // Remove the extra byte again
                 truncate_last_byte(src_name);
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
 
                 assert_eq_files(
                     &factory_outfile.path(),
@@ -1537,6 +1573,9 @@ mod tests {
                     .assert()
                     .success();
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
                 assert_eq_files(
                     &outfile.path(),

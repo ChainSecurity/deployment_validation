@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0xf022962b5e00eff4c06c71b712da1913c170d4bcf465a0ec0ebf01a20d556555",
   "contract_name": "HardhatUp",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0xa673888f2bbbf84718493f2803ee98c43328880010376b9bf46eb3c9ca452b63",
+  "deployment_tx": "0x9a8f6be15880eb4aac68dae3abc72794e64a8d2cc18f2600eebbdf8393176e7e",
   "codehash": "0xaef83c18cc20c535cf14be2c96be668cb67e7aee22d6bfe88db894bf8e3536bb",
   "insecure": false,
   "immutables": [],
@@ -92,7 +93,6 @@
       ]
     }
   ],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

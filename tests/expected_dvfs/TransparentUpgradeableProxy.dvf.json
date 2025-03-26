@@ -1,12 +1,13 @@
 {
   "version": "0.9.1",
+  "id": "0x67500690126beab1e3bbd362947503f5ddd17142dfecd966f3c03e012bad60eb",
   "contract_name": "TransparentUpgradeableProxy",
   "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-  "chain_id": 31337,
-  "deployment_block_num": 2,
+  "chain_id": 1337,
+  "deployment_block_num": 3,
   "init_block_num": 3,
-  "deployment_tx": "0x30d3bb8f5b22cab0ec6643f7bcbd69a3d2ead0af29e9cd28a2a583e3c3ad4efd",
-  "codehash": "0x39882c05f46981e5d43622ad2aa327df73cfad4fd1eb9fd85caece0871f8f84c",
+  "deployment_tx": "0x24811768184c2a69ffecf63c4906d6153da730faf384eadf8ebe738be3b96576",
+  "codehash": "0x07a3f582ceb15f50e21a238db7f4aab8320b4fac8d78379d05feaf2721f139b1",
   "insecure": false,
   "immutables": [
     {
@@ -919,7 +920,6 @@
       ]
     }
   ],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

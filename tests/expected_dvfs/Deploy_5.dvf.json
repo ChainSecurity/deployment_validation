@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0xab820566741872653419027b78e012baf4cc8e55d118261e5fde607565208093",
   "contract_name": "NestedMapping",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 4,
-  "deployment_tx": "0x50bb38f92b0019a4223dec8daa2fbece6c15ee663038cbc3d49ee01d475aeb03",
+  "deployment_tx": "0xfea37b5686071d5db4b35ab845ad14dfec1cfb370d5a524f517b29ae3d9de17e",
   "codehash": "0xb90589f7f813485c98adfbd6f20b54f4a3a71dfe251e7794215f347c2c34f120",
   "insecure": false,
   "immutables": [],
@@ -73,7 +74,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

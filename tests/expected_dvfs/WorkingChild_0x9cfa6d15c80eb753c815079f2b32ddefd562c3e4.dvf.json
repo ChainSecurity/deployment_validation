@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0x8ccaada6bd4f4b4f0d9dfdfecbcfa989904c5ab8e62f7dcdcb3a8504c791669d",
   "contract_name": "WorkingChild",
   "address": "0x9cfa6d15c80eb753c815079f2b32ddefd562c3e4",
-  "chain_id": 31337,
-  "deployment_block_num": 3,
+  "chain_id": 1337,
+  "deployment_block_num": 4,
   "init_block_num": 5,
-  "deployment_tx": "0x806e4d4bd119db054722e208bea7693052e4956b5fdcee2718c05c033b4bc850",
+  "deployment_tx": "0xb904722d527d3153851dae57a93a55d2c86e774cd6fb611246b0e5d8462947e3",
   "codehash": "0xa7c8a24c66b8f0e45eaa82bab7cd8615df1fa218f6a7bb9a89981581d3654658",
   "insecure": false,
   "immutables": [],
@@ -40,7 +41,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

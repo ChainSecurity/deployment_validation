@@ -1,5 +1,6 @@
 {
   "version": "0.9.1",
+  "id": "0x1f9085f7983793563f4d835b22704a4ef2e543a792c2d2c38a74306605892aab",
   "contract_name": "PullPayment",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 31337,
@@ -26,7 +27,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

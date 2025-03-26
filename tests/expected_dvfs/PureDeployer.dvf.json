@@ -1,12 +1,13 @@
 {
   "version": "0.9.1",
+  "id": "0x4cc83924a541f52063cc5cf4e9302b92467d67e6fad32c23b5bfbbc3c3df557a",
   "contract_name": "PureDeployer",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 3,
-  "deployment_tx": "0x6eb47896d68f12f29c9ccbedac5ff3490195cb9d47606d2ff3db92c9093e5b80",
-  "codehash": "0xb4bd419689374d181bf6d99bfe21966c11dbb528a6714672ada87bc05cd66e24",
+  "deployment_tx": "0xc3f03c210e501eaca1459141ce84bb36675ca2a1cc28d6d716c9794d2b9d4e88",
+  "codehash": "0xaf3123d8bc1c73c93f3c9b0176b44bd11c0db94032b5a1326f28b7ce6967a06b",
   "insecure": false,
   "immutables": [],
   "constructor_args": [],
@@ -21,7 +22,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

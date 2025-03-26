@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0xae089608b66548be52d5d573af2f46bf32591d45b990f1945ec879c1d9fa3766",
   "contract_name": "CrazyHiddenStruct",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 4,
-  "deployment_tx": "0x63940866317040d31a0739fe1bbf6199eed3bddc5ae96e0944c00620fa3bbf60",
+  "deployment_tx": "0x43a6f8eca22724591b2256ccbb6969d99ccf29b120b611cbd86aeb408b51d76a",
   "codehash": "0xc5f9a009f6b4fe853fa6d949876dedd2594d797a7aa57fcf9c58031f7911dfe5",
   "insecure": false,
   "immutables": [],
@@ -532,7 +533,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

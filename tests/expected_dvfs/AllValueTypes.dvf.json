@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0x75b09431c899db2042cfe484d8db8442ab7d6f0c39851b8c79ec02d22b0852ca",
   "contract_name": "AllValueTypes",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 4,
-  "deployment_tx": "0x4c0eda23fa858c9ec88a7004c80c78a606561025d2d8b2c85f825957cab8fc9b",
+  "deployment_tx": "0xa4d8274d878bbd569325fa0f6ff44503319eea7c8f8debae356e4c4e9e4ecf2a",
   "codehash": "0xc5f9a009f6b4fe853fa6d949876dedd2594d797a7aa57fcf9c58031f7911dfe5",
   "insecure": false,
   "immutables": [],
@@ -1722,7 +1723,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

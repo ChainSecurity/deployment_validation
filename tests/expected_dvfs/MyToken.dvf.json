@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0xf61ad87d043243f3bbc2408dcf2fcbff03999e4978592d31409eece5410f17a7",
   "contract_name": "MyToken",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 3,
-  "deployment_tx": "0x378c3abf73ec6e2517b843e52c858a21b54b87a476b837053b0c1619a8d5d92f",
+  "deployment_tx": "0x42d8e1a6dc338ecb42716c59dce82a58e56c067dff2a20975f28e05970e89400",
   "codehash": "0xa77e382f36db7714068fa97e6bc080fbc6b04a900a3199ab1aba56c9dea88f4d",
   "insecure": false,
   "immutables": [
@@ -849,7 +850,6 @@
       "occurrences": []
     }
   ],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",

@@ -1,11 +1,12 @@
 {
   "version": "0.9.1",
+  "id": "0xe016ec69d1cacfc3dc7fefe45acc11fb2b7af643cc478299329be5e80b9f2223",
   "contract_name": "Enum",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0x5372999234f0c2ffdfaf3cf73831ee3d851f3e4a261f368b8d36c3a7c09b94a1",
+  "deployment_tx": "0x9d0a8a19c51cc9c5ce1a8a6b93e180994893fe4991fca5c4f0777b0dc6718395",
   "codehash": "0xaa85798b7052600bb0e89b6f6d2961d857c6838df3e7a653e5f6bba624ff20a5",
   "insecure": false,
   "immutables": [],
@@ -45,7 +46,6 @@
     }
   ],
   "critical_events": [],
-  "expiry_in_epoch_seconds": null,
   "unvalidated_metadata": {
     "author_name": "Author",
     "description": "System Description",
