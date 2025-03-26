@@ -1405,7 +1405,10 @@ impl ProjectInfo {
         match build_info_path.read_dir() {
             Ok(read_dir) => {
                 for build_info_file in read_dir.flatten() {
-                    println!("{}", &build_info_file.path().to_str().unwrap());
+                    debug!(
+                        "Used build info file: {}",
+                        &build_info_file.path().to_str().unwrap()
+                    );
                     let bi = BuildInfo::read(&build_info_file.path())?;
                     if bi
                         .output
