@@ -34,7 +34,7 @@ mod tests {
         let mut table = Table::new();
 
         global_state
-            .get_critical_storage_variables(snapshot, &mut table, &vec![], &HashMap::new())
+            .get_critical_storage_variables(snapshot, &mut table, &vec![], &HashMap::new(), true)
             .unwrap()
     }
 
