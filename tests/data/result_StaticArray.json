@@ -5,7 +5,8 @@
     "var_name": "staticArray[0]",
     "var_type": "t_uint64",
     "value": "0x0000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x0",
@@ -13,7 +14,8 @@
     "var_name": "staticArray[1]",
     "var_type": "t_uint64",
     "value": "0x0000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x0",
@@ -21,7 +23,8 @@
     "var_name": "staticArray[2]",
     "var_type": "t_uint64",
     "value": "0x0000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x0",
@@ -29,7 +32,8 @@
     "var_name": "staticArray[3]",
     "var_type": "t_uint64",
     "value": "0x0000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x1",

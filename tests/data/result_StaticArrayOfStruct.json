@@ -5,7 +5,8 @@
     "var_name": "buffer",
     "var_type": "t_uint256",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x1",
@@ -30,7 +31,8 @@
     "var_name": "static_array_of_struct[0].C",
     "var_type": "t_bool",
     "value": "0x00",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "false"
   },
   {
     "slot": "0x3",
@@ -38,7 +40,8 @@
     "var_name": "static_array_of_struct[1].A",
     "var_type": "t_uint256",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x4",
@@ -54,7 +57,8 @@
     "var_name": "static_array_of_struct[1].C",
     "var_type": "t_bool",
     "value": "0x00",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "false"
   },
   {
     "slot": "0x5",
@@ -62,7 +66,8 @@
     "var_name": "static_array_of_struct[2].A",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
     "var_type": "t_uint256",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x6",
@@ -78,7 +83,8 @@
     "var_name": "static_array_of_struct[2].C",
     "var_type": "t_bool",
     "value": "0x00",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "false"
   },
   {
     "slot": "0x7",
@@ -86,7 +92,8 @@
     "var_name": "static_array_of_struct[3].A",
     "var_type": "t_uint256",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0x8",
@@ -102,7 +109,8 @@
     "var_name": "static_array_of_struct[3].C",
     "var_type": "t_bool",
     "value": "0x00",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "false"
   },
   {
     "slot": "0x9",
@@ -110,7 +118,8 @@
     "var_name": "static_array_of_struct[4].A",
     "var_type": "t_uint256",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   },
   {
     "slot": "0xa",

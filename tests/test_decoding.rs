@@ -1,10 +1,10 @@
 #[cfg(test)]
 
 mod tests {
-    use std::collections::HashMap;
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
+    use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::dvf::parse::DVFStorageEntry;
     use dvf_libs::state::contract_state::ContractState;
@@ -20,6 +20,13 @@ mod tests {
     ) -> Vec<DVFStorageEntry> {
         let mut empty_config = DVFConfig::default();
         empty_config.set_chain_id(1).unwrap();
+        let project_info = ProjectInfo::new(
+            &String::from(contract_name),
+            PathBuf::from("tests/Contracts").as_path(),
+            Environment::Foundry,
+            PathBuf::from("").as_path(),
+            None,
+        ).unwrap();
         let pretty_printer = PrettyPrinter::new(&empty_config, None);
         let mut global_state = ContractState::new_with_address(&trace_w_a.address, &pretty_printer);
         let forge_inspect = forge_inspect::ForgeInspect::generate_and_parse_layout(
@@ -34,7 +41,7 @@ mod tests {
         let mut table = Table::new();
 
         global_state
-            .get_critical_storage_variables(snapshot, &mut table, &vec![], &HashMap::new(), true)
+            .get_critical_storage_variables(snapshot, &mut table, &project_info.storage, &project_info.types, true)
             .unwrap()
     }
 

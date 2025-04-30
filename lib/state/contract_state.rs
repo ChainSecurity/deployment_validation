@@ -261,7 +261,6 @@ impl<'a> ContractState<'a> {
                 snapshot,
                 table,
                 zerovalue,
-                &types,
             )?);
         }
 
@@ -276,7 +275,7 @@ impl<'a> ContractState<'a> {
             // }
 
             let new_critical_storage_variables =
-                self.get_critical_variable(sv, snapshot, table, zerovalue, &types)?;
+                self.get_critical_variable(sv, snapshot, table, zerovalue)?;
             let mut has_nonzero = false;
             for crit_var in &new_critical_storage_variables {
                 if !crit_var.is_zero() {
@@ -372,7 +371,6 @@ impl<'a> ContractState<'a> {
         snapshot: &mut StorageSnapshot,
         table: &mut Table,
         zerovalue: bool,
-        types: &HashMap<String, TypeDescription>,
     ) -> Result<Vec<DVFStorageEntry>, ValidationError> {
         if Self::is_basic_type(&state_variable.var_type)
             || Self::is_user_defined_type(&state_variable.var_type)
@@ -430,7 +428,6 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
-                    types,
                 )?);
             }
             return Ok(critical_storage_variables);
@@ -455,7 +452,6 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
-                    types,
                 )?);
             }
             let mut current_slot = match self.is_dynamic_array(&state_variable.var_type) {
@@ -471,7 +467,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_base_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, types)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue)?);
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
                     current_slot = current_slot
@@ -504,7 +500,7 @@ impl<'a> ContractState<'a> {
 
                 // Skip if key is longer than actual key type of the mapping
                 if self.has_inplace_encoding(&key_type) {
-                    let type_length = types[&key_type].number_of_bytes;
+                    let type_length = self.types[&key_type].number_of_bytes;
                     let key_length = sorted_key.trim_start_matches('0').len() / 2;
                     if type_length < key_length {
                         continue;
@@ -537,7 +533,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_value_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, types)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue)?);
             }
             return Ok(critical_storage_variables);
         }
@@ -602,7 +598,6 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
-                    types,
                 )?);
                 let mut string_length = U256::from_be_slice(&snapshot.get_slot(
                     &length_var.slot,
