@@ -459,6 +459,13 @@ fn main() {
                         .help("Folder containing the project artifacts")
                         .default_value("artifacts"),
                 )
+                .arg(
+                    arg!(--zerovalue)
+                        .help(
+                            "Write initialized storage slots that have been reset to 0 to the DVF",
+                        )
+                        .action(clap::ArgAction::SetTrue),
+                )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files"))
                 .arg(
                     arg!(--implementationbuildcache <PATH>)
@@ -742,6 +749,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let event_topics = sub_m
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
+            let zerovalue = sub_m.get_flag("zerovalue");
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
             let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
@@ -983,6 +991,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &mut storage_var_table,
                     &storage,
                     &types,
+                    zerovalue,
                 )?;
 
             let mut proxy_warning = critical_storage_variables

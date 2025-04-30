@@ -108,6 +108,7 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
         &mut table,
         &vec![],
         &HashMap::new(),
+        true
     )?;
 
     let serialized_res = serde_json::to_string_pretty(&critical_vars)?;

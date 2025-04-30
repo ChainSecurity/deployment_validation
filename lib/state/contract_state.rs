@@ -243,6 +243,7 @@ impl<'a> ContractState<'a> {
         table: &mut Table,
         pi_storage: &Vec<StateVariable>,
         pi_types: &HashMap<String, TypeDescription>,
+        zerovalue: bool,
     ) -> Result<Vec<parse::DVFStorageEntry>, ValidationError> {
         let default_values = &ForgeInspect::default_values();
         // Add default types as we might need them
@@ -259,6 +260,8 @@ impl<'a> ContractState<'a> {
                 state_variable,
                 snapshot,
                 table,
+                zerovalue,
+                &types,
             )?);
         }
 
@@ -272,7 +275,8 @@ impl<'a> ContractState<'a> {
             //     continue;
             // }
 
-            let new_critical_storage_variables = self.get_critical_variable(sv, snapshot, table)?;
+            let new_critical_storage_variables =
+                self.get_critical_variable(sv, snapshot, table, zerovalue, &types)?;
             let mut has_nonzero = false;
             for crit_var in &new_critical_storage_variables {
                 if !crit_var.is_zero() {
@@ -367,6 +371,8 @@ impl<'a> ContractState<'a> {
         state_variable: &StateVariable,
         snapshot: &mut StorageSnapshot,
         table: &mut Table,
+        zerovalue: bool,
+        types: &HashMap<String, TypeDescription>,
     ) -> Result<Vec<DVFStorageEntry>, ValidationError> {
         if Self::is_basic_type(&state_variable.var_type)
             || Self::is_user_defined_type(&state_variable.var_type)
@@ -385,7 +391,7 @@ impl<'a> ContractState<'a> {
                 value_hint: None,
                 comparison_operator: DVFStorageComparisonOperator::Equal,
             };
-            if !entry.is_zero() {
+            if zerovalue || !entry.is_zero() {
                 Self::add_to_table(&entry, table);
                 if !Self::is_user_defined_type(&state_variable.var_type) {
                     self.pretty_printer.add_decoded_to_table_from_bytes(
@@ -402,9 +408,11 @@ impl<'a> ContractState<'a> {
                         entry.value_hint = Some(short_val);
                     }
                 }
+
+                return Ok(vec![entry]);
             }
 
-            return Ok(vec![entry]);
+            return Ok(vec![]);
         }
         if Self::is_struct(&state_variable.var_type) {
             let mut critical_storage_variables = Vec::<DVFStorageEntry>::new();
@@ -421,6 +429,8 @@ impl<'a> ContractState<'a> {
                     &adjusted_member,
                     snapshot,
                     table,
+                    zerovalue,
+                    types,
                 )?);
             }
             return Ok(critical_storage_variables);
@@ -444,6 +454,8 @@ impl<'a> ContractState<'a> {
                     &length_var,
                     snapshot,
                     table,
+                    zerovalue,
+                    types,
                 )?);
             }
             let mut current_slot = match self.is_dynamic_array(&state_variable.var_type) {
@@ -459,7 +471,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_base_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, types)?);
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
                     current_slot = current_slot
@@ -489,6 +501,16 @@ impl<'a> ContractState<'a> {
             sorted_keys.sort();
             for (sorted_key, target_slot) in &sorted_keys {
                 let key_type = self.get_key_type(&state_variable.var_type);
+
+                // Skip if key is longer than actual key type of the mapping
+                if self.has_inplace_encoding(&key_type) {
+                    let type_length = types[&key_type].number_of_bytes;
+                    let key_length = sorted_key.trim_start_matches('0').len() / 2;
+                    if type_length < key_length {
+                        continue;
+                    }
+                }
+
                 let pretty_key: String = match self.has_inplace_encoding(&key_type) {
                     true => self
                         .pretty_printer
@@ -515,7 +537,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_value_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, types)?);
             }
             return Ok(critical_storage_variables);
         }
@@ -579,6 +601,8 @@ impl<'a> ContractState<'a> {
                     &length_var,
                     snapshot,
                     table,
+                    zerovalue,
+                    types,
                 )?);
                 let mut string_length = U256::from_be_slice(&snapshot.get_slot(
                     &length_var.slot,
