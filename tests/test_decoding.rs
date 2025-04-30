@@ -26,7 +26,8 @@ mod tests {
             Environment::Foundry,
             PathBuf::from("").as_path(),
             None,
-        ).unwrap();
+        )
+        .unwrap();
         let pretty_printer = PrettyPrinter::new(&empty_config, None);
         let mut global_state = ContractState::new_with_address(&trace_w_a.address, &pretty_printer);
         let forge_inspect = forge_inspect::ForgeInspect::generate_and_parse_layout(
@@ -41,7 +42,13 @@ mod tests {
         let mut table = Table::new();
 
         global_state
-            .get_critical_storage_variables(snapshot, &mut table, &project_info.storage, &project_info.types, true)
+            .get_critical_storage_variables(
+                snapshot,
+                &mut table,
+                &project_info.storage,
+                &project_info.types,
+                true,
+            )
             .unwrap()
     }
 
