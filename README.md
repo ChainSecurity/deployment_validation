@@ -244,7 +244,7 @@ When the DVF is finished, you can sign it using the following command:
 dv sign new.dvf.json
 ```
 
-If you do not wish to sign the DVF, you can instead finalize it by generating an ID:
+DVFs automatically get an ID when they are created. When you change the contents of the DVF, the ID has to be regenerated. When signing, this is automatically done. However, in some circumstances, you might not want to sign the DVF. In that case, you can regenerate the ID as follows:
 
 ```
 dv id new.dvf.json
