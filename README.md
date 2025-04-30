@@ -284,6 +284,12 @@ If you wish to validate DVFs that have not been signed, you can add the `--allow
 dv validate --allowuntrusted new.dvf.json
 ```
 
+By default, `dv` stops execution after the first validation error has been found. By passing the flag `--continue`, `dv` will output all validation errors:
+
+```
+dv validate --continue new.dvf.json
+```
+
 ### Update DVF
 
 **Please note: The `update` command is currently only updating existing storage variables in a DVF and might not be suitable for fully updating a DVF to the current state of a smart contract. This behavior will be changed in future releases.**
