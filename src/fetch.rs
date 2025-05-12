@@ -298,7 +298,6 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
     let forge_init_out = Command::new("forge")
         .current_dir(foundry_path)
         .arg("init")
-        .arg("--no-commit")
         .output()
         .unwrap();
     if !forge_init_out.status.success() {
