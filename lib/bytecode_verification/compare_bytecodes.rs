@@ -277,7 +277,7 @@ impl CompareInitCode {
             .constructor
             .as_ref()
             .unwrap()
-            .abi_decode_input(&init_bytecode[compiled_init_code.len()..], true)
+            .abi_decode_input(&init_bytecode[compiled_init_code.len()..])
             .expect("Unable to decode the constructor arguments.");
 
         for (arg, value) in project_info.constructor_args.iter_mut().zip(decoded_args) {

@@ -1371,7 +1371,7 @@ impl ProjectInfo {
                 assert!(Self::check_forge());
                 build_info_dir = Builder::new().prefix("dvf_bi").tempdir().unwrap();
                 // Persist for now
-                build_info_path = build_info_dir.into_path();
+                build_info_path = build_info_dir.keep();
                 Self::forge_build(project, &build_info_path)?;
             }
             Environment::Hardhat => {

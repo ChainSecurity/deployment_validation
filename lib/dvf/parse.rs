@@ -16,7 +16,7 @@ use clap::ArgMatches;
 
 use foundry_compilers;
 
-use alloy::primitives::{Address, Bytes, PrimitiveSignature, B256, U256};
+use alloy::primitives::{Address, Bytes, Signature, B256, U256};
 use alloy::signers::Signer;
 use alloy_dyn_abi;
 use alloy_signer_ledger::LedgerError;
@@ -486,8 +486,8 @@ impl CompleteDVF {
         match &self.signature {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
-                    // let signature = PrimitiveSignature::from_str(sig_data).unwrap();
-                    let signature: PrimitiveSignature = serde_json::from_str(sig_data).unwrap();
+                    // let signature = Signature::from_str(sig_data).unwrap();
+                    let signature: Signature = serde_json::from_str(sig_data).unwrap();
                     let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
                     let rec_address =

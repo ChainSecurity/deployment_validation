@@ -242,8 +242,6 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
 
     let client = Client::builder()
         .with_api_key(config.get_etherscan_api_key()?)
-        .with_url(config.get_etherscan_url()?)
-        .unwrap()
         .with_api_url(config.get_etherscan_api_url()?)
         .unwrap()
         .build()

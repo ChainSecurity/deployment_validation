@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use alloy::consensus::SignableTransaction;
 use alloy::dyn_abi::eip712::TypedData;
 use alloy::network::TxSigner;
-use alloy::primitives::{Address, ChainId, PrimitiveSignature as Signature, B256};
+use alloy::primitives::{Address, ChainId, Signature as Signature, B256};
 use alloy::signers::local::{LocalSignerError, PrivateKeySigner};
 use alloy::signers::{Error as SignerError, Signer};
 use alloy::sol_types::{Eip712Domain, SolStruct};

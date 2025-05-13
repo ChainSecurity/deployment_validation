@@ -469,8 +469,9 @@ fn get_deployment_tx_from_etherscan(
     address: &Address,
 ) -> Result<EtherscanCreationTransaction, ValidationError> {
     let url = format!(
-        "{}?module=contract&action=getcontractcreation&contractaddresses={:?}&apikey={}",
+        "{}?chainid={}&module=contract&action=getcontractcreation&contractaddresses={:?}&apikey={}",
         config.get_etherscan_api_url()?,
+        config.active_chain_id.unwrap(),
         address,
         config.get_etherscan_api_key()?
     );
@@ -502,12 +503,9 @@ fn send_blocking_blockscout_get(
         .build()
         .unwrap();
 
-    // Base URL of the API
-    let base_url = format!("{}/api", config.get_blockscout_api_url()?);
-
     let full_url = format!(
         "{}{}&apikey={}",
-        base_url,
+        config.get_blockscout_api_url()?,
         request,
         config.get_blockscout_api_key()?
     );
@@ -799,11 +797,6 @@ struct EtherscanResult {
     // ... much more we don't care about: https://docs.etherscan.io/api-endpoints/accounts
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct EtherscanTransaction {
-    pub hash: String,
-}
-
 // Inclusive for start_block and end_block
 pub fn get_all_txs_for_contract(
     config: &DVFConfig,
@@ -812,6 +805,10 @@ pub fn get_all_txs_for_contract(
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
     if let Ok(all_txs) =
+        get_combined_txs_for_contract_from_etherscan(config, address, start_block, end_block)
+    {
+        return Ok(all_txs);
+    } else if let Ok(all_txs) =
         get_all_txs_for_contract_from_blockscout(config, address, start_block, end_block)
     {
         return Ok(all_txs);
@@ -1873,6 +1870,300 @@ pub fn get_eth_storage_snapshot(
     Ok(snapshot)
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtherscanCommonTransactionData {
+    #[serde(rename = "hash")]
+    pub transaction_hash: String,
+    #[serde(rename = "blockNumber")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub block_number: u64,
+    #[serde(rename = "timeStamp")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub timestamp: u64,
+    #[serde(rename = "from")]
+    pub from_address: String,
+    #[serde(rename = "to")]
+    pub to_address: String,
+    #[serde(rename = "value")]
+    pub value: String,
+    #[serde(rename = "contractAddress")]
+    pub contract_address: Option<String>,
+    #[serde(rename = "input")]
+    pub input: String,
+    #[serde(rename = "type")]
+    pub transaction_type: Option<String>,
+    #[serde(rename = "gas")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub gas: u64,
+    #[serde(rename = "isError")]
+    pub is_error: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtherscanTransaction {
+    #[serde(flatten)]
+    pub common: EtherscanCommonTransactionData,
+    #[serde(rename = "gasPrice")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub gas_price: u64,
+    #[serde(rename = "gasUsed")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub gas_used: u64,
+    #[serde(rename = "cumulativeGasUsed")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub cumulative_gas_used: u64,
+    #[serde(rename = "nonce")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub nonce: u64,
+    #[serde(rename = "confirmations")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub confirmations: u64,
+    #[serde(rename = "txreceipt_status")]
+    pub txreceipt_status: String,
+    #[serde(rename = "transactionIndex")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub transaction_index: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtherscanInternalTransaction {
+    #[serde(flatten)]
+    pub common: EtherscanCommonTransactionData,
+    #[serde(rename = "gasUsed")]
+    #[serde(deserialize_with = "deserialize_dec_u64")]
+    pub gas_used: u64,
+    #[serde(rename = "traceId")]
+    pub trace_id: String,
+    #[serde(rename = "errCode")]
+    pub err_code: String,
+}
+
+pub enum TransactionType {
+    Normal,
+    Internal,
+}
+
+pub fn get_all_transactions_from_etherscan<T>(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+    sort: &str,
+    tx_type: TransactionType,
+) -> Result<Vec<T>, ValidationError>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let mut all_transactions: Vec<T> = Vec::new();
+    let mut current_start_block = start_block;
+    let mut current_end_block = end_block;
+    let mut block_range_adjusted = false;
+
+    let action = match tx_type {
+        TransactionType::Normal => "txlist",
+        TransactionType::Internal => "txlistinternal",
+    };
+
+    while current_start_block <= current_end_block {
+        let mut page = 1;
+        let offset = 10000; // Maximum allowed by Etherscan
+        let mut has_more = true;
+        let mut api_call_successful = false;
+
+        while has_more {
+            let url = format!(
+                "{}?chainid={}&module=account&action={}&address={:?}&startblock={}&endblock={}&page={}&offset={}&sort={}&apikey={}",
+                config.get_etherscan_api_url()?,
+                config.active_chain_id.unwrap(),
+                action,
+                address,
+                current_start_block,
+                current_end_block,
+                page,
+                offset,
+                sort,
+                config.get_etherscan_api_key()?
+            );
+
+            debug!("Etherscan URL: {}", url);
+
+            let mut response = match get(&url) {
+                Ok(resp) => {
+                    api_call_successful = true;
+                    resp
+                }
+                Err(_) => {
+                    // Keep halving the block range until we get a successful call
+                    let mid_block = (current_start_block + current_end_block) / 2;
+                    if mid_block == current_start_block {
+                        return Err(ValidationError::from("Failed to fetch transactions from Etherscan - block range too small"));
+                    }
+                    current_end_block = mid_block;
+                    block_range_adjusted = true;
+                    break; // Break the inner loop to retry with new block range
+                }
+            };
+
+            let mut buffer = String::new();
+            response.read_to_string(&mut buffer)?;
+
+            let result: EtherscanResult = serde_json::from_str(&buffer)?;
+            let transactions: Vec<T> = serde_json::from_value(result.result)?;
+
+            if transactions.is_empty() {
+                has_more = false;
+            } else {
+                if transactions.len() < offset {
+                    has_more = false;
+                } else {
+                    page += 1;
+                }
+                all_transactions.extend(transactions);
+            }
+        }
+
+        if block_range_adjusted && api_call_successful {
+            // If we've adjusted the block range and had a successful call, move to next block and reset end block
+            current_start_block = current_end_block + 1;
+            current_end_block = end_block;
+            block_range_adjusted = false;
+        } else if !block_range_adjusted {
+            // If we haven't adjusted the range yet, just move to next block
+            current_start_block = current_end_block + 1;
+        }
+        // If block_range_adjusted is true but api_call_successful is false, we'll retry with the halved range
+    }
+
+    Ok(all_transactions)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TransactionWithIndex {
+    transaction_hash: String,
+    block_number: u64,
+    transaction_index: u64,
+}
+
+impl PartialOrd for TransactionWithIndex {
+    fn partial_cmp(&self, other: &TransactionWithIndex) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TransactionWithIndex {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.block_number
+            .cmp(&other.block_number)
+            .then_with(|| self.transaction_index.cmp(&other.transaction_index))
+    }
+}
+
+impl PartialEq for TransactionWithIndex {
+    fn eq(&self, other: &Self) -> bool {
+        self.transaction_hash.to_lowercase() == other.transaction_hash.to_lowercase()
+    }
+}
+
+impl Eq for TransactionWithIndex {}
+
+pub fn get_combined_txs_for_contract_from_etherscan(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    // Get normal transactions
+    let normal_txs = get_all_transactions_from_etherscan::<EtherscanTransaction>(
+        config,
+        address,
+        start_block,
+        end_block,
+        "asc",
+        TransactionType::Normal,
+    )?;
+
+    // Get internal transactions
+    let internal_txs = get_all_transactions_from_etherscan::<EtherscanInternalTransaction>(
+        config,
+        address,
+        start_block,
+        end_block,
+        "asc",
+        TransactionType::Internal,
+    )?;
+
+    // Group transactions by block number
+    let mut block_to_txs: HashMap<u64, Vec<TransactionWithIndex>> = HashMap::new();
+
+    // Add normal transactions with their actual indices
+    for tx in normal_txs {
+        let tx_with_index = TransactionWithIndex {
+            transaction_hash: tx.common.transaction_hash,
+            block_number: tx.common.block_number,
+            transaction_index: tx.transaction_index,
+        };
+        block_to_txs
+            .entry(tx.common.block_number)
+            .or_default()
+            .push(tx_with_index);
+    }
+
+    // Add internal transactions with placeholder indices
+    for tx in internal_txs {
+        let tx_with_index = TransactionWithIndex {
+            transaction_hash: tx.common.transaction_hash,
+            block_number: tx.common.block_number,
+            transaction_index: u64::MAX, // Placeholder index
+        };
+        block_to_txs
+            .entry(tx.common.block_number)
+            .or_default()
+            .push(tx_with_index);
+    }
+
+    // For blocks with multiple transactions, get the correct indices for internal transactions
+    for (_, transactions) in block_to_txs.iter_mut() {
+        if transactions.len() > 1 {
+            // Only need to get indices for internal transactions (those with placeholder index)
+            for tx in transactions.iter_mut() {
+                if tx.transaction_index == u64::MAX {
+                    let request_body = json!({
+                        "jsonrpc": "2.0",
+                        "method": "eth_getTransactionByHash",
+                        "params": [tx.transaction_hash],
+                        "id": 1
+                    });
+                    let result = send_blocking_web3_post(config, &request_body)?;
+                    
+                    if let Some(idx) = result.get("transactionIndex") {
+                        tx.transaction_index = u64::from_str_radix(
+                            idx.as_str().unwrap().trim_start_matches("0x"),
+                            16,
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+
+    // Combine all transactions and sort
+    let mut combined_txs: Vec<TransactionWithIndex> = block_to_txs
+        .into_values()
+        .flat_map(|txs| txs)
+        .collect();
+    
+    combined_txs.sort();
+    combined_txs.dedup();
+
+    // Extract just the transaction hashes
+    let tx_hashes: Vec<String> = combined_txs
+        .into_iter()
+        .map(|tx| tx.transaction_hash)
+        .collect();
+
+    Ok(tx_hashes)
+}
+
 #[cfg(test)]
 mod tests {
     //use reth_trie::root;
@@ -2234,4 +2525,64 @@ mod tests {
     //         assert_ne!(traces, Traces::None);
     //     }
     // }
+
+    #[test]
+    fn test_compare_transaction_sources() {
+        let mut config = match DVFConfig::from_env(None) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        config.set_chain_id(1).unwrap();
+
+        let address = Address::from_str("0xdac17f958d2ee523a2206206994597c13d831ec7").unwrap();
+        let start_block = 22475000;
+        let end_block = 22475017;
+
+        // Get transactions from both sources
+        let etherscan_txs = get_combined_txs_for_contract_from_etherscan(
+            &config,
+            &address,
+            start_block,
+            end_block,
+        ).unwrap();
+
+        let blockscout_txs = get_all_txs_for_contract_from_blockscout(
+            &config,
+            &address,
+            start_block,
+            end_block,
+        ).unwrap();
+
+        // Convert to sets for comparison
+        let etherscan_set: std::collections::HashSet<_> = etherscan_txs.into_iter().collect();
+        let blockscout_set: std::collections::HashSet<_> = blockscout_txs.into_iter().collect();
+
+        // Compare the results
+        println!("Etherscan transactions: {}", etherscan_set.len());
+        println!("Blockscout transactions: {}", blockscout_set.len());
+
+        // Find transactions unique to each source
+        let only_etherscan: Vec<_> = etherscan_set.difference(&blockscout_set).collect();
+        let only_blockscout: Vec<_> = blockscout_set.difference(&etherscan_set).collect();
+
+        println!("Transactions only in Etherscan: {}", only_etherscan.len());
+        println!("Transactions only in Blockscout: {}", only_blockscout.len());
+
+        // Print some example differences if any exist
+        if !only_etherscan.is_empty() {
+            println!("Example Etherscan-only transaction: {}", only_etherscan[0]);
+        }
+        if !only_blockscout.is_empty() {
+            println!("Example Blockscout-only transaction: {}", only_blockscout[0]);
+        }
+
+        // Assert that both sources found some transactions
+        assert!(!etherscan_set.is_empty(), "Etherscan returned no transactions");
+        assert!(!blockscout_set.is_empty(), "Blockscout returned no transactions");
+        assert!(false);
+    }
 }
