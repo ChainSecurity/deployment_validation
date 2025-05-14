@@ -10,7 +10,7 @@
     },
     "blockscout_global": {
         "api_url": "http://127.0.0.1:5001",
-        "api_key": "$ETHERSCAN_API_KEY"
+        "api_key": "$BLOCKSCOUT_API_KEY"
     },
     "dvf_storage": "/tmp/dvfs/",
     "trusted_signers": [

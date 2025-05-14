@@ -486,8 +486,14 @@ impl CompleteDVF {
         match &self.signature {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
-                    // let signature = Signature::from_str(sig_data).unwrap();
-                    let signature: Signature = serde_json::from_str(sig_data).unwrap();
+                    // Convert hex string to bytes
+                    let sig_bytes = hex::decode(sig_data.trim_start_matches("0x"))
+                        .map_err(|_| ValidationError::Error("Invalid signature format".to_string()))?;
+                    
+                    // Create signature from bytes
+                    let signature = Signature::from_raw(&sig_bytes)
+                        .map_err(|_| ValidationError::Error("Invalid signature bytes".to_string()))?;
+                    
                     let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
                     let rec_address =
@@ -621,7 +627,10 @@ impl CompleteDVF {
             }
         };
         if let Some(sig) = self.signature.as_mut() {
-            let signature_str = serde_json::to_string(&signature).unwrap();
+            // Convert the signature to ERC-2098 format (r,vs) which is a [u8; 64] array
+            // Then convert to a hex string with 0x prefix
+            let erc2098_bytes: [u8; 65] = <[u8; 65]>::from(signature);
+            let signature_str = format!("0x{}", hex::encode(erc2098_bytes));
             sig.sig_data = Some(signature_str);
         };
         Ok(())

@@ -1015,6 +1015,14 @@ impl DVFConfig {
     pub fn get_etherscan_api_url(&self) -> Result<String, ValidationError> {
         match self.active_chain_id {
             Some(chain_id) => {
+                // Return error for local development chains
+                if chain_id == 31337 || chain_id == 1337 {
+                    return Err(ValidationError::from(format!(
+                        "Etherscan API not available for local development chain id: {}.",
+                        chain_id
+                    )));
+                }
+
                 // First try chain-specific config
                 if let Some(chain_config) = self.etherscan_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {
@@ -1053,6 +1061,14 @@ impl DVFConfig {
     pub fn get_blockscout_api_url(&self) -> Result<String, ValidationError> {
         match self.active_chain_id {
             Some(chain_id) => {
+                // Return error for local development chains
+                if chain_id == 31337 || chain_id == 1337 {
+                    return Err(ValidationError::from(format!(
+                        "Blockscout API not available for local development chain id: {}.",
+                        chain_id
+                    )));
+                }
+                
                 // First try chain-specific config
                 if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {

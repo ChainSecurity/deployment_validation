@@ -10,6 +10,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use alloy::primitives::Address;
+use alloy_chains::Chain;
 use clap::ArgMatches;
 use clap::{arg, command, value_parser, ArgAction};
 use dvf_libs::dvf::config::DVFConfig;
@@ -242,8 +243,11 @@ fn fetch(matches: &ArgMatches) -> Result<(), ValidationError> {
 
     let client = Client::builder()
         .with_api_key(config.get_etherscan_api_key()?)
+        .with_url(config.get_etherscan_api_url()?)
+        .unwrap()
         .with_api_url(config.get_etherscan_api_url()?)
         .unwrap()
+        .with_chain_id(Chain::from(chain_id))
         .build()
         .unwrap();
     let address: Address = address_str.parse().unwrap();
