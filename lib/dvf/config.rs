@@ -132,7 +132,7 @@ fn default_web3_timeout() -> u64 {
 impl DVFConfig {
     const DEFAULT_ETHERSCAN_API_URL: &str = "https://api.etherscan.io/v2/api";
     const DEFAULT_BLOCKSCOUT_API_URL: &str = "https://eth.blockscout.com/api";
-    
+
     pub fn from_matches(matches: &ArgMatches) -> Result<Self, ValidationError> {
         if let Some(("generate-config", _)) = matches.subcommand() {
             return Ok(Self::default());
@@ -518,7 +518,11 @@ impl DVFConfig {
             }
 
             etherscan_global = Some(EtherscanConfig {
-                api_url: if api_url.is_empty() { None } else { Some(api_url) },
+                api_url: if api_url.is_empty() {
+                    None
+                } else {
+                    Some(api_url)
+                },
                 api_key,
             });
         }
@@ -562,7 +566,11 @@ impl DVFConfig {
             }
 
             blockscout_global = Some(BlockscoutConfig {
-                api_url: if api_url.is_empty() { None } else { Some(api_url) },
+                api_url: if api_url.is_empty() {
+                    None
+                } else {
+                    Some(api_url)
+                },
                 api_key,
             });
         }
@@ -572,7 +580,9 @@ impl DVFConfig {
         let mut blockscout_chain_configs = BTreeMap::new();
 
         println!();
-        println!("Would you like to set chain-specific Etherscan / Blockscout configurations? (y/n)");
+        println!(
+            "Would you like to set chain-specific Etherscan / Blockscout configurations? (y/n)"
+        );
         print!("> ");
         let _ = std::io::Write::flush(&mut std::io::stdout());
         let mut input = String::new();
@@ -581,7 +591,10 @@ impl DVFConfig {
         if input.trim().eq_ignore_ascii_case("y") {
             for chain_id in rpc_urls.keys() {
                 println!();
-                println!("{}", format!("Configuration for Chain ID {}", chain_id).bold());
+                println!(
+                    "{}",
+                    format!("Configuration for Chain ID {}", chain_id).bold()
+                );
 
                 // Etherscan config for this chain
                 println!("Would you like to set an Etherscan configuration for this chain? (y/n)");
@@ -592,7 +605,10 @@ impl DVFConfig {
                 if input.trim().eq_ignore_ascii_case("y") {
                     let mut api_key = String::new();
                     loop {
-                        println!("Please enter your Etherscan API key for chain {}:", chain_id);
+                        println!(
+                            "Please enter your Etherscan API key for chain {}:",
+                            chain_id
+                        );
                         print!("> ");
                         let _ = std::io::Write::flush(&mut std::io::stdout());
                         io::stdin().read_line(&mut api_key).unwrap();
@@ -618,10 +634,17 @@ impl DVFConfig {
                         api_url = default_etherscan_api_url.clone();
                     }
 
-                    etherscan_chain_configs.insert(*chain_id, EtherscanConfig {
-                        api_url: if api_url.is_empty() { None } else { Some(api_url) },
-                        api_key,
-                    });
+                    etherscan_chain_configs.insert(
+                        *chain_id,
+                        EtherscanConfig {
+                            api_url: if api_url.is_empty() {
+                                None
+                            } else {
+                                Some(api_url)
+                            },
+                            api_key,
+                        },
+                    );
                 }
 
                 // Blockscout config for this chain
@@ -633,7 +656,10 @@ impl DVFConfig {
                 if input.trim().eq_ignore_ascii_case("y") {
                     let mut api_key = String::new();
                     loop {
-                        println!("Please enter your Blockscout API key for chain {}:", chain_id);
+                        println!(
+                            "Please enter your Blockscout API key for chain {}:",
+                            chain_id
+                        );
                         print!("> ");
                         let _ = std::io::Write::flush(&mut std::io::stdout());
                         io::stdin().read_line(&mut api_key).unwrap();
@@ -645,7 +671,10 @@ impl DVFConfig {
                     }
 
                     let mut api_url = String::new();
-                    println!("Please enter the Blockscout API URL for chain {}:", chain_id);
+                    println!(
+                        "Please enter the Blockscout API URL for chain {}:",
+                        chain_id
+                    );
                     println!(
                         "Hit {} to use default value: {}",
                         "<Enter>".green(),
@@ -659,10 +688,17 @@ impl DVFConfig {
                         api_url = default_blockscout_api_url.clone();
                     }
 
-                    blockscout_chain_configs.insert(*chain_id, BlockscoutConfig {
-                        api_url: if api_url.is_empty() { None } else { Some(api_url) },
-                        api_key,
-                    });
+                    blockscout_chain_configs.insert(
+                        *chain_id,
+                        BlockscoutConfig {
+                            api_url: if api_url.is_empty() {
+                                None
+                            } else {
+                                Some(api_url)
+                            },
+                            api_key,
+                        },
+                    );
                 }
             }
         }
@@ -1068,7 +1104,7 @@ impl DVFConfig {
                         chain_id
                     )));
                 }
-                
+
                 // First try chain-specific config
                 if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {

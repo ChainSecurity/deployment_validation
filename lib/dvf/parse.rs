@@ -487,13 +487,16 @@ impl CompleteDVF {
             Some(sig) => match &sig.sig_data {
                 Some(sig_data) => {
                     // Convert hex string to bytes
-                    let sig_bytes = hex::decode(sig_data.trim_start_matches("0x"))
-                        .map_err(|_| ValidationError::Error("Invalid signature format".to_string()))?;
-                    
+                    let sig_bytes =
+                        hex::decode(sig_data.trim_start_matches("0x")).map_err(|_| {
+                            ValidationError::Error("Invalid signature format".to_string())
+                        })?;
+
                     // Create signature from bytes
-                    let signature = Signature::from_raw(&sig_bytes)
-                        .map_err(|_| ValidationError::Error("Invalid signature bytes".to_string()))?;
-                    
+                    let signature = Signature::from_raw(&sig_bytes).map_err(|_| {
+                        ValidationError::Error("Invalid signature bytes".to_string())
+                    })?;
+
                     let sig_message = self.get_sig_message()?;
                     debug!("sig_message: {:?}", sig_message);
                     let rec_address =
