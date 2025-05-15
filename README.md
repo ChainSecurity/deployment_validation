@@ -526,6 +526,7 @@ This section will be updated soon.
 
 ## Known Limitations and Bugs
 
+- Compilation with libraries is currently not supported. The best workaround is to compile using `forge build --libraries <LIBS> --build-info --build-info-path <TMPDIR>` and then use `<TMPDIR>` using the `--buildcache` argument.
 - Currently only solidity is supported.
 - Only projects with `solc` version starting from `0.5.13` are supported due to the lack of generated storage layout in older versions (see [solc release 0.5.13](https://github.com/ethereum/solidity/releases/tag/v0.5.13)).
 - The RPC endpoints automatically parsed in `dv generate-config` are not guaranteed to be compatible.

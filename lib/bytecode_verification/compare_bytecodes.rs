@@ -145,6 +145,16 @@ impl CompareBytecode {
 
         Self::ignore_immutables(&project_info.immutables, &mut relevant_indices);
 
+        // Ignore Library Address at the beginning of a Library: PUSH20 address
+        if project_info.is_library {
+            debug!("Skipping initial library bytes");
+            for i in 1..21 {
+                relevant_indices[i] = false;
+            }
+            // Check for PUSH20
+            assert_eq!(compiled_bytecode[0], 0x73);
+        }
+
         // If no metadata is appended
         if Some(BytecodeHash::None) == project_info.cbor_metadata {
             let matched =
@@ -260,6 +270,7 @@ impl CompareInitCode {
             );
         }
         // println!("Relevant Indices: {:?}", relevant_indices.clone());
+        // debug!("Initcode comparison: {:?} ?= {:?}", compiled_init_code.clone(), init_bytecode[..init_len].to_vec());
         if !compare_relevant(
             &compiled_init_code,
             &init_bytecode[..init_len],

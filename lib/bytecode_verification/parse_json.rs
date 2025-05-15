@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use alloy::json_abi::Constructor;
 use clap::ValueEnum;
 use semver::Version;
+use serde_json;
 use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
@@ -26,8 +27,8 @@ use alloy::json_abi::Event;
 use alloy::primitives::U256;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
-    BytecodeHash, BytecodeObject, Contract as ContractArt, DeployedBytecode, Node as EAstNode,
-    NodeType, SolcInput, SourceFile,
+    Ast, BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
+    DeployedBytecode, Node as EAstNode, NodeType, SolcInput, SourceFile,
 };
 use foundry_compilers::buildinfo::BuildInfo as BInfo;
 use foundry_compilers::CompilerOutput;
@@ -55,6 +56,7 @@ pub struct ProjectInfo {
     pub storage: Vec<StateVariable>,
     pub types: HashMap<String, TypeDescription>,
     pub absolute_path: Option<String>,
+    pub is_library: bool,
 }
 
 impl ProjectInfo {
@@ -1317,21 +1319,18 @@ impl ProjectInfo {
         }
     }
 
-    /// Parses the AST for a contract definition.
-    fn contains_contract(node: &EAstNode, contract_name: &String) -> bool {
-        if node.node_type == NodeType::ContractDefinition {
-            if let Some(name) = node.other.get("name") {
-                if name == contract_name {
-                    return true;
-                }
-            }
-        }
+    // Tries to figure out whether this is a library
+
+    // Parses the AST for a contract definition.
+    // Assumes that it is one of the top nodes
+    fn find_contract_definition(node: &Ast) -> Result<ContractDefinition, ValidationError> {
         for subnode in &node.nodes {
-            if Self::contains_contract(subnode, contract_name) {
-                return true;
+            if subnode.node_type == NodeType::ContractDefinition {
+                let serialized = serde_json::to_value(subnode)?;
+                return Ok(serde_json::from_value::<ContractDefinition>(serialized)?);
             }
         }
-        false
+        Err(ValidationError::from("No Contract Definition found"))
     }
 
     // Parses the AST to find all associated contracts (libraries & parent contracts)
@@ -1341,10 +1340,10 @@ impl ProjectInfo {
         exported_ids: &mut Vec<usize>,
     ) {
         for source in sources.values() {
-            if let Some(new_ast) = source.ast.clone() {
-                for node in &new_ast.nodes {
-                    if Self::contains_contract(node, contract_name) {
-                        for (sub_contract, symbols) in new_ast.exported_symbols {
+            if let Some(new_ast) = &source.ast {
+                if let Ok(contract_definition) = Self::find_contract_definition(new_ast) {
+                    if contract_definition.name == *contract_name {
+                        for (sub_contract, symbols) in &new_ast.exported_symbols {
                             // TODO: what does it mean if there is more than 1 symbol per contract?
                             if symbols.len() == 1 && !exported_ids.contains(&symbols[0]) {
                                 exported_ids.extend(symbols);
@@ -1532,11 +1531,16 @@ impl ProjectInfo {
         let mut types: HashMap<String, TypeDescription> = HashMap::new();
         let mut exported_ids: Vec<usize> = vec![];
         let mut absolute_path: Option<String> = None;
-        for (file, source) in build_info.output.sources.clone() {
-            if let Some(new_ast) = source.ast.clone() {
-                for node in &new_ast.nodes {
-                    if Self::contains_contract(node, contract_name) {
-                        absolute_path = Some(new_ast.absolute_path.to_string());
+        // TODO: Use relevant_ast instead of repeatedly searching
+        // let mut relevant_ast: Ast;
+        let mut contract_definition: Option<ContractDefinition> = None;
+        for (file, source) in &build_info.output.sources {
+            if let Some(ast_ref) = &source.ast {
+                if let Ok(tmp_contract_definition) = Self::find_contract_definition(ast_ref) {
+                    if tmp_contract_definition.name == *contract_name {
+                        // relevant_ast = ast_ref.clone();
+                        absolute_path = Some(ast_ref.absolute_path.clone());
+                        contract_definition = Some(tmp_contract_definition);
                         break;
                     }
                 }
@@ -1544,6 +1548,15 @@ impl ProjectInfo {
                 debug!("Empty AST found: {}", file.display());
             }
         }
+
+        if contract_definition.is_none() {
+            return Err(ValidationError::from(format!(
+                "Could not find the contract definition AST node of {}",
+                &contract_name
+            )));
+        }
+        let contract_definition = contract_definition.unwrap();
+
         // get exported AST IDs of the current contract to prevent parsing storage slots of other contracts
         // in the project
         Self::find_exported_ids(&build_info.output.sources, contract_name, &mut exported_ids);
@@ -1555,7 +1568,7 @@ impl ProjectInfo {
         }
         for source in build_info.output.sources.values() {
             // TODO: Error handle here, what though?
-            if let Some(new_ast) = source.ast.clone() {
+            if let Some(new_ast) = &source.ast {
                 for node in &new_ast.nodes {
                     Self::find_var_defs(node, &mut id_to_ast);
                 }
@@ -1584,6 +1597,10 @@ impl ProjectInfo {
             fs::remove_dir_all(&build_info_path)?;
         };
 
+        let contract_kind = contract_definition.kind.clone();
+        let is_library = contract_kind == ContractKind::Library;
+        debug!("Contract Kind: {contract_kind:?}, is_library: {is_library:?}");
+
         let pi = ProjectInfo {
             compiled_bytecode: compiled_bytecode_str,
             init_code: init_code_str,
@@ -1604,6 +1621,7 @@ impl ProjectInfo {
             storage,
             types,
             absolute_path,
+            is_library,
         };
 
         Ok(pi)
