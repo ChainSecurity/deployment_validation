@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0x92f80b3e4d61b30c63e56f1521ddc7b9f834d10af244ffe84679ea8e3bc25ab1",
+  "id": "0xece47ed3775266f0fec1b94431711810d08ca30302da7adbcf3a96f8f90f3dfe",
   "contract_name": "StaticArrayOfDynamicArray",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -123,14 +123,6 @@
       "var_name": "staticDynamicAddress[1][1]",
       "var_type": "t_address",
       "value": "0x0000000000000000000000000000000000000012",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x5",
-      "offset": 0,
-      "var_name": "staticDynamicAddress[2].length",
-      "var_type": "t_uint256",
-      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "comparison_operator": "Equal"
     }
   ],

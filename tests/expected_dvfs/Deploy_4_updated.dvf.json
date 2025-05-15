@@ -122,14 +122,6 @@
       "var_type": "t_address",
       "value": "0x0000000000000000000000000000000000000012",
       "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x5",
-      "offset": 0,
-      "var_name": "staticDynamicAddress[2].length",
-      "var_type": "t_uint256",
-      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "comparison_operator": "Equal"
     }
   ],
   "critical_events": [
