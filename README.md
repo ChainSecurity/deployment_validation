@@ -130,6 +130,12 @@ docker run --rm -v $PWD:/home/dv/shared -it dv
 
 The folder `shared` in your Docker home directory now contains all files of the directory you executed the command in.
 
+Or use the publicly provided docker image:
+
+```
+docker run --rm -v $PWD:/home/dv/shared -it ghcr.io/ChainSecurity/deployment_validation:latest
+```
+
 ## Configuration
 
 Before `dv` can be used for validation and/or DVF creation, a configuration file has to be created. `dv` searches for the file in `~/.dvf_config.json` by default.
