@@ -450,7 +450,7 @@ mod tests {
                 let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
 
                 // Uncomment to regenerate expected files
-                std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+                // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
                 assert_eq_files(
                     &Path::new(&updated_path),
@@ -552,6 +552,9 @@ mod tests {
                 .assert()
                 .success();
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+            // Uncomment to regenerate expected files
+            // std::fs::copy(factory_outfile.path(), Path::new("tests/expected_dvfs/PullPayment.dvf.json")).unwrap();
 
             // Remove the extra byte again
             truncate_last_byte(src_name);
