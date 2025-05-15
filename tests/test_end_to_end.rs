@@ -395,7 +395,7 @@ mod tests {
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
                 assert_eq_files(
                     &outfile.path(),
@@ -648,13 +648,13 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            
+            /*
             std::fs::copy(
                 outfile.path(),
                 Path::new("tests/expected_dvfs/MyToken.dvf.json"),
             )
             .unwrap();
-            
+            */
 
             assert_eq_files(
                 &outfile.path(),
@@ -709,13 +709,13 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            
+            /*
             std::fs::copy(
                 proxy_outfile.path(),
                 Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
             )
             .unwrap();
-            
+            */
 
             // @note that this fails, since the wrong name is stored in the registry
             assert_eq_files(
@@ -892,7 +892,7 @@ mod tests {
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
                 assert_eq_files(
                     &outfile.path(),
@@ -1165,7 +1165,7 @@ mod tests {
                 );
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
+                // std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
 
                 assert_eq_files(
                     &child_outfile.path(),
@@ -1282,7 +1282,7 @@ mod tests {
                 truncate_last_byte(src_name);
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
+                // std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
 
                 assert_eq_files(
                     &factory_outfile.path(),
@@ -1590,7 +1590,7 @@ mod tests {
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
                 assert_eq_files(
                     &outfile.path(),

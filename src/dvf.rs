@@ -537,6 +537,13 @@ fn main() {
                         .help("The block number used for validation")
                         .value_parser(is_valid_blocknum),
                 )
+                .arg(
+                    arg!(--zerovalue)
+                        .help(
+                            "Write initialized storage slots that have been reset to 0 to the DVF",
+                        )
+                        .action(clap::ArgAction::SetTrue),
+                )
                 .arg(arg!(<DVF>).help("The DVF file")),
         )
         .subcommand(
@@ -1311,6 +1318,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
         Some(("update", sub_m)) => {
             let input_path: PathBuf =
                 parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
+            let zerovalue = sub_m.get_flag("zerovalue");
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
@@ -1372,6 +1380,12 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     storage_variable.value = current_val[start_index..end_index].to_vec();
                     storage_variable.value_hint = None;
                 }
+            }
+            if !zerovalue {
+                // Remove storage variables with value 0
+                updated.critical_storage_variables.retain(|var| {
+                    !var.is_zero()
+                });
             }
 
             print_progress("Checking Events.", &mut pc, &progress_mode);
