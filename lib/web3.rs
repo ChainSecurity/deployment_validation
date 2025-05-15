@@ -624,9 +624,16 @@ fn get_deployment_tx_from_blockscout(
     );
 
     let result = send_blocking_blockscout_get(config, &url)?;
-    let creation: ContractCreation = serde_json::from_value(result)?;
+    debug!("Trying to parse Deployment response: {result:?}");
+    if let Ok(creation) = serde_json::from_value::<ContractCreation>(result.clone()){
+        return Ok(creation.transaction_hash.clone());
+    }else if let Ok(creations) = serde_json::from_value::<Vec<ContractCreation>>(result){
+        return Ok(creations[0].transaction_hash.clone());
+    }
 
-    Ok(creation.transaction_hash.clone())
+    debug!("Failed to parse Deployment response.");
+    Err(ValidationError::Error("Failed to parse Deployment response".to_string()))
+
 }
 
 pub fn get_deployment_block(config: &DVFConfig, address: &Address) -> Result<u64, ValidationError> {
