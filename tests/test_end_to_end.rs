@@ -450,7 +450,7 @@ mod tests {
                 let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
 
                 // Uncomment to regenerate expected files
-                 std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+                std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
                 assert_eq_files(
                     &Path::new(&updated_path),

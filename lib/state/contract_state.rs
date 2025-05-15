@@ -470,8 +470,8 @@ impl<'a> ContractState<'a> {
                     .extend(self.get_critical_variable(&base, snapshot, table, zerovalue)?);
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
-                    current_slot = current_slot
-                        .add(U256::from((current_offset + base_num_bytes).div_ceil(32)));
+                    current_slot =
+                        current_slot.add(U256::from((current_offset + base_num_bytes).div_ceil(32)));
                     current_offset = 0;
                 // Check if we need to skip one slot
                 } else if current_offset + base_num_bytes + base_num_bytes > 32 {
@@ -499,19 +499,20 @@ impl<'a> ContractState<'a> {
                 let key_type = self.get_key_type(&state_variable.var_type);
 
                 // Skip if key is longer than actual key type of the mapping
-                // this prevents classifiying keccak calls as mapping keys when 
+                // this prevents classifiying keccak calls as mapping keys when
                 // the last 32 bytes correspond to a slot
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
                 if self.has_inplace_encoding(&key_type) {
                     let type_length = self.types[&key_type].number_of_bytes;
                     // For signed integers, we need to handle negative values which might start with 'f'
-                    let key_length = if key_type.starts_with("t_int") && sorted_key.starts_with('f') {
+                    let key_length = if key_type.starts_with("t_int") && sorted_key.starts_with('f')
+                    {
                         sorted_key.trim_start_matches('f').len() / 2
                     } else {
                         sorted_key.trim_start_matches('0').len() / 2
                     };
-                    
+
                     if type_length < key_length {
                         continue;
                     }

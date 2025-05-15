@@ -1383,9 +1383,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             }
             if !zerovalue {
                 // Remove storage variables with value 0
-                updated.critical_storage_variables.retain(|var| {
-                    !var.is_zero()
-                });
+                updated
+                    .critical_storage_variables
+                    .retain(|var| !var.is_zero());
             }
 
             print_progress("Checking Events.", &mut pc, &progress_mode);
