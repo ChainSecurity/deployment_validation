@@ -336,6 +336,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(!compare_status.matched);
@@ -360,6 +361,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(compare_status.matched);
@@ -415,6 +417,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false
         };
 
         let compare_status = CompareInitCode::compare(&mut p, &tx_init_code, false);
