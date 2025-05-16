@@ -1323,14 +1323,24 @@ impl ProjectInfo {
 
     // Parses the AST for a contract definition.
     // Assumes that it is one of the top nodes
-    fn find_contract_definition(node: &Ast) -> Result<ContractDefinition, ValidationError> {
-        for subnode in &node.nodes {
-            if subnode.node_type == NodeType::ContractDefinition {
-                let serialized = serde_json::to_value(subnode)?;
-                return Ok(serde_json::from_value::<ContractDefinition>(serialized)?);
+    fn find_contract_definition(node: &EAstNode, contract_name: &String) -> Result<ContractDefinition, ValidationError> {
+        if node.node_type == NodeType::ContractDefinition {
+            if let Some(name) = node.other.get("name") {
+                if name == contract_name {
+                    let serialized = serde_json::to_value(node)?;
+                    return Ok(serde_json::from_value::<ContractDefinition>(serialized)?);
+                }
             }
         }
-        Err(ValidationError::from("No Contract Definition found"))
+        for subnode in &node.nodes {
+            if let Ok(contract_definition) = Self::find_contract_definition(subnode, contract_name) {
+                return Ok(contract_definition);
+            }
+        }
+        Err(ValidationError::from(format!(
+            "Could not find contract definition for {}",
+            contract_name
+        )))
     }
 
     // Parses the AST to find all associated contracts (libraries & parent contracts)
@@ -1341,8 +1351,8 @@ impl ProjectInfo {
     ) {
         for source in sources.values() {
             if let Some(new_ast) = &source.ast {
-                if let Ok(contract_definition) = Self::find_contract_definition(new_ast) {
-                    if contract_definition.name == *contract_name {
+                for node in &new_ast.nodes {
+                    if let Ok(_) = Self::find_contract_definition(node, contract_name) {
                         for (sub_contract, symbols) in &new_ast.exported_symbols {
                             // TODO: what does it mean if there is more than 1 symbol per contract?
                             if symbols.len() == 1 && !exported_ids.contains(&symbols[0]) {
@@ -1536,8 +1546,8 @@ impl ProjectInfo {
         let mut contract_definition: Option<ContractDefinition> = None;
         for (file, source) in &build_info.output.sources {
             if let Some(ast_ref) = &source.ast {
-                if let Ok(tmp_contract_definition) = Self::find_contract_definition(ast_ref) {
-                    if tmp_contract_definition.name == *contract_name {
+                for node in &ast_ref.nodes {
+                    if let Ok(tmp_contract_definition) = Self::find_contract_definition(node, contract_name) {
                         // relevant_ast = ast_ref.clone();
                         absolute_path = Some(ast_ref.absolute_path.clone());
                         contract_definition = Some(tmp_contract_definition);
