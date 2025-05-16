@@ -145,6 +145,16 @@ impl CompareBytecode {
 
         Self::ignore_immutables(&project_info.immutables, &mut relevant_indices);
 
+        // Ignore Library Address at the beginning of a Library: PUSH20 address
+        if project_info.is_library {
+            debug!("Skipping initial library bytes");
+            for index in relevant_indices.iter_mut().take(21).skip(1) {
+                *index = false;
+            }
+            // Check for PUSH20
+            assert_eq!(compiled_bytecode[0], 0x73);
+        }
+
         // If no metadata is appended
         if Some(BytecodeHash::None) == project_info.cbor_metadata {
             let matched =
@@ -260,6 +270,7 @@ impl CompareInitCode {
             );
         }
         // println!("Relevant Indices: {:?}", relevant_indices.clone());
+        // debug!("Initcode comparison: {:?} ?= {:?}", compiled_init_code.clone(), init_bytecode[..init_len].to_vec());
         if !compare_relevant(
             &compiled_init_code,
             &init_bytecode[..init_len],
@@ -325,6 +336,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false,
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(!compare_status.matched);
@@ -349,6 +361,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false,
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(compare_status.matched);
@@ -404,6 +417,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
+            is_library: false,
         };
 
         let compare_status = CompareInitCode::compare(&mut p, &tx_init_code, false);
