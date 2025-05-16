@@ -37,6 +37,7 @@ Once a DVF is published, any user can choose to trust the signer of that DVF and
    - [References](#references)
    - [Registry](#registry)
    - [Etherscan Verified Contracts](#etherscan-verified-contracts)
+   - [Initialization by event topics](#initialization-by-event-topics)
 
 7. [Common Problems](#common-problems)
 8. [Getting Help](#getting-help)
@@ -508,6 +509,32 @@ fetch-from-etherscan --project <PROJECT_PATH> --address <ADDRESS> --chainid <CHA
 An RPC endpoint for the given `<CHAIN_ID>` must be present in your configuration file.
 
 Please note that Foundry's `forge clone` provides similar functionality but is currently not suitable for this task due to a [bug](https://github.com/foundry-rs/foundry/issues/8356).
+
+### Initialization by event topics
+
+`dv` gets the transactions a contract has been involved in from third party APIs (namely, Blockscout). There are certain cases, in which this is not preferable:
+
+- You don't trust the Blockscout API of the chain you are trying to validate a contract on (this will be solved with a future update).
+- You are working on a chain that does not have a Blockscout API or its Blockscout API does not work as intended.
+- Retrieving all transactions of a contract is too much and you are not interested in certain transactions (think of, e.g., ERC-20 transfers of the USDT contract).
+
+If the contract you are validating emits events every time a security-relevant storage variable is written, you can use the `--eventtopics` argument if the `init` command to specify that only transactions in which the given events have been emitted are evaluated:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --eventtopics <TOPICS> new.dvf.json
+```
+
+`<TOPICS>` is a comma-separated list of event topics (hexadecimal 32-byte hashes). To find all topics of your contract, you can run:
+
+```
+dv list-events --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME>
+```
+
+Alternatively, it is also possible to pass an empty list of event topics to search for all events:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --eventtopics "" new.dvf.json
+```
 
 ## Common Problems
 
