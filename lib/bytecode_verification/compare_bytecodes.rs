@@ -148,8 +148,8 @@ impl CompareBytecode {
         // Ignore Library Address at the beginning of a Library: PUSH20 address
         if project_info.is_library {
             debug!("Skipping initial library bytes");
-            for i in 1..21 {
-                relevant_indices[i] = false;
+            for index in relevant_indices.iter_mut().take(21).skip(1) {
+                *index = false;
             }
             // Check for PUSH20
             assert_eq!(compiled_bytecode[0], 0x73);
@@ -336,7 +336,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
-            is_library: false
+            is_library: false,
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(!compare_status.matched);
@@ -361,7 +361,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
-            is_library: false
+            is_library: false,
         };
         let compare_status = CompareBytecode::compare(&mut p, false, &onchain_code);
         assert!(compare_status.matched);
@@ -417,7 +417,7 @@ mod tests {
             types: HashMap::new(),
             storage: vec![],
             absolute_path: None,
-            is_library: false
+            is_library: false,
         };
 
         let compare_status = CompareInitCode::compare(&mut p, &tx_init_code, false);

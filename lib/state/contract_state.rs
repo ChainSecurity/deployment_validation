@@ -463,7 +463,7 @@ impl<'a> ContractState<'a> {
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
                     current_slot =
-                        current_slot.add(U256::from((current_offset + base_num_bytes + 31) / 32));
+                        current_slot.add(U256::from((current_offset + base_num_bytes).div_ceil(32)));
                     current_offset = 0;
                 // Check if we need to skip one slot
                 } else if current_offset + base_num_bytes + base_num_bytes > 32 {

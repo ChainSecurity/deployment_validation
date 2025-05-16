@@ -1347,7 +1347,7 @@ impl ProjectInfo {
                             // TODO: what does it mean if there is more than 1 symbol per contract?
                             if symbols.len() == 1 && !exported_ids.contains(&symbols[0]) {
                                 exported_ids.extend(symbols);
-                                Self::find_exported_ids(sources, &sub_contract, exported_ids);
+                                Self::find_exported_ids(sources, sub_contract, exported_ids);
                             }
                         }
                         break;
