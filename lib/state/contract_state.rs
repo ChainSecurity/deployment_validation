@@ -504,16 +504,8 @@ impl<'a> ContractState<'a> {
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
                 if self.has_inplace_encoding(&key_type) {
-                    let type_length = self.types[&key_type].number_of_bytes;
-                    // For signed integers, we need to handle negative values which might start with 'f'
-                    let key_length = if key_type.starts_with("t_int") && sorted_key.starts_with('f')
-                    {
-                        sorted_key.trim_start_matches('f').len() / 2
-                    } else {
-                        sorted_key.trim_start_matches('0').len() / 2
-                    };
 
-                    if type_length < key_length {
+                    if sorted_key.len() > 64 {
                         continue;
                     }
                 }
