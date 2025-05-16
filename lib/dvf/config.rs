@@ -1122,16 +1122,17 @@ impl DVFConfig {
                     }
                 }
                 // Finally fall back to chain-specific URL
-                let hostname = match chain_id {
+                let hostname = match self.active_chain_id {
                     // Add More from https://www.blockscout.com/chains-and-projects
-                    1 => "eth.blockscout.com/api",
-                    10 => "optimism.blockscout.com/api",
-                    100 => "gnosis.blockscout.com/api",
-                    137 => "polygon.blockscout.com/api",
-                    8453 => "base.blockscout.com/api",
-                    42161 => "arbitrum.blockscout.com/api",
-                    81457 => "blast.blockscout.com/api",
-                    11155111 => "eth-sepolia.blockscout.com/api",
+                    Some(1) => "eth.blockscout.com".to_string(),
+                    Some(10) => "optimism.blockscout.com".to_string(),
+                    Some(100) => "gnosis.blockscout.com".to_string(),
+                    Some(130) => "unichain.blockscout.com".to_string(),
+                    Some(137) => "polygon.blockscout.com".to_string(),
+                    Some(8453) => "base.blockscout.com".to_string(),
+                    Some(42161) => "arbitrum.blockscout.com".to_string(),
+                    Some(81457) => "blast.blockscout.com".to_string(),
+                    Some(11155111) => "eth-sepolia.blockscout.com".to_string(),
                     _ => {
                         return Err(ValidationError::from(format!(
                             "Invalid chain id: {:?}.",
