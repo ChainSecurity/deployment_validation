@@ -101,7 +101,7 @@ To install `dv`, clone this repository and build:
 ```
 git clone https://github.com/ChainSecurity/deployment_validation
 cd deployment-validation
-cargo install --path .
+cargo install --path . --locked
 ```
 
 This creates a binary at `~/.cargo/bin`. You can add the location to your `PATH` with the following command:
