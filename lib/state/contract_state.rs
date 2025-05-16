@@ -503,11 +503,8 @@ impl<'a> ContractState<'a> {
                 // the last 32 bytes correspond to a slot
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
-                if self.has_inplace_encoding(&key_type) {
-
-                    if sorted_key.len() > 64 {
-                        continue;
-                    }
+                if self.has_inplace_encoding(&key_type) && sorted_key.len() > 64 {
+                    continue;
                 }
 
                 let pretty_key: String = match self.has_inplace_encoding(&key_type) {
