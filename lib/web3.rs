@@ -714,6 +714,7 @@ pub fn get_deployment(
     let address_ptr = address as *const Address;
 
     // SAFETY: We only use these pointers for read-only access in closures
+    #[allow(clippy::type_complexity)]
     let attempts: Vec<Box<dyn Fn() -> Result<(u64, String), ValidationError>>> = vec![
         Box::new(move || {
             // SAFETY: config and address are valid for the lifetime of this function
@@ -722,7 +723,8 @@ pub fn get_deployment(
             let deployment_tx = get_deployment_tx_from_etherscan(config, address)?;
             let deployment_tx_hash = deployment_tx.tx_hash;
             debug!("Etherscan Deployment Tx: {}", deployment_tx_hash);
-            let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+            let deployment_block_num =
+                get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
             Ok((deployment_block_num, deployment_tx_hash))
         }),
         Box::new(move || {
@@ -730,7 +732,8 @@ pub fn get_deployment(
             let address = unsafe { &*address_ptr };
             let deployment_tx_hash = get_deployment_tx_from_blockscout(config, address)?;
             debug!("Blockscout Deployment Tx: {}", deployment_tx_hash);
-            let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+            let deployment_block_num =
+                get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
             Ok((deployment_block_num, deployment_tx_hash))
         }),
         Box::new(move || {
@@ -751,14 +754,24 @@ pub fn get_deployment(
             } else {
                 1
             };
-            match get_deployment_from_parity_trace(config, address, start_block_num, current_block_num) {
-                Ok(result) => return Ok(result),
+            match get_deployment_from_parity_trace(
+                config,
+                address,
+                start_block_num,
+                current_block_num,
+            ) {
+                Ok(result) => Ok(result),
                 Err(e) => {
                     debug!("Deployment search attempt failed: {}", e);
-                    get_deployment_from_geth_trace(config, address, start_block_num, current_block_num)
+                    get_deployment_from_geth_trace(
+                        config,
+                        address,
+                        start_block_num,
+                        current_block_num,
+                    )
                 }
             }
-        })
+        }),
     ];
 
     for attempt in attempts {
@@ -770,7 +783,9 @@ pub fn get_deployment(
         }
     }
 
-    Err(ValidationError::from("Could not find deployment transaction."))
+    Err(ValidationError::from(
+        "Could not find deployment transaction.",
+    ))
 }
 
 pub fn get_deployment_block_from_binary_search(
@@ -2270,13 +2285,13 @@ pub fn get_eth_transaction_block_number(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
-    
+
     // Extract the block number from the receipt
     let block_number_hex = result
         .get("blockNumber")
         .and_then(|bn| bn.as_str())
         .ok_or_else(|| ValidationError::from("Block number not found in transaction receipt"))?;
-    
+
     // Convert the hex block number to u64
     let receipt = u64::from_str_radix(block_number_hex.trim_start_matches("0x"), 16)
         .map_err(|_| ValidationError::from("Failed to parse block number from hex"))?;
