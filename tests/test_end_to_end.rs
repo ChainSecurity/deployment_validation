@@ -787,6 +787,12 @@ mod tests {
         let mut testcases: Vec<TestCaseE2E> = vec![];
 
         testcases.push(TestCaseE2E {
+            script: String::from("script/Deploy_Lib.s.sol"),
+            contract: String::from("Lib"),
+            expected: String::from("tests/expected_dvfs/Lib.dvf.json"),
+        });
+        
+        testcases.push(TestCaseE2E {
             script: String::from("script/Deploy_0.s.sol"),
             contract: String::from("BytesMapping"),
             expected: String::from("tests/expected_dvfs/Deploy_0.dvf.json"),
@@ -829,9 +835,14 @@ mod tests {
             contract: String::from("CrazyHiddenStruct"),
             expected: String::from("tests/expected_dvfs/CrazyHiddenStruct.dvf.json"),
         });
+        
         for testcase in testcases {
             let url = format!("http://localhost:{}", port).to_string();
             for client_type in LocalClientType::iterator() {
+                // Don't run this test with Geth as it requires a different setup
+                if testcase.contract == "Lib"  && client_type == LocalClientType::Geth {
+                    continue;
+                }
                 let local_client = start_local_client(client_type.clone(), port);
 
                 // forge script script/Deploy_0.s.sol --rpc-url "http://127.0.0.1:8546" --broadcast --slow
@@ -861,7 +872,11 @@ mod tests {
                         &config_file.path().to_string_lossy(),
                         "init",
                         "--address",
-                        "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+                        if testcase.contract == "Lib" {
+                            "0x8627e5da250bd67817177c77ed8432e8528d2bc9"
+                        } else {
+                            "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+                        },
                         "--chainid",
                         &chain_id_str(client_type.clone()),
                         "--project",

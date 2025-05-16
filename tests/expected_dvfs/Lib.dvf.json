@@ -1,0 +1,27 @@
+{
+  "version": "0.9.1",
+  "id": "0xdb26661b8d95e1e02f9331fc20ac3e28635fa9895083c1366c7918a59963312d",
+  "contract_name": "Lib",
+  "address": "0x8627e5da250bd67817177c77ed8432e8528d2bc9",
+  "chain_id": 31337,
+  "deployment_block_num": 1,
+  "init_block_num": 4,
+  "deployment_tx": "0xc46bb378f0ae75fbf0c0c65d9536df3854c9147ebb0d8adec1cd65355cfe36bc",
+  "codehash": "0xacdec87e06ce0e6478a315ee1ceccbd69f4b0e9bb3ee92c4ea70b8a757818512",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [],
+  "critical_events": [],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}
