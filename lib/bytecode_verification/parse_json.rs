@@ -27,7 +27,7 @@ use alloy::json_abi::Event;
 use alloy::primitives::U256;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
-    Ast, BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
+    BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
     DeployedBytecode, Node as EAstNode, NodeType, SolcInput, SourceFile,
 };
 use foundry_compilers::buildinfo::BuildInfo as BInfo;
@@ -1323,7 +1323,10 @@ impl ProjectInfo {
 
     // Parses the AST for a contract definition.
     // Assumes that it is one of the top nodes
-    fn find_contract_definition(node: &EAstNode, contract_name: &String) -> Result<ContractDefinition, ValidationError> {
+    fn find_contract_definition(
+        node: &EAstNode,
+        contract_name: &String,
+    ) -> Result<ContractDefinition, ValidationError> {
         if node.node_type == NodeType::ContractDefinition {
             if let Some(name) = node.other.get("name") {
                 if name == contract_name {
@@ -1333,7 +1336,8 @@ impl ProjectInfo {
             }
         }
         for subnode in &node.nodes {
-            if let Ok(contract_definition) = Self::find_contract_definition(subnode, contract_name) {
+            if let Ok(contract_definition) = Self::find_contract_definition(subnode, contract_name)
+            {
                 return Ok(contract_definition);
             }
         }
@@ -1352,7 +1356,7 @@ impl ProjectInfo {
         for source in sources.values() {
             if let Some(new_ast) = &source.ast {
                 for node in &new_ast.nodes {
-                    if let Ok(_) = Self::find_contract_definition(node, contract_name) {
+                    if Self::find_contract_definition(node, contract_name).is_ok() {
                         for (sub_contract, symbols) in &new_ast.exported_symbols {
                             // TODO: what does it mean if there is more than 1 symbol per contract?
                             if symbols.len() == 1 && !exported_ids.contains(&symbols[0]) {
@@ -1547,7 +1551,9 @@ impl ProjectInfo {
         for (file, source) in &build_info.output.sources {
             if let Some(ast_ref) = &source.ast {
                 for node in &ast_ref.nodes {
-                    if let Ok(tmp_contract_definition) = Self::find_contract_definition(node, contract_name) {
+                    if let Ok(tmp_contract_definition) =
+                        Self::find_contract_definition(node, contract_name)
+                    {
                         // relevant_ast = ast_ref.clone();
                         absolute_path = Some(ast_ref.absolute_path.clone());
                         contract_definition = Some(tmp_contract_definition);
