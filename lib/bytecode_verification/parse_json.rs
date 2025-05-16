@@ -449,7 +449,7 @@ impl ProjectInfo {
         if node.node_type == NodeType::StructDefinition && node.id.is_some() {
             let mut storage_var_id: Option<usize> = None;
             // parse all struct definitions for each struct -> slot pair.
-            for (slot, (struct_id,name)) in struct_slots {
+            for (slot, (struct_id, name)) in struct_slots {
                 let struct_id = *struct_id;
                 let node_id = node.id.unwrap() as u64;
                 if node_id == struct_id {
@@ -756,9 +756,7 @@ impl ProjectInfo {
                                                                                                                     top_node,
                                                                                                                     var_ref_id.as_u64().unwrap()
                                                                                                                 ) {
-                                                                                                                    if !struct_slots.contains_key(&var_slot) {
-                                                                                                                        struct_slots.insert(var_slot, (struct_id, Some(var_name)));
-                                                                                                                    }
+                                                                                                                    struct_slots.entry(var_slot).or_insert((struct_id, Some(var_name)));
                                                                                                             }
                                                                                                         }
                                                                                                     } else if let Some(slot_value) = arg[param_id].get("value") {
@@ -766,15 +764,7 @@ impl ProjectInfo {
                                                                                                         // as we have no associated variable for the slot,
                                                                                                         // we use the name of the outer function.
                                                                                                         let var_slot = U256::from_str(slot_value.as_str().unwrap()).unwrap();
-                                                                                                        if !struct_slots.contains_key(&var_slot) {
-                                                                                                            struct_slots.insert(
-                                                                                                                var_slot,
-                                                                                                                (
-                                                                                                                    struct_id,
-                                                                                                                    Some(format!("[{}]", outer_function))
-                                                                                                                )
-                                                                                                            );
-                                                                                                        }
+                                                                                                        struct_slots.entry(var_slot).or_insert((struct_id, Some(outer_function)));
                                                                                                     }
                                                                                                 }
                                                                                             }
@@ -818,12 +808,12 @@ impl ProjectInfo {
                                                                             .unwrap(),
                                                                     )
                                                                     .unwrap();
-                                                                    if !struct_slots.contains_key(&var_slot) {
-                                                                        struct_slots.insert(
-                                                                            var_slot,
-                                                                            (struct_id, function_name)
-                                                                        );
-                                                                    }
+                                                                    struct_slots
+                                                                        .entry(var_slot)
+                                                                        .or_insert((
+                                                                            struct_id,
+                                                                            function_name,
+                                                                        ));
                                                                 }
                                                             }
                                                         }

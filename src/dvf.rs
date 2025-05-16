@@ -1006,7 +1006,10 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
                 // Extend storage with implementation storage variables, ensuring unique slots
                 for storage_var in &tmp_project_info.storage {
-                    if !storage.iter().any(|existing| existing.slot == storage_var.slot) {
+                    if !storage
+                        .iter()
+                        .any(|existing| existing.slot == storage_var.slot)
+                    {
                         storage.push(storage_var.clone());
                     }
                 }
