@@ -422,6 +422,11 @@ fn main() {
                         .required(true),
                 )
                 .arg(
+                    arg!(--deployment <TX>)
+                        .help("Transaction hash of the deployment transaction")
+                        .value_parser(is_valid_32_byte_hex),
+                )
+                .arg(
                     arg!(--implementation <NAME>)
                         .help("Optional name of the implementation contract"),
                 )
@@ -757,6 +762,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
             let zerovalue = sub_m.get_flag("zerovalue");
+            let user_deployment_tx = sub_m.get_one::<String>("deployment");
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
             let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
@@ -792,8 +798,12 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
 
             // Parse optional initblock or take deployment_block_num + 1
-            let (deployment_block_num, deployment_tx) =
-                web3::get_deployment(&config, &dumped.address)?;
+            let (deployment_block_num, deployment_tx) = if user_deployment_tx.is_some() {
+                let block_num = web3::get_eth_transaction_block_number(&config, user_deployment_tx.unwrap())?;
+                (block_num, user_deployment_tx.unwrap().clone())
+            } else {
+                web3::get_deployment(&config, &dumped.address)?
+            };
             info!("Deployment Block: {}", deployment_block_num);
             dumped.deployment_block_num = deployment_block_num;
             dumped.deployment_tx = deployment_tx;
