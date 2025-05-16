@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
 use std::str::FromStr;
@@ -1057,6 +1057,7 @@ fn get_all_txs_for_contract_from_blockscout(
     Ok(txs)
 }
 
+/*
 // Inclusive for start_block and end_block
 // WILL ACCEPT FAILURE AS IT ASSUMES THIS HAPPENS ONLY FOR MAPPING SLOTS
 // Failures are most likely due to timeouts in big TXs
@@ -1088,6 +1089,7 @@ pub fn get_all_traces_for_contract(
     debug!("Found {} traces.", traces.len());
     Ok(traces)
 }
+*/
 
 pub fn get_eth_block_number(config: &DVFConfig) -> Result<u64, ValidationError> {
     let request_body = json!({
@@ -1354,8 +1356,8 @@ impl StorageSnapshot {
     pub fn from_api(
         config: &DVFConfig,
         address: &Address,
-        deployment_block_num: u64,
         init_block_num: u64,
+        tx_hashes: &Vec<String>,
     ) -> Result<Self, ValidationError> {
         // First try special call
         let snapshot: HashMap<U256, [u8; 32]> = if let Ok(storage_snapshot) =
@@ -1371,18 +1373,15 @@ impl StorageSnapshot {
             */
             storage_snapshot
         } else {
-            // Alternatively, get all txs
-            let tx_hashes =
-                get_all_txs_for_contract(config, address, deployment_block_num, init_block_num)?;
             debug!("Tx Hashes: {:?}", tx_hashes);
             // And diffs for all txs
-            if let Ok(all_diffs) = get_many_diff_traces(config, &tx_hashes) {
+            if let Ok(all_diffs) = get_many_diff_traces(config, tx_hashes) {
                 // And compute snapshot from there
                 Self::snapshot_from_diff_traces(&all_diffs, address)
                 // verify snapshot with account storage merkle root
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
             } else {
-                Self::snapshot_from_tx_ids(config, address, &tx_hashes)?
+                Self::snapshot_from_tx_ids(config, address, tx_hashes)?
                 // verify snapshot with account storage merkle root
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
             }
