@@ -791,7 +791,7 @@ mod tests {
             contract: String::from("Lib"),
             expected: String::from("tests/expected_dvfs/Lib.dvf.json"),
         });
-        
+
         testcases.push(TestCaseE2E {
             script: String::from("script/Deploy_0.s.sol"),
             contract: String::from("BytesMapping"),
@@ -835,12 +835,12 @@ mod tests {
             contract: String::from("CrazyHiddenStruct"),
             expected: String::from("tests/expected_dvfs/CrazyHiddenStruct.dvf.json"),
         });
-        
+
         for testcase in testcases {
             let url = format!("http://localhost:{}", port).to_string();
             for client_type in LocalClientType::iterator() {
                 // Don't run this test with Geth as it requires a different setup
-                if testcase.contract == "Lib"  && client_type == LocalClientType::Geth {
+                if testcase.contract == "Lib" && client_type == LocalClientType::Geth {
                     continue;
                 }
                 let local_client = start_local_client(client_type.clone(), port);
