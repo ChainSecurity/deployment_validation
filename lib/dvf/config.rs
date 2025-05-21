@@ -1139,10 +1139,10 @@ impl DVFConfig {
                 if let Some(url) = opt_url {
                     Ok(url)
                 } else {
-                    return Err(ValidationError::from(format!(
+                    Err(ValidationError::from(format!(
                         "Invalid chain id: {:?}.",
                         self.active_chain_id
-                    )));
+                    )))
                 }
             }
             None => Err(ValidationError::from(
@@ -1217,11 +1217,16 @@ mod tests {
     fn test_get_blockscout_url() {
         let mut empty_config = DVFConfig::default();
         empty_config.set_chain_id(1).unwrap();
-        assert_eq!("https://eth.blockscout.com/".to_string(), empty_config.get_blockscout_api_url().unwrap());
+        assert_eq!(
+            "https://eth.blockscout.com/".to_string(),
+            empty_config.get_blockscout_api_url().unwrap()
+        );
         empty_config.set_chain_id(10).unwrap();
-        assert_eq!("https://optimism.blockscout.com/".to_string(), empty_config.get_blockscout_api_url().unwrap());
+        assert_eq!(
+            "https://optimism.blockscout.com/".to_string(),
+            empty_config.get_blockscout_api_url().unwrap()
+        );
     }
-
 
     #[test]
     fn test_replace_tilde_with_home_dir() {
