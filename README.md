@@ -546,7 +546,11 @@ dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --eve
 
 ## Common Problems
 
-This section will be updated soon.
+Sometimes, it is possible that the `init` command cannot find a deployment transaction. In this case, you have the following options:
+
+- Add an Etherscan API key to your config.
+- Add a Blockscout API key to your config.
+- Supply the deployment transaction manually with `--deployment`.
 
 ## Getting Help
 

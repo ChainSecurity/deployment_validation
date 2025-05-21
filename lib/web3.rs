@@ -95,7 +95,7 @@ pub fn get_block_traces(
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "trace_block",
-        "params": [block_num],
+        "params": [format!("{:#x}", block_num)],
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
@@ -687,10 +687,10 @@ fn get_deployment_from_geth_trace(
 ) -> Result<(u64, String), ValidationError> {
     debug!("Searching geth traces for deployment tx of {:?}", address);
     for i in start_block_num..end_block_num + 1 {
-        let block = get_eth_block_by_num(config, i, true)?;
-        if let Some(txs) = block.transactions.as_transactions() {
+        let block = get_eth_block_by_num(config, i, false)?;
+        if let Some(txs) = block.transactions.as_hashes() {
             for tx in txs {
-                let tx_hash = format!("{:#x}", tx.inner.tx_hash());
+                let tx_hash = format!("{:#x}", tx);
                 let call_frame = get_eth_debug_call_trace(config, &tx_hash)?;
                 let mut addresses: Vec<Address> = vec![];
                 extract_create_addresses_from_call_frame(&call_frame, &mut addresses, false)?;
@@ -710,38 +710,76 @@ pub fn get_deployment(
     config: &DVFConfig,
     address: &Address,
 ) -> Result<(u64, String), ValidationError> {
-    // First try etherscan
-    if let Ok(deployment_tx) = get_deployment_tx_from_etherscan(config, address) {
-        let deployment_tx_hash = deployment_tx.tx_hash;
-        debug!("Etherscan Deployment Tx: {}", deployment_tx_hash);
-        let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
-        return Ok((deployment_block_num, deployment_tx_hash));
-    } else if let Ok(deployment_tx_hash) = get_deployment_tx_from_blockscout(config, address) {
-        debug!("Blockscout Deployment Tx: {}", deployment_tx_hash);
-        let deployment_block_num = get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
-        return Ok((deployment_block_num, deployment_tx_hash));
-    } else if let Ok(creator) = get_ots_contract_creator(config, address) {
-        debug!("Otterscan Deployment Tx: {}", creator.tx_hash);
-        let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
-        return Ok((deployment_block_num, creator.tx_hash));
-    } else {
-        debug!("No deployment tx found in etherscan or blockscout, searching traces. ");
-        let current_block_num = get_eth_block_number(config)?;
-        let start_block_num = if current_block_num > 10 {
-            get_deployment_block_from_binary_search(config, address, current_block_num)?
-        } else {
-            1
-        };
+    let config_ptr = config as *const DVFConfig;
+    let address_ptr = address as *const Address;
 
-        if let Ok((deployment_block_num, deployment_tx_hash)) =
-            get_deployment_from_parity_trace(config, address, start_block_num, current_block_num)
-        {
-            return Ok((deployment_block_num, deployment_tx_hash));
-        }
-        if let Ok((deployment_block_num, deployment_tx_hash)) =
-            get_deployment_from_geth_trace(config, address, start_block_num, current_block_num)
-        {
-            return Ok((deployment_block_num, deployment_tx_hash));
+    // SAFETY: We only use these pointers for read-only access in closures
+    #[allow(clippy::type_complexity)]
+    let attempts: Vec<Box<dyn Fn() -> Result<(u64, String), ValidationError>>> = vec![
+        Box::new(move || {
+            // SAFETY: config and address are valid for the lifetime of this function
+            let config = unsafe { &*config_ptr };
+            let address = unsafe { &*address_ptr };
+            let deployment_tx = get_deployment_tx_from_etherscan(config, address)?;
+            let deployment_tx_hash = deployment_tx.tx_hash;
+            debug!("Etherscan Deployment Tx: {}", deployment_tx_hash);
+            let deployment_block_num =
+                get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+            Ok((deployment_block_num, deployment_tx_hash))
+        }),
+        Box::new(move || {
+            let config = unsafe { &*config_ptr };
+            let address = unsafe { &*address_ptr };
+            let deployment_tx_hash = get_deployment_tx_from_blockscout(config, address)?;
+            debug!("Blockscout Deployment Tx: {}", deployment_tx_hash);
+            let deployment_block_num =
+                get_block_number_for_tx(config, deployment_tx_hash.as_str())?;
+            Ok((deployment_block_num, deployment_tx_hash))
+        }),
+        Box::new(move || {
+            let config = unsafe { &*config_ptr };
+            let address = unsafe { &*address_ptr };
+            let creator = get_ots_contract_creator(config, address)?;
+            debug!("Otterscan Deployment Tx: {}", creator.tx_hash);
+            let deployment_block_num = get_block_number_for_tx(config, creator.tx_hash.as_str())?;
+            Ok((deployment_block_num, creator.tx_hash))
+        }),
+        Box::new(move || {
+            let config = unsafe { &*config_ptr };
+            let address = unsafe { &*address_ptr };
+            debug!("No deployment tx found in etherscan or blockscout, searching traces. ");
+            let current_block_num = get_eth_block_number(config)?;
+            let start_block_num = if current_block_num > 10 {
+                get_deployment_block_from_binary_search(config, address, current_block_num)?
+            } else {
+                1
+            };
+            match get_deployment_from_parity_trace(
+                config,
+                address,
+                start_block_num,
+                current_block_num,
+            ) {
+                Ok(result) => Ok(result),
+                Err(e) => {
+                    debug!("Deployment search attempt failed: {}", e);
+                    get_deployment_from_geth_trace(
+                        config,
+                        address,
+                        start_block_num,
+                        current_block_num,
+                    )
+                }
+            }
+        }),
+    ];
+
+    for attempt in attempts {
+        match attempt() {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                debug!("Deployment search attempt failed: {}", e);
+            }
         }
     }
 
@@ -2234,4 +2272,28 @@ mod tests {
     //         assert_ne!(traces, Traces::None);
     //     }
     // }
+}
+
+pub fn get_eth_transaction_block_number(
+    config: &DVFConfig,
+    tx_hash: &str,
+) -> Result<u64, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionReceipt",
+        "params": [tx_hash],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+
+    // Extract the block number from the receipt
+    let block_number_hex = result
+        .get("blockNumber")
+        .and_then(|bn| bn.as_str())
+        .ok_or_else(|| ValidationError::from("Block number not found in transaction receipt"))?;
+
+    // Convert the hex block number to u64
+    let receipt = u64::from_str_radix(block_number_hex.trim_start_matches("0x"), 16)
+        .map_err(|_| ValidationError::from("Failed to parse block number from hex"))?;
+    Ok(receipt)
 }
