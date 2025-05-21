@@ -7,6 +7,7 @@ use std::str::FromStr;
 use alloy::json_abi::Event;
 use alloy::primitives::{Address, B256};
 use alloy_dyn_abi::EventExt;
+use alloy_rpc_types::Log;
 use clap::{arg, value_parser, ArgMatches, Command};
 use colored::Colorize;
 use console::style;
@@ -395,6 +396,21 @@ fn main() {
                         .value_parser(is_valid_address),
                 )
                 .arg(
+                    arg!(--eventtopics <TOPICS>)
+                        .help("Event topics to filter by (comma-separated list)")
+                        .value_parser(|s: &str| -> Result<Vec<B256>, String> {
+                            if s.trim().is_empty() {
+                                return Ok(vec![]);
+                            }
+                            s.split(',')
+                                .map(|topic| {
+                                    B256::from_str(topic.trim())
+                                        .map_err(|e| format!("Invalid topic: {}", e))
+                                })
+                                .collect::<Result<Vec<_>, _>>()
+                        }),
+                )
+                .arg(
                     arg!(--chainid <CHAINID>)
                         .help("Chain ID where the contract is deployed")
                         .value_parser(value_parser!(u64))
@@ -589,316 +605,34 @@ fn main() {
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
-        .get_matches();
-
-    /*
-
-    let matches = Command::new("dv")
-        .version(CURRENT_VERSION.to_string().as_str())
-        .about("Deployment Verification")
-        .author("ChainSecurity")
-        .arg(
-            Arg::with_name("verbose")
-                .short('v')
-                .long("verbose")
-                .action(clap::ArgAction::Count)
-                .help("Sets the level of verbosity"),
-        )
-        .arg(
-            Arg::with_name("config")
-                .short('c')
-                .long("config")
-                .help(
-                    format!(
-                        "Path of config file, default location: {}",
-                        DVFConfig::default_path()
-                            .unwrap_or(PathBuf::from("undefined"))
-                            .display()
-                    )
-                    .as_str(),
-                )
-                .action(ArgAction::Set)
-                .validator(is_valid_path),
-        )
-        .subcommand(SubCommand::with_name("init").about("initializes a new dvf")
+        .subcommand(
+            Command::new("list-events")
+                .about("Lists all event topics of a contract")
                 .arg(
-                    Arg::with_name("initblock")
-                        .long("initblock")
-                        .help("The block number at which the state snapshot should be taken. Current block if not set. Its final state is used.")
-                        .validator(is_valid_blocknum)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("project")
-                        .long("project")
-                        .help("Path to the root folder of source code project")
+                    arg!(--project <PATH>)
+                        .help("Path to the root folder of the source code project")
                         .required(true)
-                        .validator(is_valid_path)
-                        .action(ArgAction::Set),
+                        .value_parser(is_valid_path),
                 )
                 .arg(
-                    Arg::with_name("address")
-                        .long("address")
-                        .help("Address of the contract")
-                        .required(true)
-                        .validator(is_valid_address)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("chainid")
-                        .long("chainid")
-                        .help("Chain ID where contract is deployed")
-                        .value_parser(value_parser!(u64))
-                        .default_value("1")
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("contractname")
-                        .long("contractname")
+                    arg!(--contractname <NAME>)
                         .help("Name of the contract")
-                        .required(true)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("implementation")
-                        .long("implementation")
-                        .help("Optional Name of implementation contract")
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("implementationproject")
-                        .long("implementationproject")
-                        .help("Path to root folder of source code project, if an implementation contract is used and it is in a different project")
-                        .validator(is_valid_path) // TODO: validator() is deprecated
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("factory")
-                        .long("factory")
-                        .help("Treat this contract as a factory, this changes bytecode verification")
-                        .action(ArgAction::SetTrue)
-                )
-                .arg(
-                    Arg::with_name("implementationenv")
-                        .long("implementationenv")
-                        .help("Implementation project's development environment")
-                        .value_parser(clap::value_parser!(Environment))
-                        .default_value(Environment::Foundry.to_string().as_str())
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("implementationartifacts")
-                        .long("implementationartifacts")
-                        .help("Folder containing the artifacts of the implementation project relative to the project folder (Hardhat only)")
-                        .action(ArgAction::Set)
-                        .default_value("artifacts")
-                )
-                .arg(
-                    Arg::with_name("env")
-                        .long("env")
-                        .help("Project's development environment")
-                        .value_parser(clap::value_parser!(Environment))
-                        .default_value(Environment::Foundry.to_string().as_str())
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("artifacts")
-                        .long("artifacts")
-                        .help("Folder containing the artifacts relative to the project folder (Hardhat only)")
-                        .action(ArgAction::Set)
-                        .default_value("artifacts")
-                )
-                .arg(
-                    Arg::with_name("buildcache")
-                        .long("buildcache")
-                        .help("Folder containing build-info files")
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("implementationbuildcache")
-                        .long("implementationbuildcache")
-                        .help("Folder containing build-info files of the implementation contract")
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("OUTPUT")
-                        .help("Path of the generated DVF file")
                         .required(true),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("id")
-                .about("generates the dvf id")
-                .arg(
-                    Arg::with_name("DVF")
-                        .help("The provided DVF file - updated in-place")
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("add-reference")
-                .about("add a reference")
-                .arg(
-                    Arg::with_name("id")
-                        .long("id")
-                        .help("Specifies the new reference ID")
-                        .required(true)
-                        .validator(is_valid_32_byte_hex)
-                        .action(ArgAction::Set),
                 )
                 .arg(
-                    Arg::with_name("contractname")
-                        .long("contractname")
-                        .help("Contract Name of the reference")
-                        .required(true)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("DVF")
-                        .help("The DVF file - updated in-place")
-                        .required(true)
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("sign").about("sign a dvf").arg(
-                Arg::with_name("DVF")
-                    .help("The DVF file - updated in-place")
-                    .required(true)
-            ),
-        )
-        .subcommand(
-            SubCommand::with_name("validate")
-                .about("validate a dvf")
-                .arg(
-                    Arg::with_name("validationblock")
-                        .long("validationblock")
-                        .help("The block number that should be used for validation. Current block if not set. Its final state is used.")
-                        .validator(is_valid_blocknum)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("allowuntrusted")
-                        .long("allowuntrusted")
-                        .help("Allow the validation of unsigned DVFs or DVFs from untrusted signers")
-                        .action(ArgAction::SetTrue)
-                )
-                .arg(
-                    Arg::with_name("DVF")
-                        .help("The DVF file")
-                        .required(true)
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("update")
-                .about("update a dvf")
-                .arg(
-                    Arg::with_name("validationblock")
-                        .long("validationblock")
-                        .help("The block number that should be used for validation. Current block if not set. Its final state is used.")
-                        .validator(is_valid_blocknum)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("DVF")
-                        .help("The DVF file")
-                ),
-        )
-        .subcommand(SubCommand::with_name("generate-config")
-                .about("interactively generate configuration file")
-        )
-        .subcommand(SubCommand::with_name("generate-build-cache").about("generate the build cache")
-                .arg(
-                    Arg::with_name("project")
-                        .long("project")
-                        .help("Path to the root folder of source code project")
-                        .required(true)
-                        .validator(is_valid_path)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("env")
-                        .long("env")
+                    arg!(--env <ENV>)
                         .help("Project's development environment")
-                        .value_parser(clap::value_parser!(Environment))
-                        .default_value(Environment::Foundry.to_string().as_str())
-                        .action(ArgAction::Set)
+                        .value_parser(value_parser!(Environment))
+                        .default_value("foundry"),
                 )
                 .arg(
-                    Arg::with_name("artifacts")
-                        .long("artifacts")
-                        .help("Folder containing the artifacts (Hardhat only)")
-                        .default_value("artifacts")
-                        .action(ArgAction::Set)
+                    arg!(--artifacts <PATH>)
+                        .help("Folder containing the artifacts")
+                        .default_value("artifacts"),
                 )
-        )
-        .subcommand(SubCommand::with_name("bytecode-check").about("perform just the bytecode check")
-                .arg(
-                    Arg::with_name("initblock")
-                        .long("initblock")
-                        .help("The block number at which the code should be queried, if not set current block is used.")
-                        .validator(is_valid_blocknum)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("project")
-                        .long("project")
-                        .help("Path to the root folder of source code project")
-                        .required(true)
-                        .validator(is_valid_path)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("address")
-                        .long("address")
-                        .help("Address of the contract")
-                        .required(true)
-                        .validator(is_valid_address)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("chainid")
-                        .long("chainid")
-                        .help("Chain ID where contract is deployed")
-                        .value_parser(value_parser!(u64))
-                        .default_value("1")
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("contractname")
-                        .long("contractname")
-                        .help("Name of the contract")
-                        .required(true)
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    Arg::with_name("factory")
-                        .long("factory")
-                        .help("Treat this contract as a factory, this changes bytecode verification")
-                        .action(ArgAction::SetTrue)
-                )
-                .arg(
-                    Arg::with_name("env")
-                        .long("env")
-                        .help("Project's development environment")
-                        .value_parser(clap::value_parser!(Environment))
-                        .default_value(Environment::Foundry.to_string().as_str())
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("artifacts")
-                        .long("artifacts")
-                        .help("Folder containing the artifacts (Hardhat only)")
-                        .default_value("artifacts")
-                        .action(ArgAction::Set)
-                )
-                .arg(
-                    Arg::with_name("buildcache")
-                        .long("buildcache")
-                        .help("Folder containing build-info files")
-                        .action(ArgAction::Set)
-                )
+                .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
         .get_matches();
-    */
 
     match matches.get_count("verbose") {
         0 => {} // Normal verbosity
@@ -946,6 +680,7 @@ enum ProgressMode {
     Validation,
     BytecodeCheck,
     GenerateBuildCache,
+    ListEvents,
 }
 
 fn updated_filename(original_path: &Path) -> PathBuf {
@@ -975,6 +710,7 @@ fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
         ProgressMode::Validation => 5,
         ProgressMode::BytecodeCheck => 3,
         ProgressMode::GenerateBuildCache => 1,
+        ProgressMode::ListEvents => 1,
     };
     println!("{} {}", style(format!("[{i:2}/{total:2}]")).bold().dim(), s);
     *i += 1;
@@ -1003,6 +739,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let build_cache = sub_m.get_one::<String>("buildcache");
             let artifacts_path = get_project_paths(project, artifacts);
+            let event_topics = sub_m
+                .get_many::<Vec<B256>>("eventtopics")
+                .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
             let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
@@ -1120,12 +859,40 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             debug!("Copying parsed constructor arguments to dvf file");
             dumped.copy_constructor_args(&project_info, &pretty_printer);
 
+            let mut seen_events: Vec<Log> = vec![];
+            let tx_hashes: Vec<String> = if let Some(event_topics) = event_topics.clone() {
+                print_progress(
+                    "Obtaining past events and transactions.",
+                    &mut pc,
+                    &progress_mode,
+                );
+                seen_events = web3::get_eth_events(
+                    &config,
+                    &dumped.address,
+                    deployment_block_num,
+                    init_block_num,
+                    &event_topics,
+                )?;
+                seen_events
+                    .iter()
+                    .filter_map(|e| e.transaction_hash.map(|h| format!("{:#x}", h)))
+                    .collect()
+            } else {
+                print_progress("Obtaining past transactions.", &mut pc, &progress_mode);
+                web3::get_all_txs_for_contract(
+                    &config,
+                    &dumped.address,
+                    deployment_block_num,
+                    init_block_num,
+                )?
+            };
+
             print_progress("Getting storage snapshot.", &mut pc, &progress_mode);
             let mut snapshot = web3::StorageSnapshot::from_api(
                 &config,
                 &dumped.address,
-                deployment_block_num,
                 init_block_num,
+                &tx_hashes,
             )?;
 
             if init_block_num < deployment_block_num {
@@ -1181,13 +948,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 imp_project_info = Some(tmp_project_info);
             }
             print_progress("Getting relevant traces.", &mut pc, &progress_mode);
-            // TODO: Use this elsewhere also
-            let tx_hashes: Vec<String> = web3::get_all_txs_for_contract(
-                &config,
-                &dumped.address,
-                deployment_block_num,
-                init_block_num,
-            )?;
             let mut seen_transactions = HashSet::new();
             let mut missing_traces = false;
             for tx_hash in &tx_hashes {
@@ -1233,14 +993,16 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             let mut critical_events: Vec<parse::DVFEventEntry> = vec![];
 
-            print_progress("Obtaining past events.", &mut pc, &progress_mode);
-            let seen_events = web3::get_eth_events(
-                &config,
-                &dumped.address,
-                deployment_block_num,
-                init_block_num,
-                &vec![],
-            )?;
+            if event_topics.is_none() {
+                print_progress("Obtaining past events.", &mut pc, &progress_mode);
+                seen_events = web3::get_eth_events(
+                    &config,
+                    &dumped.address,
+                    deployment_block_num,
+                    init_block_num,
+                    &vec![],
+                )?;
+            }
 
             let mut covered_events = 0;
             let mut event_table = Table::new();
@@ -1808,6 +1570,31 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             if !compare_status.metadata_matched {
                 println!("Info: Metadata was different!");
             }
+
+            println!("Bytecode check succeeded!");
+            exit(0);
+        }
+        Some(("list-events", sub_m)) => {
+            let env = *sub_m.get_one::<Environment>("env").unwrap();
+            let project = sub_m.get_one::<PathBuf>("project").unwrap();
+            let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
+            let artifacts_path = get_project_paths(project, artifacts);
+
+            let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
+            let build_cache = sub_m.get_one::<String>("buildcache");
+
+            let mut pc = 1_u64;
+            let progress_mode: ProgressMode = ProgressMode::ListEvents;
+
+            print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
+            let project_info =
+                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
+
+            let mut event_table = Table::new();
+            for event in project_info.events {
+                event_table.add_row(row![event.name, event.selector()]);
+            }
+            event_table.printstd();
 
             println!("Bytecode check succeeded!");
             exit(0);
