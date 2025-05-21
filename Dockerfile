@@ -38,7 +38,7 @@ WORKDIR /home/dv
 RUN export SHELL=/bin/zsh && curl -L https://foundry.paradigm.xyz | zsh
 RUN ["/bin/zsh", "-c", "-i", "foundryup"]
 
-ENTRYPOINT ["/bin/zsh"]
+ENTRYPOINT ["/bin/zsh", "-i"]
 
 
 LABEL org.label-schema.build-date=$BUILD_DATE \

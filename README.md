@@ -134,7 +134,7 @@ The folder `shared` in your Docker home directory now contains all files of the 
 Or use the publicly provided docker image:
 
 ```
-docker run --rm -v $PWD:/home/dv/shared -it ghcr.io/ChainSecurity/deployment_validation:latest
+docker run --rm -v $PWD:/home/dv/shared -it ghcr.io/chainsecurity/deployment_validation:latest dv
 ```
 
 ## Configuration
