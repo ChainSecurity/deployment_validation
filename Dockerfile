@@ -29,6 +29,9 @@ FROM pkg-install as dv
 COPY --from=build-environment /opt/dv/out/dv /usr/local/bin/dv
 COPY --from=build-environment /opt/dv/out/fetch-from-etherscan /usr/local/bin/fetch-from-etherscan
 
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 RUN useradd -m -p123456 -u 1000 dv
 
 USER dv
@@ -37,9 +40,6 @@ WORKDIR /home/dv
 # Get foundryup
 RUN export SHELL=/bin/zsh && curl -L https://foundry.paradigm.xyz | zsh
 RUN ["/bin/zsh", "-c", "-i", "foundryup"]
-
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["zsh"]
