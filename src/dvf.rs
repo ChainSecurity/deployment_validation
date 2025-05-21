@@ -1288,7 +1288,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 for seen_event in &seen_events {
                     if seen_event.topic0() == Some(&topic0) {
                         let log_inner = &seen_event.inner;
-                        let decoded_event = abi_event.decode_log(log_inner, true)?;
+                        let decoded_event = abi_event.decode_log(log_inner)?;
                         let pretty_event =
                             pretty_printer.pretty_event_params(abi_event, &decoded_event, true);
 

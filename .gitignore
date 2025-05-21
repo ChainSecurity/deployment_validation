@@ -9,3 +9,4 @@ on_chain_bytecode.txt
 /*.dvf.json
 .env
 tests/hardhat/package-lock.json
+.dv_config.json

@@ -85,15 +85,31 @@ pub struct DVFSignerConfig {
     pub wallet_type: DVFWalletType,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EtherscanConfig {
+    pub api_url: Option<String>,
+    pub api_key: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BlockscoutConfig {
+    pub api_url: Option<String>,
+    pub api_key: String,
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct DVFConfig {
     pub rpc_urls: BTreeMap<u64, String>, // chain_id to URL
     pub dvf_storage: PathBuf,            // Storage of DVFs
     pub trusted_signers: Vec<Address>,
-    pub etherscan_api_key: BTreeMap<u64, String>,
-    etherscan_test_api_url: Option<String>,
-    blockscout_api_key: BTreeMap<u64, String>,
-    pub blockscout_test_api_url: Option<String>,
+    #[serde(default)]
+    pub etherscan_global: Option<EtherscanConfig>,
+    #[serde(default)]
+    pub etherscan_chain_configs: BTreeMap<u64, EtherscanConfig>,
+    #[serde(default)]
+    pub blockscout_global: Option<BlockscoutConfig>,
+    #[serde(default)]
+    pub blockscout_chain_configs: BTreeMap<u64, BlockscoutConfig>,
     #[serde(default = "default_max_blocks")]
     pub max_blocks_per_event_query: u64,
     #[serde(default = "default_web3_timeout")]
@@ -114,6 +130,9 @@ fn default_web3_timeout() -> u64 {
 }
 
 impl DVFConfig {
+    const DEFAULT_ETHERSCAN_API_URL: &str = "https://api.etherscan.io/v2/api";
+    const DEFAULT_BLOCKSCOUT_API_URL: &str = "https://eth.blockscout.com/api";
+
     pub fn from_matches(matches: &ArgMatches) -> Result<Self, ValidationError> {
         if let Some(("generate-config", _)) = matches.subcommand() {
             return Ok(Self::default());
@@ -144,6 +163,26 @@ impl DVFConfig {
         }
         let temp_dir = tempdir().unwrap();
 
+        // Create global Etherscan config if API key is available
+        let etherscan_global = if let Ok(api_key) = env::var("ETHERSCAN_API_KEY") {
+            Some(EtherscanConfig {
+                api_url: env::var("ETHERSCAN_TEST_API_URL").ok(),
+                api_key,
+            })
+        } else {
+            None
+        };
+
+        // Create global Blockscout config if API key is available
+        let blockscout_global = if let Ok(api_key) = env::var("BLOCKSCOUT_API_KEY") {
+            Some(BlockscoutConfig {
+                api_url: env::var("BLOCKSCOUT_TEST_API_URL").ok(),
+                api_key,
+            })
+        } else {
+            None
+        };
+
         Ok(DVFConfig {
             rpc_urls,
             dvf_storage: temp_dir.path().to_path_buf(),
@@ -153,10 +192,10 @@ impl DVFConfig {
                 Address::from_str("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")?,
                 Address::from_str(env::var("SIGNER_ADDRESS")?.as_str())?,
             ],
-            etherscan_api_key: BTreeMap::from([(0u64, env::var("ETHERSCAN_API_KEY")?)]),
-            etherscan_test_api_url: env::var("ETHERSCAN_TEST_API_URL").ok(),
-            blockscout_api_key: BTreeMap::from([(1u64, env::var("BLOCKSCOUT_API_KEY")?)]),
-            blockscout_test_api_url: env::var("BLOCKSCOUT_TEST_API_URL").ok(),
+            etherscan_global,
+            etherscan_chain_configs: BTreeMap::new(),
+            blockscout_global,
+            blockscout_chain_configs: BTreeMap::new(),
             max_blocks_per_event_query: default_max_blocks(),
             web3_timeout: default_web3_timeout(),
             signer: Some(DVFSignerConfig {
@@ -432,63 +471,235 @@ impl DVFConfig {
             }
         }
 
-        let mut etherscan_api_key: BTreeMap<u64, String> = BTreeMap::new();
-        let mut blockscout_api_key: BTreeMap<u64, String> = BTreeMap::new();
         println!();
         println!("{}", "STEP 4".green());
-        println!(
-            "In the following, you will be asked to provide API keys for Etherscan and Blockscout."
-        );
-        println!(
-            "This is optional but please be aware that providing neither limits this tool to local"
-        );
-        println!("testing environments.");
+        println!("In this step, you can configure Etherscan and Blockscout settings.");
+        println!("You can set global configurations that will be used as fallbacks,");
+        println!("and/or chain-specific configurations that will override the global settings.");
         println!();
-        for chain_id in rpc_urls.keys() {
+
+        // Global Etherscan config
+        let default_etherscan_api_url = String::from(Self::DEFAULT_ETHERSCAN_API_URL);
+        let default_blockscout_api_url = String::from(Self::DEFAULT_BLOCKSCOUT_API_URL);
+        println!("{}", "Global Etherscan Configuration".bold());
+        println!("Would you like to set a global Etherscan configuration? (y/n)");
+        print!("> ");
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let mut etherscan_global = None;
+        if input.trim().eq_ignore_ascii_case("y") {
+            let mut api_key = String::new();
+            loop {
+                println!("Please enter your Etherscan API key:");
+                print!("> ");
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                io::stdin().read_line(&mut api_key).unwrap();
+                api_key = api_key.trim().to_string();
+                if !api_key.is_empty() {
+                    break;
+                }
+                println!("{}", "API key cannot be empty.".yellow());
+            }
+
+            let mut api_url = String::new();
+            println!("Please enter the Etherscan API URL:");
             println!(
-                "Please provide an Etherscan API Key for Chain ID {} or hit {} to provide none.",
-                chain_id,
-                "<Enter>".green()
+                "Hit {} to use default value: {}",
+                "<Enter>".green(),
+                &default_etherscan_api_url.to_string().green()
             );
             print!("> ");
-
-            let mut input = String::new();
             let _ = std::io::Write::flush(&mut std::io::stdout());
-            io::stdin().read_line(&mut input).unwrap();
-
-            if input.trim().is_empty() {
-                continue;
+            io::stdin().read_line(&mut api_url).unwrap();
+            api_url = api_url.trim().to_string();
+            if api_url.is_empty() {
+                api_url = default_etherscan_api_url.clone();
             }
 
-            let mut key = String::new();
-            if sscanf!(&input, "{}", key).is_ok() {
-                etherscan_api_key.insert(*chain_id, key);
-            } else {
-                println!("{}", "The provided API key could not be parsed.".yellow());
-            }
+            etherscan_global = Some(EtherscanConfig {
+                api_url: if api_url.is_empty() {
+                    None
+                } else {
+                    Some(api_url)
+                },
+                api_key,
+            });
         }
 
-        for chain_id in rpc_urls.keys() {
-            println!(
-                "Please provide a Blockscout API Key for Chain ID {} or hit {} to provide none.",
-                chain_id,
-                "<Enter>".green()
-            );
-            print!("> ");
-
-            let mut input = String::new();
-            let _ = std::io::Write::flush(&mut std::io::stdout());
-            io::stdin().read_line(&mut input).unwrap();
-
-            if input.trim().is_empty() {
-                continue;
+        // Global Blockscout config
+        println!();
+        println!("{}", "Global Blockscout Configuration".bold());
+        println!("Would you like to set a global Blockscout configuration? (y/n)");
+        print!("> ");
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let mut blockscout_global = None;
+        if input.trim().eq_ignore_ascii_case("y") {
+            let mut api_key = String::new();
+            loop {
+                println!("Please enter your Blockscout API key:");
+                print!("> ");
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                io::stdin().read_line(&mut api_key).unwrap();
+                api_key = api_key.trim().to_string();
+                if !api_key.is_empty() {
+                    break;
+                }
+                println!("{}", "API key cannot be empty.".yellow());
             }
 
-            let mut key = String::new();
-            if sscanf!(&input, "{}", key).is_ok() {
-                blockscout_api_key.insert(*chain_id, key);
-            } else {
-                println!("{}", "The provided API key could not be parsed.".yellow());
+            let mut api_url = String::new();
+            println!("Please enter the Blockscout API URL:");
+            println!(
+                "Hit {} to use default value: {}",
+                "<Enter>".green(),
+                &default_blockscout_api_url.to_string().green()
+            );
+            print!("> ");
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            io::stdin().read_line(&mut api_url).unwrap();
+            api_url = api_url.trim().to_string();
+            if api_url.is_empty() {
+                api_url = default_blockscout_api_url.clone();
+            }
+
+            blockscout_global = Some(BlockscoutConfig {
+                api_url: if api_url.is_empty() {
+                    None
+                } else {
+                    Some(api_url)
+                },
+                api_key,
+            });
+        }
+
+        // Chain-specific configs
+        let mut etherscan_chain_configs = BTreeMap::new();
+        let mut blockscout_chain_configs = BTreeMap::new();
+
+        println!();
+        println!(
+            "Would you like to set chain-specific Etherscan / Blockscout configurations? (y/n)"
+        );
+        print!("> ");
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        if input.trim().eq_ignore_ascii_case("y") {
+            for chain_id in rpc_urls.keys() {
+                println!();
+                println!(
+                    "{}",
+                    format!("Configuration for Chain ID {}", chain_id).bold()
+                );
+
+                // Etherscan config for this chain
+                println!("Would you like to set an Etherscan configuration for this chain? (y/n)");
+                print!("> ");
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+                if input.trim().eq_ignore_ascii_case("y") {
+                    let mut api_key = String::new();
+                    loop {
+                        println!(
+                            "Please enter your Etherscan API key for chain {}:",
+                            chain_id
+                        );
+                        print!("> ");
+                        let _ = std::io::Write::flush(&mut std::io::stdout());
+                        io::stdin().read_line(&mut api_key).unwrap();
+                        api_key = api_key.trim().to_string();
+                        if !api_key.is_empty() {
+                            break;
+                        }
+                        println!("{}", "API key cannot be empty.".yellow());
+                    }
+
+                    let mut api_url = String::new();
+                    println!("Please enter the Etherscan API URL for chain {}:", chain_id);
+                    println!(
+                        "Hit {} to use default value: {}",
+                        "<Enter>".green(),
+                        &default_etherscan_api_url.to_string().green()
+                    );
+                    print!("> ");
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut api_url).unwrap();
+                    api_url = api_url.trim().to_string();
+                    if api_url.is_empty() {
+                        api_url = default_etherscan_api_url.clone();
+                    }
+
+                    etherscan_chain_configs.insert(
+                        *chain_id,
+                        EtherscanConfig {
+                            api_url: if api_url.is_empty() {
+                                None
+                            } else {
+                                Some(api_url)
+                            },
+                            api_key,
+                        },
+                    );
+                }
+
+                // Blockscout config for this chain
+                println!("Would you like to set a Blockscout configuration for this chain? (y/n)");
+                print!("> ");
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+                if input.trim().eq_ignore_ascii_case("y") {
+                    let mut api_key = String::new();
+                    loop {
+                        println!(
+                            "Please enter your Blockscout API key for chain {}:",
+                            chain_id
+                        );
+                        print!("> ");
+                        let _ = std::io::Write::flush(&mut std::io::stdout());
+                        io::stdin().read_line(&mut api_key).unwrap();
+                        api_key = api_key.trim().to_string();
+                        if !api_key.is_empty() {
+                            break;
+                        }
+                        println!("{}", "API key cannot be empty.".yellow());
+                    }
+
+                    let mut api_url = String::new();
+                    println!(
+                        "Please enter the Blockscout API URL for chain {}:",
+                        chain_id
+                    );
+                    println!(
+                        "Hit {} to use default value: {}",
+                        "<Enter>".green(),
+                        &default_blockscout_api_url.green()
+                    );
+                    print!("> ");
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut api_url).unwrap();
+                    api_url = api_url.trim().to_string();
+                    if api_url.is_empty() {
+                        api_url = default_blockscout_api_url.clone();
+                    }
+
+                    blockscout_chain_configs.insert(
+                        *chain_id,
+                        BlockscoutConfig {
+                            api_url: if api_url.is_empty() {
+                                None
+                            } else {
+                                Some(api_url)
+                            },
+                            api_key,
+                        },
+                    );
+                }
             }
         }
 
@@ -712,10 +923,10 @@ impl DVFConfig {
             rpc_urls,
             dvf_storage,
             trusted_signers,
-            etherscan_test_api_url: None,
-            etherscan_api_key,
-            blockscout_test_api_url: None,
-            blockscout_api_key,
+            etherscan_global,
+            etherscan_chain_configs,
+            blockscout_global,
+            blockscout_chain_configs,
             max_blocks_per_event_query,
             web3_timeout,
             signer,
@@ -777,29 +988,40 @@ impl DVFConfig {
     pub fn get_blockscout_api_key(&self) -> Result<String, ValidationError> {
         match self.active_chain_id {
             None => Err(ValidationError::Error("No chain id chosen.".to_string())),
-            Some(chain_id) => match self.blockscout_api_key.get(&chain_id) {
-                None => Err(ValidationError::Error(format!(
+            Some(chain_id) => {
+                // First try chain-specific config
+                if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
+                    return Ok(chain_config.api_key.clone());
+                }
+                // Then try global config
+                if let Some(global_config) = &self.blockscout_global {
+                    return Ok(global_config.api_key.clone());
+                }
+                Err(ValidationError::Error(format!(
                     "No Blockscout API Key found in config for chain id {}.",
                     chain_id
-                ))),
-                Some(key) => Ok(key.clone()),
-            },
+                )))
+            }
         }
     }
 
     pub fn get_etherscan_api_key(&self) -> Result<String, ValidationError> {
         match self.active_chain_id {
             None => Err(ValidationError::Error("No chain id chosen.".to_string())),
-            Some(chain_id) => match self.etherscan_api_key.get(&chain_id) {
-                None => match self.etherscan_api_key.get(&0) {
-                    Some(key) => Ok(key.clone()),
-                    None => Err(ValidationError::Error(format!(
-                        "No Etherscan API Key found in config for chain id {}.",
-                        chain_id
-                    ))),
-                },
-                Some(key) => Ok(key.clone()),
-            },
+            Some(chain_id) => {
+                // First try chain-specific config
+                if let Some(chain_config) = self.etherscan_chain_configs.get(&chain_id) {
+                    return Ok(chain_config.api_key.clone());
+                }
+                // Then try global config
+                if let Some(global_config) = &self.etherscan_global {
+                    return Ok(global_config.api_key.clone());
+                }
+                Err(ValidationError::Error(format!(
+                    "No Etherscan API Key found in config for chain id {}.",
+                    chain_id
+                )))
+            }
         }
     }
 
@@ -827,43 +1049,45 @@ impl DVFConfig {
     }
 
     pub fn get_etherscan_api_url(&self) -> Result<String, ValidationError> {
-        if let Some(test_url) = &self.etherscan_test_api_url {
-            match self.active_chain_id {
-                Some(1337) | Some(31337) => {
-                    return Err(ValidationError::from("Testnet, no Etherscan"))
+        match self.active_chain_id {
+            Some(chain_id) => {
+                // Return error for local development chains
+                if chain_id == 31337 || chain_id == 1337 {
+                    return Err(ValidationError::from(format!(
+                        "Etherscan API not available for local development chain id: {}.",
+                        chain_id
+                    )));
                 }
-                _ => return Ok(test_url.clone()),
-            }
-        }
-        match self.active_chain {
-            Some(active_chain) => match active_chain.etherscan_urls() {
-                Some((api_url, _base_url)) => Ok(api_url.to_string()),
-                None => Err(ValidationError::from(
-                    "Invalid active chain. Cannot chose Etherscan API.",
-                )),
-            },
-            None => Err(ValidationError::from(
-                "No active chain. Cannot chose Etherscan API.",
-            )),
-        }
-    }
 
-    pub fn get_etherscan_url(&self) -> Result<String, ValidationError> {
-        if let Some(test_url) = &self.etherscan_test_api_url {
-            match self.active_chain_id {
-                Some(1337) | Some(31337) => {
-                    return Err(ValidationError::from("Testnet, no Etherscan"))
+                // First try chain-specific config
+                if let Some(chain_config) = self.etherscan_chain_configs.get(&chain_id) {
+                    if let Some(api_url) = &chain_config.api_url {
+                        return Ok(api_url.clone());
+                    } else {
+                        return Ok(String::from(Self::DEFAULT_ETHERSCAN_API_URL));
+                    }
                 }
-                _ => return Ok(test_url.clone()),
+                // Then try global config
+                if let Some(global_config) = &self.etherscan_global {
+                    if let Some(api_url) = &global_config.api_url {
+                        return Ok(api_url.clone());
+                    } else {
+                        return Ok(String::from(Self::DEFAULT_ETHERSCAN_API_URL));
+                    }
+                }
+                // Finally fall back to chain-specific URL
+                match self.active_chain {
+                    Some(active_chain) => match active_chain.etherscan_urls() {
+                        Some((api_url, _base_url)) => Ok(api_url.to_string()),
+                        None => Err(ValidationError::from(
+                            "Invalid active chain. Cannot chose Etherscan API.",
+                        )),
+                    },
+                    None => Err(ValidationError::from(
+                        "No active chain. Cannot chose Etherscan API.",
+                    )),
+                }
             }
-        }
-        match self.active_chain {
-            Some(active_chain) => match active_chain.etherscan_urls() {
-                Some((_api_url, base_url)) => Ok(base_url.to_string()),
-                None => Err(ValidationError::from(
-                    "Invalid active chain. Cannot chose Etherscan API.",
-                )),
-            },
             None => Err(ValidationError::from(
                 "No active chain. Cannot chose Etherscan API.",
             )),
@@ -871,33 +1095,57 @@ impl DVFConfig {
     }
 
     pub fn get_blockscout_api_url(&self) -> Result<String, ValidationError> {
-        if let Some(test_url) = &self.blockscout_test_api_url {
-            match self.active_chain_id {
-                Some(1337) | Some(31337) => {
-                    return Err(ValidationError::from("Testnet, no Blockscout"))
+        match self.active_chain_id {
+            Some(chain_id) => {
+                // Return error for local development chains
+                if chain_id == 31337 || chain_id == 1337 {
+                    return Err(ValidationError::from(format!(
+                        "Blockscout API not available for local development chain id: {}.",
+                        chain_id
+                    )));
                 }
-                _ => return Ok(test_url.clone()),
+
+                // First try chain-specific config
+                if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
+                    if let Some(api_url) = &chain_config.api_url {
+                        return Ok(api_url.clone());
+                    } else {
+                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
+                    }
+                }
+                // Then try global config
+                if let Some(global_config) = &self.blockscout_global {
+                    if let Some(api_url) = &global_config.api_url {
+                        return Ok(api_url.clone());
+                    } else {
+                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
+                    }
+                }
+                // Finally fall back to chain-specific URL
+                let hostname = match self.active_chain_id {
+                    // Add More from https://www.blockscout.com/chains-and-projects
+                    Some(1) => "eth.blockscout.com".to_string(),
+                    Some(10) => "optimism.blockscout.com".to_string(),
+                    Some(100) => "gnosis.blockscout.com".to_string(),
+                    Some(130) => "unichain.blockscout.com".to_string(),
+                    Some(137) => "polygon.blockscout.com".to_string(),
+                    Some(8453) => "base.blockscout.com".to_string(),
+                    Some(42161) => "arbitrum.blockscout.com".to_string(),
+                    Some(81457) => "blast.blockscout.com".to_string(),
+                    Some(11155111) => "eth-sepolia.blockscout.com".to_string(),
+                    _ => {
+                        return Err(ValidationError::from(format!(
+                            "Invalid chain id: {:?}.",
+                            self.active_chain_id
+                        )))
+                    }
+                };
+                Ok(format!("https://{hostname}"))
             }
+            None => Err(ValidationError::from(
+                "No active chain. Cannot chose Blockscout API.",
+            )),
         }
-        let hostname = match self.active_chain_id {
-            // Add More from https://www.blockscout.com/chains-and-projects
-            Some(1) => "eth.blockscout.com".to_string(),
-            Some(10) => "optimism.blockscout.com".to_string(),
-            Some(100) => "gnosis.blockscout.com".to_string(),
-            Some(130) => "unichain.blockscout.com".to_string(),
-            Some(137) => "polygon.blockscout.com".to_string(),
-            Some(8453) => "base.blockscout.com".to_string(),
-            Some(42161) => "arbitrum.blockscout.com".to_string(),
-            Some(81457) => "blast.blockscout.com".to_string(),
-            Some(11155111) => "eth-sepolia.blockscout.com".to_string(),
-            _ => {
-                return Err(ValidationError::from(format!(
-                    "Invalid chain id: {:?}.",
-                    self.active_chain_id
-                )))
-            }
-        };
-        Ok(format!("https://{hostname}"))
     }
 
     pub fn get_graphql_name(&self) -> Result<String, ValidationError> {

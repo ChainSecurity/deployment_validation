@@ -14,7 +14,7 @@ if [ "$REBUILD_CACHE" = "1" ]; then
     echo "Rebuilding Cache"
     cargo run --bin cached_proxy -- -d tests/cachedrpc -u $RPC_MAINNET &
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
-    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/api" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
 else
     echo "Using Cache"
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 &

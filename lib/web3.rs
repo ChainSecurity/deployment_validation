@@ -469,8 +469,9 @@ fn get_deployment_tx_from_etherscan(
     address: &Address,
 ) -> Result<EtherscanCreationTransaction, ValidationError> {
     let url = format!(
-        "{}?module=contract&action=getcontractcreation&contractaddresses={:?}&apikey={}",
+        "{}?chainid={}&module=contract&action=getcontractcreation&contractaddresses={:?}&apikey={}",
         config.get_etherscan_api_url()?,
+        config.active_chain_id.unwrap(),
         address,
         config.get_etherscan_api_key()?
     );
@@ -502,12 +503,9 @@ fn send_blocking_blockscout_get(
         .build()
         .unwrap();
 
-    // Base URL of the API
-    let base_url = format!("{}/api", config.get_blockscout_api_url()?);
-
     let full_url = format!(
         "{}{}&apikey={}",
-        base_url,
+        config.get_blockscout_api_url()?,
         request,
         config.get_blockscout_api_key()?
     );
@@ -805,11 +803,6 @@ struct EtherscanResult {
     pub message: String,
     pub result: Value,
     // ... much more we don't care about: https://docs.etherscan.io/api-endpoints/accounts
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct EtherscanTransaction {
-    pub hash: String,
 }
 
 // Inclusive for start_block and end_block
