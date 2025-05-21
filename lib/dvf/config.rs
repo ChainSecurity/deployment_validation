@@ -1058,6 +1058,7 @@ impl DVFConfig {
                         chain_id
                     )));
                 }
+
                 // First try chain-specific config
                 if let Some(chain_config) = self.etherscan_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {
@@ -1087,6 +1088,9 @@ impl DVFConfig {
                     )),
                 }
             }
+            None => Err(ValidationError::from(
+                "No active chain. Cannot chose Etherscan API.",
+            )),
         }
     }
 
