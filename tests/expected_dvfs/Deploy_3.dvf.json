@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0x171bad4cf0641e22ba9e207f32e7d5e6ffbe7eac9f38ecea1f5f634f5ff90ed3",
+  "id": "0xbc3e8ac7bad0b5b12172162e89c6f5124cbdd2e260bab72b4535a709d2074151",
   "contract_name": "StructInEvent",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -49,14 +49,6 @@
     },
     {
       "slot": "0x3",
-      "offset": 0,
-      "var_name": "S.D[0]",
-      "var_type": "t_uint64",
-      "value": "0x0000000000000000",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x3",
       "offset": 8,
       "var_name": "S.D[1]",
       "var_type": "t_uint64",
@@ -66,27 +58,11 @@
     },
     {
       "slot": "0x3",
-      "offset": 16,
-      "var_name": "S.D[2]",
-      "var_type": "t_uint64",
-      "value": "0x0000000000000000",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x3",
       "offset": 24,
       "var_name": "S.D[3]",
       "var_type": "t_uint64",
       "value": "0x0000000000000003",
       "value_hint": "3",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x4",
-      "offset": 0,
-      "var_name": "S.D[4]",
-      "var_type": "t_uint64",
-      "value": "0x0000000000000000",
       "comparison_operator": "Equal"
     },
     {

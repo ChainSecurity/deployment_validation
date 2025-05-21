@@ -212,6 +212,14 @@ dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --ini
 
 Please note that `<B>` must be equal to or larger than the deployment block of the contract. Additionally, it is recommended to use only block numbers of **finalized blocks** in order to prevent the DVF containing wrong data due to possible re-orgs in the future.
 
+Sometimes, you might want to know when a storage variable has been initialized before but then reset back to zero. You can add such variables to the DVF with the `--zerovalue` flag:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --zerovalue new.dvf.json
+```
+
+Attention: In rare edge cases, this can lead to false positives.
+
 #### Step 2 - Validate data and select constraints
 
 After Step 1, a new JSON file has been created that contains the following data:

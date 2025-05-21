@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0xae089608b66548be52d5d573af2f46bf32591d45b990f1945ec879c1d9fa3766",
+  "id": "0xf50233de5831580f52586919088c01292c21b2ca30f629b8f8c1b03d9b930337",
   "contract_name": "CrazyHiddenStruct",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -324,14 +324,6 @@
       "comparison_operator": "Equal"
     },
     {
-      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aea",
-      "offset": 24,
-      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._bool",
-      "var_type": "t_bool",
-      "value": "0x00",
-      "comparison_operator": "Equal"
-    },
-    {
       "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7aeb",
       "offset": 0,
       "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._dynArrayUint40.length",
@@ -435,14 +427,6 @@
       "var_type": "t_bytes_storage_ptr",
       "value": "0x7465737469746573743200000000000000000000000000000000000000000014",
       "value_hint": "74657374697465737432",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7af4",
-      "offset": 0,
-      "var_name": "CrazyHiddenStruct.StorageLocation2.Struct1._enum",
-      "var_type": "t_uint8",
-      "value": "0x00",
       "comparison_operator": "Equal"
     },
     {

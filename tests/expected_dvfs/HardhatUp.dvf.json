@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0xf022962b5e00eff4c06c71b712da1913c170d4bcf465a0ec0ebf01a20d556555",
+  "id": "0xc3ecb92c62ade78c884988eb2080701c81d4877dbb737a6017632573ead9b9f3",
   "contract_name": "HardhatUp",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -36,14 +36,6 @@
       "var_type": "t_uint64",
       "value": "0x0000000000000001",
       "value_hint": "1",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00",
-      "offset": 8,
-      "var_name": "Initializable.INITIALIZABLE_STORAGE.InitializableStorage._initializing",
-      "var_type": "t_bool",
-      "value": "0x00",
       "comparison_operator": "Equal"
     },
     {

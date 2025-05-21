@@ -50,7 +50,8 @@
     "var_name": "struct_in_mapping[0x610178da211fef7d417bc0e6fed39f05609ad788].t[0].C",
     "var_type": "t_bool",
     "value": "0x00",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "false"
   },
   {
     "slot": "0x42282cb97f9321ce3af58e0e24b033b8e626d34ab4c1176a9c222f81d51e8c33",

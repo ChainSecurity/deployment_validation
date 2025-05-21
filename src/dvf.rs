@@ -459,6 +459,13 @@ fn main() {
                         .help("Folder containing the project artifacts")
                         .default_value("artifacts"),
                 )
+                .arg(
+                    arg!(--zerovalue)
+                        .help(
+                            "Write initialized storage slots that have been reset to 0 to the DVF",
+                        )
+                        .action(clap::ArgAction::SetTrue),
+                )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files"))
                 .arg(
                     arg!(--implementationbuildcache <PATH>)
@@ -529,6 +536,13 @@ fn main() {
                     arg!(--validationblock <BLOCK>)
                         .help("The block number used for validation")
                         .value_parser(is_valid_blocknum),
+                )
+                .arg(
+                    arg!(--zerovalue)
+                        .help(
+                            "Write initialized storage slots that have been reset to 0 to the DVF",
+                        )
+                        .action(clap::ArgAction::SetTrue),
                 )
                 .arg(arg!(<DVF>).help("The DVF file")),
         )
@@ -742,6 +756,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let event_topics = sub_m
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
+            let zerovalue = sub_m.get_flag("zerovalue");
 
             let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
             let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
@@ -983,6 +998,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &mut storage_var_table,
                     &storage,
                     &types,
+                    zerovalue,
                 )?;
 
             let mut proxy_warning = critical_storage_variables
@@ -1302,6 +1318,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
         Some(("update", sub_m)) => {
             let input_path: PathBuf =
                 parse_input_path(&config, sub_m.get_one::<String>("DVF").unwrap())?;
+            let zerovalue = sub_m.get_flag("zerovalue");
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
@@ -1363,6 +1380,12 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     storage_variable.value = current_val[start_index..end_index].to_vec();
                     storage_variable.value_hint = None;
                 }
+            }
+            if !zerovalue {
+                // Remove storage variables with value 0
+                updated
+                    .critical_storage_variables
+                    .retain(|var| !var.is_zero());
             }
 
             print_progress("Checking Events.", &mut pc, &progress_mode);

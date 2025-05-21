@@ -1,13 +1,13 @@
 {
   "version": "0.9.1",
-  "id": "0x1f9085f7983793563f4d835b22704a4ef2e543a792c2d2c38a74306605892aab",
+  "id": "0x63f4e0c8ddff41ebb5f9918cd3edfb7443e28f14444efdf5649a35ec54d72a6e",
   "contract_name": "PullPayment",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
-  "deployment_block_num": 1,
+  "chain_id": 1337,
+  "deployment_block_num": 2,
   "init_block_num": 3,
-  "deployment_tx": "0x880b946acafe61dab514f83b0366a46a3a9b10c2e637704bcc5427e6f5653132",
- "codehash": "0xccc1bca53ef158eb1ee9e98588e569e215b13adfac46a89ca920e1a57a973be5",
+  "deployment_tx": "0x42d75b67073ebd107239df89b1f512be1972205d5bc728bcafeb3dc5675d0d15",
+  "codehash": "0x0d737bb1623f9f2c92d870330a5e6e657949fc96c0cd7b09d93be7565d352580",
   "insecure": false,
   "immutables": [
     {
@@ -16,16 +16,7 @@
     }
   ],
   "constructor_args": [],
-  "critical_storage_variables": [
-    {
-      "slot": "0x0",
-      "offset": 0,
-      "var_name": "var_escrow",
-      "var_type": "t_address",
-      "value": "0x0000000000000000000000000000000000000000",
-      "comparison_operator": "Equal"
-    }
-  ],
+  "critical_storage_variables": [],
   "critical_events": [],
   "unvalidated_metadata": {
     "author_name": "Author",

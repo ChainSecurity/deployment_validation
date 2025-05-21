@@ -118,6 +118,7 @@
     "var_name": "staticDynamicAddress[2].length",
     "var_type": "t_uint256",
     "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
-    "comparison_operator": "Equal"
+    "comparison_operator": "Equal",
+    "value_hint": "0"
   }
 ]
