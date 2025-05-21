@@ -38,7 +38,11 @@ WORKDIR /home/dv
 RUN export SHELL=/bin/zsh && curl -L https://foundry.paradigm.xyz | zsh
 RUN ["/bin/zsh", "-c", "-i", "foundryup"]
 
-ENTRYPOINT ["/bin/zsh", "-i"]
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["zsh"]
 
 
 LABEL org.label-schema.build-date=$BUILD_DATE \
