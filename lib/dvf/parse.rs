@@ -671,4 +671,28 @@ impl CompleteDVF {
     fn get_version(&self) -> &Version {
         &self.version
     }
+
+    pub fn equals(&self, other: &Self, ignore_testing_chain: bool) -> bool {
+        let mut json1 = serde_json::to_value(self).expect("Serialization failed");
+        let mut json2 = serde_json::to_value(other).expect("Serialization failed");
+
+        // Keys to always ignore
+        let mut ignored_keys = vec!["id", "codehash", "deployment_tx"];
+
+        if ignore_testing_chain {
+            ignored_keys.extend(&["chain_id", "deployment_block_num"]);
+        }
+
+        for key in ignored_keys {
+            json1.as_object_mut().unwrap().remove(key);
+            json2.as_object_mut().unwrap().remove(key);
+        }
+
+        // After removing ignored keys, ensure number of keys matches
+        if json1.as_object().iter().len() != json2.as_object().iter().len() {
+            return false;
+        }
+
+        json1 == json2
+    }
 }

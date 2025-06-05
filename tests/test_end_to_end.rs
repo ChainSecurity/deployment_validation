@@ -9,7 +9,6 @@ mod tests {
     use std::fs::File;
     use std::fs::OpenOptions;
     use std::io::{self, Write};
-    use std::io::{BufRead, BufReader};
     use std::panic;
     use std::path::Path;
     use std::process::{Child, Command as SimpleCommand, Stdio};
@@ -215,49 +214,13 @@ mod tests {
         }
     }
 
-    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P, l: LocalClientType) -> io::Result<()> {
-        let file1 = File::open(path1)?;
-        let file2 = File::open(path2)?;
+    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P) -> io::Result<()> {
+        let dvf1 =
+            CompleteDVF::from_path(path1.as_ref()).expect("File1 cannot be parsed into a DVF");
+        let dvf2 =
+            CompleteDVF::from_path(path2.as_ref()).expect("File2 cannot be parsed into a DVF");
 
-        let reader1 = BufReader::new(&file1);
-        let reader2 = BufReader::new(&file2);
-
-        for (line_number, (line1, line2)) in reader1.lines().zip(reader2.lines()).enumerate() {
-            let line1 = line1?;
-            let line2 = line2?;
-
-            // Code hashes and deployment txs can be different
-            if line1.contains("\"codehash\"") || line1.contains("\"deployment_tx\"") {
-                continue;
-            }
-
-            // Chain ID and deployment block are different for geth
-            if LocalClientType::Geth == l
-                && (line1.contains("\"chain_id\":") || line1.contains("\"deployment_block_num\":"))
-            {
-                continue;
-            }
-
-            // Otherwise, the lines should be identical
-            assert_eq!(
-                line1,
-                line2,
-                "Line {}: \nFile1: {}\nFile2: {}",
-                line_number + 1,
-                line1,
-                line2
-            );
-        }
-
-        // Check that the number of lines is the same
-        let reader1 = BufReader::new(file1);
-        let reader2 = BufReader::new(file2);
-
-        assert_eq!(
-            reader1.lines().count(),
-            reader2.lines().count(),
-            "Differently many lines."
-        );
+        assert!(dvf1.equals(&dvf2, true), "DVF files do not match");
 
         Ok(())
     }
@@ -400,12 +363,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -455,12 +413,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
-                assert_eq_files(
-                    &Path::new(&updated_path),
-                    &Path::new(&testcase.updated),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated)).unwrap();
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -565,7 +518,6 @@ mod tests {
             assert_eq_files(
                 &factory_outfile.path(),
                 &Path::new("tests/expected_dvfs/PullPayment.dvf.json"),
-                client_type.clone(),
             )
             .unwrap();
 
@@ -665,7 +617,6 @@ mod tests {
             assert_eq_files(
                 &outfile.path(),
                 &Path::new("tests/expected_dvfs/MyToken.dvf.json"),
-                client_type.clone(),
             )
             .unwrap();
 
@@ -727,7 +678,6 @@ mod tests {
             assert_eq_files(
                 &proxy_outfile.path(),
                 &Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
-                client_type.clone(),
             )
             .unwrap();
 
@@ -900,12 +850,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1173,12 +1118,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
 
-                assert_eq_files(
-                    &child_outfile.path(),
-                    &Path::new(new_fname),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&child_outfile.path(), &Path::new(new_fname)).unwrap();
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1290,12 +1230,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
 
-                assert_eq_files(
-                    &factory_outfile.path(),
-                    &Path::new(dvf_path),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&factory_outfile.path(), &Path::new(dvf_path)).unwrap();
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1598,12 +1533,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
 
                 drop(local_client); // this will kill the instance
             }
