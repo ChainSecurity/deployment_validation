@@ -2,6 +2,7 @@
 
 mod tests {
     use alloy_node_bindings::{Anvil, AnvilInstance};
+    use assert_cmd::assert;
     use assert_cmd::Command;
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::dvf::parse::CompleteDVF;
@@ -1010,6 +1011,78 @@ mod tests {
                 drop(local_client);
             }
         }
+    }
+
+    #[test]
+    fn test_e2e_init_linked_libraries() {
+        let port = 8545u16;
+        let config_file = match DVFConfig::test_config_file(Some(port)) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+
+        let script = String::from("script/Deploy_LinkedLibraries.sh");
+        let contract = String::from("Calculator");
+        let expected = String::from("tests/expected_dvfs/LinkedLibraries.dvf.json");
+        let client_type = LocalClientType::Anvil;
+        let url = format!("http://localhost:{}", port).to_string();
+
+        // deploy the all contracts (incl. ext. libraries) with a bash script
+        // because external libraries cannot be deployed with a Foundry script
+        let mut bash_cmd = Command::new("sh");
+        bash_cmd.current_dir("tests/Contracts");
+        let bash_assert = bash_cmd
+            .args(&[
+                &script,
+                &url
+            ])
+            .assert()
+            .success();
+        println!(
+            "{}",
+            &String::from_utf8_lossy(&bash_assert.get_output().stdout)
+        );
+
+        let outfile = NamedTempFile::new().unwrap();
+        let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+        let assert = dvf_cmd
+            .args(&[
+                "--config",
+                &config_file.path().to_string_lossy(),
+                "init",
+                "--address",
+                "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+                "--chainid",
+                &chain_id_str(client_type.clone()),
+                "--project",
+                "tests/Contracts/",
+                "--contractname",
+                &contract,
+                "--initblock",
+                "3",
+                "--libraries",
+                "src/linked_libraries/SimpleMath.sol:SimpleMath:0x5FbDB2315678afecb367f032d93F642f64180aa3",
+                "--libraries",
+                "src/linked_libraries/SimpleNumber.sol:SimpleNumber:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+                &outfile.path().to_string_lossy(),
+            ])
+            .assert()
+            .success();
+        println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+        // Uncomment to regenerate expected files
+        // std::fs::copy(outfile.path(), Path::new(&expected)).unwrap();
+
+        assert_eq_files(
+            &outfile.path(),
+            &Path::new(&expected),
+            client_type.clone(),
+        )
+        .unwrap();
     }
 
     #[test]
