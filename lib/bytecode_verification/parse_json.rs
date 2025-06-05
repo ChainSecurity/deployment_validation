@@ -73,7 +73,11 @@ impl ProjectInfo {
     }
 
     // build it
-    fn forge_build(project: &Path, build_info_path: &Path, libraries: Option<Vec<String>>) -> Result<(), ValidationError> {
+    fn forge_build(
+        project: &Path,
+        build_info_path: &Path,
+        libraries: Option<Vec<String>>,
+    ) -> Result<(), ValidationError> {
         info!(
             "Starting <forge build>. If you had previous builds, it is recommended to <forge clean>."
         );
@@ -88,7 +92,7 @@ impl ProjectInfo {
 
         if let Some(libs) = libraries {
             for lib in libs {
-                command.arg("--libraries").arg(lib); 
+                command.arg("--libraries").arg(lib);
             }
         }
 
@@ -98,9 +102,7 @@ impl ProjectInfo {
         println!("Command: {:?}", program);
         println!("Args: {:?}", args);
 
-        let build = command
-            .output()
-            .expect("Could not build project");
+        let build = command.output().expect("Could not build project");
 
         if !build.status.success() {
             println!(
@@ -1422,9 +1424,8 @@ impl ProjectInfo {
         build_cache: Option<&String>,
         libraries: Option<Vec<String>>,
     ) -> Result<Self, ValidationError> {
-
         println!("Libraries are {:?}", libraries);
-        
+
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),
             None => Self::compile(project, env, artifacts_path, libraries)?,
