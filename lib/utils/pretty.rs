@@ -262,6 +262,8 @@ impl PrettyPrinter {
         } else if ContractState::is_address(var_type) {
             let a = Address::from_slice(&value[value.len() - 20..]);
             return self.pretty_address(&a, long, leave_empty);
+        } else if ContractState::is_string(var_type) {
+            return String::from_utf8(value.to_vec()).unwrap();
         } else if ContractState::is_bool(var_type) {
             let last_byte: u8 = *value.last().unwrap();
             if last_byte == 0u8 {
