@@ -1405,8 +1405,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 let end_index: usize = 32 - storage_variable.offset;
                 if current_val[start_index..end_index] != storage_variable.value {
                     let registry = registry::Registry::from_config(&config)?;
-                    let pretty_printer =
-                        PrettyPrinter::new(&config, Some(&registry));
+                    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
                     println!(
                         "{}",
                         get_mismatch_msg(
