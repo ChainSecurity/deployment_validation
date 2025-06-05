@@ -227,26 +227,29 @@ mod tests {
             let line2 = line2?;
 
             // Code hashes and deployment txs can be different
-
-            if !line1.contains("\"codehash\"") && !line1.contains("\"deployment_tx\"") {
-                // Chain ID is different for geth
-                if LocalClientType::Geth == l
-                    && !(line1.contains("\"chain_id\":")
-                        || line1.contains("\"deployment_block_num\":"))
-                {
-                    // don't compare codehash to avoid metadata mis-matches
-                    assert_eq!(
-                        line1,
-                        line2,
-                        "Line {}: \nFile1: {}\nFile2: {}",
-                        line_number + 1,
-                        line1,
-                        line2
-                    );
-                }
+            if line1.contains("\"codehash\"") || line1.contains("\"deployment_tx\"") {
+                continue;
             }
+
+            // Chain ID and deployment block are different for geth
+            if LocalClientType::Geth == l
+                && (line1.contains("\"chain_id\":") || line1.contains("\"deployment_block_num\":"))
+            {
+                continue;
+            }
+
+            // Otherwise, the lines should be identical
+            assert_eq!(
+                line1,
+                line2,
+                "Line {}: \nFile1: {}\nFile2: {}",
+                line_number + 1,
+                line1,
+                line2
+            );
         }
 
+        // Check that the number of lines is the same
         let reader1 = BufReader::new(file1);
         let reader2 = BufReader::new(file2);
 
