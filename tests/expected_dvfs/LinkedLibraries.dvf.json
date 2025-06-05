@@ -1,0 +1,27 @@
+{
+  "version": "0.9.1",
+  "id": "0x8e203d61f2399a40ec5504727c50354fa89555055f40f191fc59e39c0dcca075",
+  "contract_name": "Calculator",
+  "address": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
+  "chain_id": 31337,
+  "deployment_block_num": 3,
+  "init_block_num": 3,
+  "deployment_tx": "0xfb42c08715bcd72f549378cb69613499ecabb8b9bce4054237aa82213ca0a15b",
+  "codehash": "0x1f193068755fd35acee5dd20113cc9f941ba09a7fd34e5f8e45163cfcacb97c5",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [],
+  "critical_events": [],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}
