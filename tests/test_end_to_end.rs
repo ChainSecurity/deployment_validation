@@ -8,7 +8,7 @@ mod tests {
     use std::fs::metadata;
     use std::fs::File;
     use std::fs::OpenOptions;
-    use std::io::{self, Write};
+    use std::io::Write;
     use std::panic;
     use std::path::Path;
     use std::process::{Child, Command as SimpleCommand, Stdio};
@@ -230,7 +230,15 @@ mod tests {
         }
     }
 
-    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P) -> io::Result<()> {
+    #[test]
+    #[should_panic]
+    fn test_file_diff() {
+        let p1 = &Path::new("tests/expected_dvfs/Deploy_0_b1.dvf.json");
+        let p2 = &Path::new("tests/expected_dvfs/Deploy_0_updated.dvf.json");
+        assert_eq_files(p1, p2);
+    }
+
+    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P) {
         let dvf1 =
             CompleteDVF::from_path(path1.as_ref()).expect("File1 cannot be parsed into a DVF");
         let dvf2 =
@@ -242,8 +250,6 @@ mod tests {
             path1.as_ref(),
             path2.as_ref()
         );
-
-        Ok(())
     }
 
     #[test]
@@ -384,7 +390,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -434,7 +440,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
-                assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated)).unwrap();
+                assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -539,8 +545,7 @@ mod tests {
             assert_eq_files(
                 &factory_outfile.path(),
                 &Path::new("tests/expected_dvfs/PullPayment.dvf.json"),
-            )
-            .unwrap();
+            );
 
             // Sign
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -638,8 +643,7 @@ mod tests {
             assert_eq_files(
                 &outfile.path(),
                 &Path::new("tests/expected_dvfs/MyToken.dvf.json"),
-            )
-            .unwrap();
+            );
 
             // Sign
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -699,8 +703,7 @@ mod tests {
             assert_eq_files(
                 &proxy_outfile.path(),
                 &Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
-            )
-            .unwrap();
+            );
 
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
             dvf_cmd
@@ -871,7 +874,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1139,7 +1142,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
 
-                assert_eq_files(&child_outfile.path(), &Path::new(new_fname)).unwrap();
+                assert_eq_files(&child_outfile.path(), &Path::new(new_fname));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1251,7 +1254,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
 
-                assert_eq_files(&factory_outfile.path(), &Path::new(dvf_path)).unwrap();
+                assert_eq_files(&factory_outfile.path(), &Path::new(dvf_path));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1554,7 +1557,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected)).unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 drop(local_client); // this will kill the instance
             }
