@@ -14,7 +14,7 @@ contract S is Script {
         address payable recipient = payable(0x1234567890AbcdEF1234567890aBcdef12345678);
 
         // Send exactly 1 wei
-        (bool success, ) = recipient.call{ value: 1 wei }("");
+        (bool success,) = recipient.call{value: 1 wei}("");
         vm.stopBroadcast();
     }
 }
