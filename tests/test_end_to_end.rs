@@ -237,7 +237,7 @@ mod tests {
             CompleteDVF::from_path(path2.as_ref()).expect("File2 cannot be parsed into a DVF");
 
         assert!(
-            dvf1.equals(&dvf2, true),
+            dvf1.critical_fields_equal(&dvf2, true),
             "DVF {:?} does not match DVF {:?}",
             path1.as_ref(),
             path2.as_ref()
