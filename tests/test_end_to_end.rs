@@ -8,8 +8,7 @@ mod tests {
     use std::fs::metadata;
     use std::fs::File;
     use std::fs::OpenOptions;
-    use std::io::{self, Write};
-    use std::io::{BufRead, BufReader};
+    use std::io::Write;
     use std::panic;
     use std::path::Path;
     use std::process::{Child, Command as SimpleCommand, Stdio};
@@ -93,6 +92,22 @@ mod tests {
                     println!("Waiting for anvil config: {:?}", e);
                     sleep(Duration::from_millis(100));
                 }
+                // Waste one block to be consistent with geth
+                // forge script script/WasteBlock.s.sol --rpc-url "http://127.0.0.1:8546" --broadcast --slow
+                let mut forge_cmd = Command::new("forge");
+                forge_cmd.current_dir("tests/Contracts");
+                forge_cmd
+                    .args(&[
+                        "script",
+                        "script/Waste1Block.s.sol",
+                        "--rpc-url",
+                        &anvil.endpoint(),
+                        "--broadcast",
+                        "--slow",
+                    ])
+                    .assert()
+                    .success();
+
                 LocalClient::Anvil(anvil)
             }
             _ => {
@@ -215,48 +230,26 @@ mod tests {
         }
     }
 
-    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P, l: LocalClientType) -> io::Result<()> {
-        let file1 = File::open(path1)?;
-        let file2 = File::open(path2)?;
+    #[test]
+    #[should_panic]
+    fn test_file_diff() {
+        let p1 = &Path::new("tests/expected_dvfs/Deploy_0_b1.dvf.json");
+        let p2 = &Path::new("tests/expected_dvfs/Deploy_0_updated.dvf.json");
+        assert_eq_files(p1, p2);
+    }
 
-        let reader1 = BufReader::new(&file1);
-        let reader2 = BufReader::new(&file2);
+    fn assert_eq_files<P: AsRef<Path>>(path1: P, path2: P) {
+        let dvf1 =
+            CompleteDVF::from_path(path1.as_ref()).expect("File1 cannot be parsed into a DVF");
+        let dvf2 =
+            CompleteDVF::from_path(path2.as_ref()).expect("File2 cannot be parsed into a DVF");
 
-        for (line_number, (line1, line2)) in reader1.lines().zip(reader2.lines()).enumerate() {
-            let line1 = line1?;
-            let line2 = line2?;
-
-            // Code hashes and deployment txs can be different
-
-            if !line1.contains("\"codehash\"") && !line1.contains("\"deployment_tx\"") {
-                // Chain ID is different for geth
-                if LocalClientType::Geth == l
-                    && !(line1.contains("\"chain_id\":")
-                        || line1.contains("\"deployment_block_num\":"))
-                {
-                    // don't compare codehash to avoid metadata mis-matches
-                    assert_eq!(
-                        line1,
-                        line2,
-                        "Line {}: \nFile1: {}\nFile2: {}",
-                        line_number + 1,
-                        line1,
-                        line2
-                    );
-                }
-            }
-        }
-
-        let reader1 = BufReader::new(file1);
-        let reader2 = BufReader::new(file2);
-
-        assert_eq!(
-            reader1.lines().count(),
-            reader2.lines().count(),
-            "Differently many lines."
+        assert!(
+            dvf1.critical_fields_equal(&dvf2, true),
+            "DVF {:?} does not match DVF {:?}",
+            path1.as_ref(),
+            path2.as_ref()
         );
-
-        Ok(())
     }
 
     #[test]
@@ -397,12 +390,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -452,12 +440,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
-                assert_eq_files(
-                    &Path::new(&updated_path),
-                    &Path::new(&testcase.updated),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -562,9 +545,7 @@ mod tests {
             assert_eq_files(
                 &factory_outfile.path(),
                 &Path::new("tests/expected_dvfs/PullPayment.dvf.json"),
-                client_type.clone(),
-            )
-            .unwrap();
+            );
 
             // Sign
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -662,9 +643,7 @@ mod tests {
             assert_eq_files(
                 &outfile.path(),
                 &Path::new("tests/expected_dvfs/MyToken.dvf.json"),
-                client_type.clone(),
-            )
-            .unwrap();
+            );
 
             // Sign
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -724,9 +703,7 @@ mod tests {
             assert_eq_files(
                 &proxy_outfile.path(),
                 &Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
-                client_type.clone(),
-            )
-            .unwrap();
+            );
 
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
             dvf_cmd
@@ -897,12 +874,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1170,12 +1142,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(child_outfile.path(), Path::new(new_fname)).unwrap();
 
-                assert_eq_files(
-                    &child_outfile.path(),
-                    &Path::new(new_fname),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&child_outfile.path(), &Path::new(new_fname));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1287,12 +1254,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(factory_outfile.path(), Path::new(dvf_path)).unwrap();
 
-                assert_eq_files(
-                    &factory_outfile.path(),
-                    &Path::new(dvf_path),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&factory_outfile.path(), &Path::new(dvf_path));
 
                 // Sign
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -1595,12 +1557,7 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                assert_eq_files(
-                    &outfile.path(),
-                    &Path::new(&testcase.expected),
-                    client_type.clone(),
-                )
-                .unwrap();
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
                 drop(local_client); // this will kill the instance
             }

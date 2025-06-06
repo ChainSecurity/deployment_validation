@@ -3,7 +3,7 @@
   "contract_name": "AllValueTypes",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 31337,
-  "deployment_block_num": 1,
+  "deployment_block_num": 2,
   "init_block_num": 4,
   "deployment_tx": "0x4c0eda23fa858c9ec88a7004c80c78a606561025d2d8b2c85f825957cab8fc9b",
   "codehash": "0xc5f9a009f6b4fe853fa6d949876dedd2594d797a7aa57fcf9c58031f7911dfe5",
