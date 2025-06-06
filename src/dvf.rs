@@ -15,7 +15,7 @@ use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, Compar
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
-use dvf_libs::dvf::parse::{self, ValidationError, CURRENT_VERSION_STRING};
+use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
@@ -164,6 +164,8 @@ fn validate_dvf(
         return Err(ValidationError::from("Different codehash."));
     }
 
+    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+
     // Validate Storage slots
     print_progress("Validating Storage Variables.", &mut pc, &progress_mode);
     for storage_variable in &filled.critical_storage_variables {
@@ -177,14 +179,10 @@ fn validate_dvf(
         let start_index: usize = 32 - storage_variable.offset - size;
         let end_index: usize = start_index + size;
         if !storage_variable.compare(&current_val[start_index..end_index]) {
-            let message = format!(
-                "Value mismatch for {} (slot {:#x}, offset {}).\nNew value: 0x{}\nOperator:  {}\nOld value: 0x{}",
-                &storage_variable.var_name,
-                &storage_variable.slot,
-                &storage_variable.offset,
-                hex::encode(&current_val[start_index..end_index]),
-                &storage_variable.comparison_operator,
-                hex::encode(&storage_variable.value)
+            let message = get_mismatch_msg(
+                &pretty_printer,
+                &storage_variable,
+                &current_val[start_index..end_index],
             );
             if continue_on_mismatch {
                 mismatch_found = true;
@@ -733,6 +731,33 @@ fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
     };
     println!("{} {}", style(format!("[{i:2}/{total:2}]")).bold().dim(), s);
     *i += 1;
+}
+
+fn get_mismatch_msg(
+    pretty_printer: &PrettyPrinter,
+    storage_variable: &DVFStorageEntry,
+    current_value_slice: &[u8],
+) -> String {
+    let var_type = storage_variable.var_type.clone().unwrap_or_default();
+    let dec_current_value_slice = pretty_printer.pretty_value_short_from_bytes(
+        &var_type,
+        &current_value_slice.to_vec(),
+        true,
+    );
+    let dec_old_value =
+        pretty_printer.pretty_value_short_from_bytes(&var_type, &storage_variable.value, true);
+
+    format!(
+        "Value mismatch for {} (slot {:#x}, offset {}).\nNew value: 0x{} Decoded: {}\nOperator:  {}\nOld value: 0x{} Decoded: {}",
+        storage_variable.var_name,
+        storage_variable.slot,
+        storage_variable.offset,
+        hex::encode(current_value_slice),
+        dec_current_value_slice,
+        storage_variable.comparison_operator,
+        hex::encode(&storage_variable.value),
+        dec_old_value
+    )
 }
 
 fn get_project_paths(project: &Path, artifacts: &str) -> PathBuf {
@@ -1380,13 +1405,15 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 let start_index: usize = 32 - (storage_variable.offset + size);
                 let end_index: usize = 32 - storage_variable.offset;
                 if current_val[start_index..end_index] != storage_variable.value {
+                    let registry = registry::Registry::from_config(&config)?;
+                    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
                     println!(
-                        "Different value for {} (slot {:#x}, offset {})\nOld value was: 0x{}\nNew value is:  0x{}.",
-                        &storage_variable.var_name,
-                        &storage_variable.slot,
-                        &storage_variable.offset,
-                        hex::encode(&storage_variable.value),
-                        hex::encode(&current_val[start_index..end_index])
+                        "{}",
+                        get_mismatch_msg(
+                            &pretty_printer,
+                            storage_variable,
+                            &current_val[start_index..end_index]
+                        )
                     );
                     storage_variable.value = current_val[start_index..end_index].to_vec();
                     storage_variable.value_hint = None;
