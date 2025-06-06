@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0x02573da1c0f82ea0685ff75857cf9260d6f31a724acb19e47c565da58d271df1",
+  "id": "0x55ec52c927550e57372994bc0e1b30a57a9ff451e91564af043a85faa1cb116b",
   "contract_name": "TransparentUpgradeableProxy",
   "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
   "chain_id": 1337,
@@ -38,15 +38,6 @@
       "var_type": "t_uint8",
       "value": "0x01",
       "value_hint": "1",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0xf6d04bbe1a75429862aa97cc198c639a5559580c07ae94016a2b25986f2e3abd",
-      "offset": 0,
-      "var_name": "_balances[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266]",
-      "var_type": "t_uint256",
-      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
-      "value_hint": "1. * 10^19",
       "comparison_operator": "Equal"
     },
     {
@@ -91,6 +82,15 @@
       "var_name": "StorageSlot.ADMIN_SLOT.AddressSlot.value",
       "var_type": "t_address",
       "value": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf6d04bbe1a75429862aa97cc198c639a5559580c07ae94016a2b25986f2e3abd",
+      "offset": 0,
+      "var_name": "_balances[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+      "value_hint": "1. * 10^19",
       "comparison_operator": "Equal"
     }
   ],

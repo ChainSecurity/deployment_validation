@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0x227ece469fe8344f2e7477ffce9a86069527c5396cf42830c356186d8cc351bb",
+  "id": "0x3a6d51f0800decd736f11cb7cea35f054026b004495623d4c0774f8493e79732",
   "contract_name": "NestedMapping",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -19,6 +19,15 @@
   ],
   "critical_storage_variables": [
     {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "x",
+      "var_type": "t_int8",
+      "value": "0xfe",
+      "value_hint": "-2",
+      "comparison_operator": "Equal"
+    },
+    {
       "slot": "0x59ddd120475e147f8702cb8a770930d245a85b520e2e162e93bb0709fb03bb2c",
       "offset": 0,
       "var_name": "mp[0x0000000000000000000000000000000000000000][0x5fbdb2315678afecb367f032d93f642f64180aa3]",
@@ -34,15 +43,6 @@
       "var_type": "t_int128",
       "value": "0x00000000000000000000000005f5e100",
       "value_hint": "1. * 10^8",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x3",
-      "offset": 0,
-      "var_name": "x",
-      "var_type": "t_int8",
-      "value": "0xfe",
-      "value_hint": "-2",
       "comparison_operator": "Equal"
     }
   ],
