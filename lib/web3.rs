@@ -748,7 +748,9 @@ pub fn get_deployment(
             let config = unsafe { &*config_ptr };
             let address = unsafe { &*address_ptr };
             let current_block_num = get_eth_block_number(config)?;
-            let start_block_num = get_deployment_block_from_binary_search(config, address, current_block_num).map_or(1, |v| v);
+            let start_block_num =
+                get_deployment_block_from_binary_search(config, address, current_block_num)
+                    .map_or(1, |v| v);
             debug!("No deployment tx found in etherscan or blockscout, searching traces from {start_block_num}.");
             match get_deployment_from_parity_trace(
                 config,
