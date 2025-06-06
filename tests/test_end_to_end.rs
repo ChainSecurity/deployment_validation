@@ -92,6 +92,22 @@ mod tests {
                     println!("Waiting for anvil config: {:?}", e);
                     sleep(Duration::from_millis(100));
                 }
+                // Waste one block to be consistent with geth
+                // forge script script/WasteBlock.s.sol --rpc-url "http://127.0.0.1:8546" --broadcast --slow
+                let mut forge_cmd = Command::new("forge");
+                forge_cmd.current_dir("tests/Contracts");
+                forge_cmd
+                    .args(&[
+                        "script",
+                        "script/Waste1Block.s.sol",
+                        "--rpc-url",
+                        &anvil.endpoint(),
+                        "--broadcast",
+                        "--slow",
+                    ])
+                    .assert()
+                    .success();
+
                 LocalClient::Anvil(anvil)
             }
             _ => {
