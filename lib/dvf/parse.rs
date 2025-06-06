@@ -677,7 +677,7 @@ impl CompleteDVF {
         let mut json2 = serde_json::to_value(other).expect("Serialization failed");
 
         // Keys to always ignore
-        let mut ignored_keys = vec!["id", "codehash", "deployment_tx"];
+        let mut ignored_keys = vec!["id", "codehash", "deployment_tx", "unvalidated_metadata"];
 
         if ignore_testing_chain {
             ignored_keys.extend(&["chain_id", "deployment_block_num"]);
@@ -690,9 +690,37 @@ impl CompleteDVF {
 
         // After removing ignored keys, ensure number of keys matches
         if json1.as_object().iter().len() != json2.as_object().iter().len() {
+            println!("DVF number of keys do not match");
             return false;
         }
 
-        json1 == json2
+        let json1_obj = json1.as_object().unwrap();
+        let json2_obj = json2.as_object().unwrap();
+
+        let mut differences = Vec::new();
+
+        for (key, value1) in json1_obj {
+            if let Some(value2) = json2_obj.get(key) {
+                if value1 != value2 {
+                    // Key of json1 found in json2, but value differ
+                    differences.push((key, value1.clone(), value2.clone()));
+                    break;
+                }
+            } else {
+                // Key of json1 not found in json2
+                differences.push((key, value1.clone(), Value::Null));
+                break;
+            }
+        }
+
+        if !differences.is_empty() {
+            println!("DVFs differ!");
+            for (key, value1, value2) in differences {
+                println!("Key: {}\nValue1: {:?}\nValue2: {:?}", key, value1, value2);
+            }
+            return false;
+        }
+
+        true
     }
 }

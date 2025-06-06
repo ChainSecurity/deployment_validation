@@ -220,7 +220,12 @@ mod tests {
         let dvf2 =
             CompleteDVF::from_path(path2.as_ref()).expect("File2 cannot be parsed into a DVF");
 
-        assert!(dvf1.equals(&dvf2, true), "DVF files do not match");
+        assert!(
+            dvf1.equals(&dvf2, true),
+            "DVF {:?} does not match DVF {:?}",
+            path1.as_ref(),
+            path2.as_ref()
+        );
 
         Ok(())
     }
