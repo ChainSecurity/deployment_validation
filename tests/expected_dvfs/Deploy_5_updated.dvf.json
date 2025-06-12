@@ -18,6 +18,15 @@
   ],
   "critical_storage_variables": [
     {
+      "slot": "0x3",
+      "offset": 0,
+      "var_name": "x",
+      "var_type": "t_int8",
+      "value": "0xfe",
+      "value_hint": "-2",
+      "comparison_operator": "Equal"
+    },
+    {
       "slot": "0x59ddd120475e147f8702cb8a770930d245a85b520e2e162e93bb0709fb03bb2c",
       "offset": 0,
       "var_name": "mp[0x0000000000000000000000000000000000000000][0x5fbdb2315678afecb367f032d93f642f64180aa3]",
@@ -33,15 +42,6 @@
       "var_type": "t_int128",
       "value": "0x00000000000000000000000005f5e100",
       "value_hint": "1. * 10^8",
-      "comparison_operator": "Equal"
-    },
-    {
-      "slot": "0x3",
-      "offset": 0,
-      "var_name": "x",
-      "var_type": "t_int8",
-      "value": "0xfe",
-      "value_hint": "-2",
       "comparison_operator": "Equal"
     }
   ],
