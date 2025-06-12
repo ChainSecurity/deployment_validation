@@ -895,14 +895,24 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 }
             }
 
-            print_progress("Comparing init code.", &mut pc, &progress_mode);
+            print_progress("Comparing initcode.", &mut pc, &progress_mode);
             let compare_init =
                 CompareInitCode::compare(&mut project_info, &init_code, factory_mode);
             if !compare_init.matched {
-                return Err(ValidationError::Error(format!(
-                    "Init code not matched for contract {:?}",
-                    dumped.address
-                )));
+                if matches.get_count("verbose") > 0 {
+                    let mut error_info_table = Table::new();
+                    verify_bytecode::write_out_initcodes(
+                        &project_info,
+                        &init_code,
+                        &mut error_info_table,
+                    );
+                    error_info_table.printstd();
+                } else {
+                    println!("Initcode mismatch. Run in verbose mode for more info.");
+                }
+                return Err(ValidationError::from(
+                    "Initcode mismatch. Consider running with --factory if this is a factory contract.",
+                ));
             }
             // immutable values are set in CompareBytecode::compare so this has to be after the call
             dumped.copy_immutables(&project_info, &pretty_printer);

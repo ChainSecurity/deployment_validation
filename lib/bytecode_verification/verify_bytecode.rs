@@ -79,15 +79,41 @@ pub fn write_out_bytecodes(
     let mut on_chain_file = File::create("on_chain_bytecode.txt").expect("Could not create file");
 
     compiled_file
-        .write_all(project_info.compiled_bytecode.as_bytes())
+        .write_all(
+            project_info
+                .compiled_bytecode
+                .trim_start_matches("0x")
+                .as_bytes(),
+        )
         .unwrap();
     on_chain_file
-        .write_all(on_chain_bytecode.as_bytes())
+        .write_all(on_chain_bytecode.trim_start_matches("0x").as_bytes())
         .unwrap();
 
     table.add_row(row![
         "output files",
         format!("{}\n{}", "compiled_bytecode.txt", "on_chain_bytecode.txt")
+    ]);
+}
+
+pub fn write_out_initcodes(
+    project_info: &ProjectInfo,
+    on_chain_initcode: &String,
+    table: &mut Table,
+) {
+    let mut compiled_file = File::create("compiled_initcode.txt").expect("Could not create file");
+    let mut on_chain_file = File::create("on_chain_initcode.txt").expect("Could not create file");
+
+    compiled_file
+        .write_all(project_info.init_code.trim_start_matches("0x").as_bytes())
+        .unwrap();
+    on_chain_file
+        .write_all(on_chain_initcode.trim_start_matches("0x").as_bytes())
+        .unwrap();
+
+    table.add_row(row![
+        "output files",
+        format!("{}\n{}", "compiled_initcode.txt", "on_chain_initcode.txt")
     ]);
 }
 
