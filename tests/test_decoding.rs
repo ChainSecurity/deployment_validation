@@ -26,6 +26,7 @@ mod tests {
             Environment::Foundry,
             PathBuf::from("").as_path(),
             None,
+            None
         )
         .unwrap();
         let pretty_printer = PrettyPrinter::new(&empty_config, None);
