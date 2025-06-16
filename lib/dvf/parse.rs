@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::env::VarError;
+use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -126,6 +127,26 @@ impl From<serde_json::Error> for ValidationError {
 
 impl From<reqwest::Error> for ValidationError {
     fn from(error: reqwest::Error) -> Self {
+        // Print the full error details
+        eprintln!("Request failed: {:?}", error);
+
+        // Optionally, print more specific causes
+        if error.is_timeout() {
+            eprintln!("Reason: Timeout");
+        } else if error.is_connect() {
+            eprintln!("Reason: Connection error");
+        } else if error.is_status() {
+            eprintln!("Reason: Received bad HTTP status");
+        } else if error.is_request() {
+            eprintln!("Reason: Request failed to build");
+        }
+
+        // Print source chain (if available)
+        let mut source = error.source();
+        while let Some(s) = source {
+            eprintln!("Caused by: {}", s);
+            source = s.source();
+        }
         ValidationError::Error(format!("Communication error occurred: {}", error))
     }
 }
