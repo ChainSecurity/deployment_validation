@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env::VarError;
 use std::fmt;
 use std::fs::File;
@@ -671,4 +672,93 @@ impl CompleteDVF {
     fn get_version(&self) -> &Version {
         &self.version
     }
+
+    pub fn critical_fields_equal(&self, other: &Self, ignore_chain_id: bool) -> bool {
+        let mut json1 = serde_json::to_value(self).expect("Serialization failed");
+        let mut json2 = serde_json::to_value(other).expect("Serialization failed");
+
+        // Keys to always ignore
+        let mut ignored_keys = vec!["id", "deployment_tx", "unvalidated_metadata"];
+
+        if ignore_chain_id {
+            ignored_keys.extend(&["chain_id"]);
+        }
+
+        for key in ignored_keys {
+            json1.as_object_mut().unwrap().remove(key);
+            json2.as_object_mut().unwrap().remove(key);
+        }
+
+        let has_diff = diff_json(&json1, &json2, "dvf".to_string());
+
+        !has_diff
+    }
+}
+
+// Returns true when there is a difference
+fn diff_json(v1: &Value, v2: &Value, path: String) -> bool {
+    let mut has_diff = false;
+
+    match (v1, v2) {
+        (Value::Object(map1), Value::Object(map2)) => {
+            // Compare the keys of both objects
+            let keys1: HashSet<_> = map1.keys().collect();
+            let keys2: HashSet<_> = map2.keys().collect();
+
+            // Find keys that are in one object but not the other
+            let diff_keys1 = keys1.difference(&keys2);
+            let diff_keys2 = keys2.difference(&keys1);
+
+            for key in diff_keys1 {
+                println!(
+                    "Different key at {}: key present in first but not second: {}",
+                    path, key
+                );
+                has_diff = true;
+            }
+            for key in diff_keys2 {
+                println!(
+                    "Different key at {}: key present in second but not first: {}",
+                    path, key
+                );
+                has_diff = true;
+            }
+
+            // Recursively compare the values associated with each key
+            for key in keys1.intersection(&keys2) {
+                if diff_json(&map1[*key], &map2[*key], format!("{}/{}", path, key)) {
+                    has_diff = true;
+                }
+            }
+        }
+        (Value::Array(arr1), Value::Array(arr2)) => {
+            // Compare the lengths of both arrays
+            if arr1.len() != arr2.len() {
+                println!(
+                    "Different array lengths at {}: {} != {}",
+                    path,
+                    arr1.len(),
+                    arr2.len()
+                );
+                has_diff = true;
+            }
+
+            // Compare each element in the array
+            for (i, (e1, e2)) in arr1.iter().zip(arr2.iter()).enumerate() {
+                if diff_json(e1, e2, format!("{}/{}", path, i)) {
+                    has_diff = true;
+                }
+            }
+        }
+        _ => {
+            // If values are different, print the difference and return true
+            if v1 != v2 {
+                println!("Difference at {}: {} != {}", path, v1, v2);
+                has_diff = true;
+            }
+        }
+    }
+
+    // Return true if any difference is found, else false
+    has_diff
 }
