@@ -1330,6 +1330,75 @@ mod tests {
     }
 
     #[test]
+    fn test_e2e_failing_validate_events() {
+        let port = 8551u16;
+        let config_file = match DVFConfig::test_config_file(Some(port)) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+
+        let url = format!("http://localhost:{}", port).to_string();
+
+        for client_type in LocalClientType::iterator() {
+            let mut testcases: Vec<TestCaseE2E> = vec![];
+            testcases.push(TestCaseE2E {
+                script: String::from("script/Deploy_3.s.sol"),
+                contract: String::from("StructInEvent"),
+                expected: format!(
+                    "tests/expected_dvfs/Deploy_3_wrong_event_{}.dvf.json",
+                    client_type.to_string()
+                ),
+            });
+            for testcase in testcases {
+                let local_client = start_local_client(client_type.clone(), port);
+
+                let mut forge_cmd = Command::new("forge");
+                forge_cmd.current_dir("tests/Contracts");
+                let forge_assert = forge_cmd
+                    .args(&[
+                        "script",
+                        &testcase.script,
+                        "--rpc-url",
+                        &url,
+                        "--broadcast",
+                        "--slow",
+                    ])
+                    .assert()
+                    .success();
+                println!(
+                    "{}",
+                    &String::from_utf8_lossy(&forge_assert.get_output().stdout)
+                );
+
+                // Validate
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let dvf_assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "validate",
+                        "--validationblock",
+                        "4",
+                        "--allowuntrusted",
+                        &testcase.expected,
+                    ])
+                    .assert()
+                    .failure();
+
+                let output = String::from_utf8_lossy(&dvf_assert.get_output().stdout);
+                println!("{}", &output);
+
+                assert!(output.contains("Deployment invalid: Found at least 3 occurrences of event Huh((uint256,address,bool,uint64[6],uint128)), but expected 2"), "The string does not contain the required text.");
+                drop(local_client);
+            }
+        }
+    }
+
+    #[test]
     fn test_e2e_failing_factory() {
         let port = 8552u16;
         let config_file = match DVFConfig::test_config_file(Some(port)) {

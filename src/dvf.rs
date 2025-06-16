@@ -200,6 +200,7 @@ fn validate_dvf(
 
     let start_block = filled.deployment_block_num;
     let end_block = validation_block_num;
+    print!("max_block per event {}", config.max_blocks_per_event_query);
 
     // For each critical event
     for critical_event in &filled.critical_events {
@@ -227,8 +228,10 @@ fn validate_dvf(
             // Early quit if num. of occurrences observed so far is already greater than the num. of occurrences expected
             if num_occurrences + seen_events.len() > num_occurrences_expected {
                 return Err(ValidationError::Invalid(format!(
-                    "Found at least {} occurrences of event {}, but expected ({}).",
-                    num_occurrences, critical_event.sig, num_occurrences_expected
+                    "Found at least {} occurrences of event {}, but expected {}.",
+                    num_occurrences + seen_events.len(),
+                    critical_event.sig,
+                    num_occurrences_expected
                 )));
             }
 
