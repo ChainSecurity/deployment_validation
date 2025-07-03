@@ -1216,12 +1216,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 pc += 1;
 
                 if event_table.is_empty() {
-                    println!(
-                        "   No events occurred up until block {}.",
-                        deployment_block_num
-                    );
+                    println!("   No events occurred up until block {}.", init_block_num);
                 } else {
-                    println!("   Event occurrences up to block {}:", deployment_block_num);
+                    println!("   Event occurrences up to block {}:", init_block_num);
                     event_table.printstd();
                 }
             }
