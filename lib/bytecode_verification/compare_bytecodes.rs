@@ -54,7 +54,11 @@ fn ignore_subcontracts_metadata(
                 continue;
             }
             let length = other_bytecode.len() - metadata_index - 2;
-            // println!("{:?}, {:?}", subcontract_index + start_index + metadata_index, length);
+            debug!(
+                "Replacing subcontract from {:?}, length {:?}",
+                subcontract_index + start_index + metadata_index,
+                length
+            );
             for rel_index in relevant_indices
                 .iter_mut()
                 .skip(subcontract_index + start_index + metadata_index)
@@ -291,16 +295,21 @@ impl CompareInitCode {
             .abi_decode_input(&init_bytecode[compiled_init_code.len()..])
             .expect("Unable to decode the constructor arguments.");
 
-        for (arg, value) in project_info.constructor_args.iter_mut().zip(decoded_args) {
+        for (arg, value) in project_info.constructor_args.iter_mut().zip(&decoded_args) {
             let encoded_value = value.abi_encode_packed();
-            let formatted_value = format!("0x{}", hex::encode(&encoded_value));
+            if encoded_value.len() == 0 {
+                // Here we keep the arg.type_string we previous extracted from the ABI
+                // This happens with empty arrays
+                arg.value = "0x".to_string();
+            } else {
+                let formatted_value = format!("0x{}", hex::encode(&encoded_value));
+                let sol_type = value.as_type().unwrap_or_else(|| {
+                    panic!("Unable to find constructor argument type for {}", arg.name)
+                });
 
-            let sol_type = value.as_type().unwrap_or_else(|| {
-                panic!("Unable to find constructor argument type for {}", arg.name)
-            });
-
-            arg.value = formatted_value;
-            arg.type_string = sol_type.sol_type_name().to_string()
+                arg.value = formatted_value;
+                arg.type_string = sol_type.sol_type_name().to_string()
+            }
         }
 
         // Byte offset -> Relevant
