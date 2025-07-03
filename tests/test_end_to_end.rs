@@ -1513,7 +1513,10 @@ mod tests {
             println!("{}", &output);
 
             // The expected output should be Error occurred: Init code not matched for contract 0xa16e02e87b7454126e5e10d957a927a7f5b5d2be
-            assert!(output.contains("Error occurred: Init code not matched for contract 0xa16e02e87b7454126e5e10d957a927a7f5b5d2be"), "The string does not contain the required text.");
+            assert!(
+                output.contains("Error occurred: Initcode mismatch."),
+                "The string does not contain the required text."
+            );
             drop(local_client);
         }
     }

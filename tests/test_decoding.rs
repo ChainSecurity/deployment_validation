@@ -83,7 +83,8 @@ mod tests {
 
             let res_str =
                 fs::read_to_string(format!("./tests/data/result_{}.json", contract_name)).unwrap();
-            let expected_result: Vec<DVFStorageEntry> = serde_json::from_str(&res_str).unwrap();
+            let mut expected_result: Vec<DVFStorageEntry> = serde_json::from_str(&res_str).unwrap();
+            expected_result.sort_by_key(|exp| exp.slot);
 
             assert_eq!(generated_result.len(), expected_result.len());
             for i in 0..generated_result.len() {

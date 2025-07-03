@@ -1465,7 +1465,9 @@ impl ProjectInfo {
 
         // TODO: Understand this better
         if build_infos.is_empty() {
-            return Err(ValidationError::from("No build-info files could be found."));
+            return Err(ValidationError::from(format!(
+                "No build-info files for {contract_name} could be found."
+            )));
         } else if build_infos.len() != 1 {
             return Err(ValidationError::from(format!(
                 "Multiple build-info files found. Try running {} in the project folder.",
@@ -1551,7 +1553,8 @@ impl ProjectInfo {
                     .iter()
                     .map(|input| ConstructorArg {
                         name: input.name.clone(),
-                        type_string: String::new(),
+                        type_string: input.selector_type().to_string(), // Only used as backup for now,
+                        // TODO: Check with parsed value
                         value: String::new(),
                     })
                     .collect();

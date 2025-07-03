@@ -307,6 +307,9 @@ impl<'a> ContractState<'a> {
             };
             critical_storage_variables.push(crit_var);
         }
+
+        critical_storage_variables.sort_by_key(|crit_var| crit_var.slot);
+
         Ok(critical_storage_variables)
     }
 
