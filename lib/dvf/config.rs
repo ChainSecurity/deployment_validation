@@ -1112,16 +1112,12 @@ impl DVFConfig {
                 if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {
                         return Ok(api_url.clone());
-                    } else {
-                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
                     }
                 }
                 // Then try global config
                 if let Some(global_config) = &self.blockscout_global {
                     if let Some(api_url) = &global_config.api_url {
                         return Ok(api_url.clone());
-                    } else {
-                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
                     }
                 }
                 // Finally fall back to chain-specific URL
@@ -1137,10 +1133,10 @@ impl DVFConfig {
                     .map(|s| s.to_string());
 
                 if let Some(url) = opt_url {
-                    Ok(url)
+                    Ok(format!("{url}/api"))
                 } else {
                     Err(ValidationError::from(format!(
-                        "Invalid chain id: {:?}.",
+                        "No blockscout URL found for given chain id: {:?}.",
                         self.active_chain_id
                     )))
                 }
