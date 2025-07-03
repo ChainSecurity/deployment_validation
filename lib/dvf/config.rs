@@ -1133,7 +1133,7 @@ impl DVFConfig {
                     .map(|s| s.to_string());
 
                 if let Some(url) = opt_url {
-                    Ok(format!("{url}/api"))
+                    Ok(format!("{url}api"))
                 } else {
                     Err(ValidationError::from(format!(
                         "No blockscout URL found for given chain id: {:?}.",
@@ -1214,12 +1214,12 @@ mod tests {
         let mut empty_config = DVFConfig::default();
         empty_config.set_chain_id(1).unwrap();
         assert_eq!(
-            "https://eth.blockscout.com/".to_string(),
+            "https://eth.blockscout.com/api".to_string(),
             empty_config.get_blockscout_api_url().unwrap()
         );
         empty_config.set_chain_id(10).unwrap();
         assert_eq!(
-            "https://optimism.blockscout.com/".to_string(),
+            "https://optimism.blockscout.com/api".to_string(),
             empty_config.get_blockscout_api_url().unwrap()
         );
     }
