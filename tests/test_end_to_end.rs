@@ -1043,7 +1043,7 @@ mod tests {
         // Uncomment to regenerate expected files
         // std::fs::copy(outfile.path(), Path::new(&expected)).unwrap();
 
-        assert_eq_files(&outfile.path(), &Path::new(&expected), client_type.clone()).unwrap();
+        assert_eq_files(&outfile.path(), &Path::new(&expected));
     }
 
     #[test]
