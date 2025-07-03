@@ -19,6 +19,7 @@ use alloy_signer_ledger::{HDPath, LedgerSigner};
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tempfile::{tempdir, NamedTempFile};
 use tracing::debug;
 
@@ -34,6 +35,8 @@ pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
 const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
 const RPC_URLS_REPOSITORY: &str =
     "https://raw.githubusercontent.com/ethereum-lists/chains/master/_data/chains";
+// Can be obtained from https://github.com/blockscout/chainscout/blob/main/data/chains.json
+const BLOCKSCOUT_URLS: &str = include_str!("../../addresses/blockscout_chains.json");
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -1109,38 +1112,34 @@ impl DVFConfig {
                 if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
                     if let Some(api_url) = &chain_config.api_url {
                         return Ok(api_url.clone());
-                    } else {
-                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
                     }
                 }
                 // Then try global config
                 if let Some(global_config) = &self.blockscout_global {
                     if let Some(api_url) = &global_config.api_url {
                         return Ok(api_url.clone());
-                    } else {
-                        return Ok(String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
                     }
                 }
                 // Finally fall back to chain-specific URL
-                let hostname = match self.active_chain_id {
-                    // Add More from https://www.blockscout.com/chains-and-projects
-                    Some(1) => "eth.blockscout.com".to_string(),
-                    Some(10) => "optimism.blockscout.com".to_string(),
-                    Some(100) => "gnosis.blockscout.com".to_string(),
-                    Some(130) => "unichain.blockscout.com".to_string(),
-                    Some(137) => "polygon.blockscout.com".to_string(),
-                    Some(8453) => "base.blockscout.com".to_string(),
-                    Some(42161) => "arbitrum.blockscout.com".to_string(),
-                    Some(81457) => "blast.blockscout.com".to_string(),
-                    Some(11155111) => "eth-sepolia.blockscout.com".to_string(),
-                    _ => {
-                        return Err(ValidationError::from(format!(
-                            "Invalid chain id: {:?}.",
-                            self.active_chain_id
-                        )))
-                    }
-                };
-                Ok(format!("https://{hostname}"))
+                let urls: Value = serde_json::from_str(BLOCKSCOUT_URLS)?;
+
+                let opt_url = urls
+                    .get(chain_id.to_string())
+                    .and_then(|c| c.get("explorers"))
+                    .and_then(Value::as_array)
+                    .and_then(|arr| arr.first())
+                    .and_then(|e| e.get("url"))
+                    .and_then(Value::as_str)
+                    .map(|s| s.to_string());
+
+                if let Some(url) = opt_url {
+                    Ok(format!("{url}api"))
+                } else {
+                    Err(ValidationError::from(format!(
+                        "No blockscout URL found for given chain id: {:?}.",
+                        self.active_chain_id
+                    )))
+                }
             }
             None => Err(ValidationError::from(
                 "No active chain. Cannot chose Blockscout API.",
@@ -1148,27 +1147,6 @@ impl DVFConfig {
         }
     }
 
-    pub fn get_graphql_name(&self) -> Result<String, ValidationError> {
-        match self.active_chain_id {
-            Some(1) => Ok("ethereum".to_string()),
-            Some(5) => Ok("goerli".to_string()),
-            Some(25) => Ok("cronos".to_string()),
-            Some(56) => Ok("bsc".to_string()),
-            Some(97) => Ok("bsc_testnet".to_string()),
-            Some(137) => Ok("matic".to_string()),
-            Some(250) => Ok("fantom".to_string()),
-            Some(1284) => Ok("moonbeam".to_string()),
-            Some(8217) => Ok("klaytn".to_string()),
-            Some(42220) => Ok("celo_mainnet".to_string()),
-            Some(43114) => Ok("avalanche".to_string()),
-            Some(44787) => Ok("celo_alfajores".to_string()),
-            Some(62320) => Ok("celo_baklava".to_string()),
-            _ => Err(ValidationError::from(format!(
-                "Invalid chain id: {:?}.",
-                self.active_chain_id
-            ))),
-        }
-    }
     pub fn write_to_file(&self, path: &PathBuf) -> Result<(), ValidationError> {
         let output = serde_json::to_string_pretty(&self)?;
 
@@ -1230,6 +1208,21 @@ pub fn replace_tilde(path_str: &str) -> Result<PathBuf, ValidationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_blockscout_url() {
+        let mut empty_config = DVFConfig::default();
+        empty_config.set_chain_id(1).unwrap();
+        assert_eq!(
+            "https://eth.blockscout.com/api".to_string(),
+            empty_config.get_blockscout_api_url().unwrap()
+        );
+        empty_config.set_chain_id(10).unwrap();
+        assert_eq!(
+            "https://optimism.blockscout.com/api".to_string(),
+            empty_config.get_blockscout_api_url().unwrap()
+        );
+    }
 
     #[test]
     fn test_replace_tilde_with_home_dir() {
