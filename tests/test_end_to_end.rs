@@ -2,7 +2,6 @@
 
 mod tests {
     use alloy_node_bindings::{Anvil, AnvilInstance};
-    use assert_cmd::assert;
     use assert_cmd::Command;
     use dvf_libs::dvf::config::DVFConfig;
     use dvf_libs::dvf::parse::CompleteDVF;
