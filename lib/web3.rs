@@ -1203,11 +1203,13 @@ pub fn get_eth_events_paginated(
 }
 
 // Fetches events, in a single call, does NOT paginate the block range.
-pub fn get_eth_events(config: &DVFConfig,
+pub fn get_eth_events(
+    config: &DVFConfig,
     address: &Address,
     from_block: u64,
     to_block: u64,
-    topics: &Vec<B256>)  -> Result<Vec<Log>, ValidationError> {
+    topics: &Vec<B256>,
+) -> Result<Vec<Log>, ValidationError> {
     println!("Quering events from {} to {}", from_block, to_block);
     let from_block_hex = format!("{:#x}", from_block);
     let to_block_hex = format!("{:#x}", to_block);
