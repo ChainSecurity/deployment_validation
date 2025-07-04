@@ -200,7 +200,7 @@ fn validate_dvf(
 
     let start_block = filled.deployment_block_num;
     let end_block = validation_block_num;
-    print!("max_block per event {}", config.max_blocks_per_event_query);
+    println!("max_block per event {}", config.max_blocks_per_event_query);
 
     // For each critical event
     for critical_event in &filled.critical_events {
@@ -217,7 +217,7 @@ fn validate_dvf(
             );
 
             // Get event logs from `current_from` to `current_to`
-            let seen_events = web3::get_eth_events(
+            let seen_events = web3::get_eth_events_paginated(
                 config,
                 &filled.address,
                 current_from,
