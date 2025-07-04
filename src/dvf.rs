@@ -164,7 +164,7 @@ fn validate_dvf(
         return Err(ValidationError::from("Different codehash."));
     }
 
-    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+    let pretty_printer = PrettyPrinter::new(config, Some(registry));
 
     // Validate Storage slots
     print_progress("Validating Storage Variables.", &mut pc, &progress_mode);
@@ -181,7 +181,7 @@ fn validate_dvf(
         if !storage_variable.compare(&current_val[start_index..end_index]) {
             let message = get_mismatch_msg(
                 &pretty_printer,
-                &storage_variable,
+                storage_variable,
                 &current_val[start_index..end_index],
             );
             if continue_on_mismatch {

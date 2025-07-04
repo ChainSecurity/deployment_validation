@@ -606,7 +606,8 @@ impl ProjectInfo {
         }
 
         // Order struct_slots by key for deterministic results
-        let mut struct_slots_vec: Vec<(U256, (u64, Option<String>))> = struct_slots.iter().map(|(k, v)| (*k, v.clone())).collect();
+        let mut struct_slots_vec: Vec<(U256, (u64, Option<String>))> =
+            struct_slots.iter().map(|(k, v)| (*k, v.clone())).collect();
         struct_slots_vec.sort_by(|a, b| a.0.cmp(&b.0));
 
         // parse the struct members + types

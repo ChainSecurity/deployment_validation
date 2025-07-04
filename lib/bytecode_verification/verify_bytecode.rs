@@ -24,7 +24,7 @@ pub fn print_verification_summary(
     contract_address: &Address,
     status: CompareBytecode,
     project_info: &ProjectInfo,
-    on_chain_bytecode: &String,
+    on_chain_bytecode: &str,
 ) {
     let mut table = Table::new();
 
@@ -70,11 +70,7 @@ pub fn print_verification_summary(
     table.printstd();
 }
 
-pub fn write_out_bytecodes(
-    project_info: &ProjectInfo,
-    on_chain_bytecode: &String,
-    table: &mut Table,
-) {
+pub fn write_out_bytecodes(project_info: &ProjectInfo, on_chain_bytecode: &str, table: &mut Table) {
     let mut compiled_file = File::create("compiled_bytecode.txt").expect("Could not create file");
     let mut on_chain_file = File::create("on_chain_bytecode.txt").expect("Could not create file");
 
@@ -96,11 +92,7 @@ pub fn write_out_bytecodes(
     ]);
 }
 
-pub fn write_out_initcodes(
-    project_info: &ProjectInfo,
-    on_chain_initcode: &String,
-    table: &mut Table,
-) {
+pub fn write_out_initcodes(project_info: &ProjectInfo, on_chain_initcode: &str, table: &mut Table) {
     let mut compiled_file = File::create("compiled_initcode.txt").expect("Could not create file");
     let mut on_chain_file = File::create("on_chain_initcode.txt").expect("Could not create file");
 
@@ -123,7 +115,7 @@ pub fn print_generation_summary(
     contract_address: &Address,
     status: CompareBytecode,
     project_info: &ProjectInfo,
-    on_chain_bytecode: &String,
+    on_chain_bytecode: &str,
     pretty_printer: &PrettyPrinter,
 ) {
     let mut table = Table::new();
