@@ -326,7 +326,7 @@ impl ProjectInfo {
                 .unwrap()
                 .to_string();
             if identifier.starts_with("t_struct") {
-                let struct_slots: HashMap<U256, (u64, Option<String>)> = HashMap::from([(
+                let struct_slots_vec: Vec<(U256, (u64, Option<String>))> = Vec::from([(
                     U256::from_str("0x0").unwrap(), // this won't be used as we only have to add the types
                     (
                         type_name
@@ -345,7 +345,7 @@ impl ProjectInfo {
                                 sources,
                                 top_node,
                                 type_defs,
-                                &struct_slots,
+                                &struct_slots_vec,
                                 types,
                                 &mut storage,
                             );
@@ -442,7 +442,7 @@ impl ProjectInfo {
         sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
-        struct_slots: &HashMap<U256, (u64, Option<String>)>,
+        struct_slots: &Vec<(U256, (u64, Option<String>))>,
         types: &mut HashMap<String, TypeDescription>,
         storage: &mut Vec<StateVariable>,
     ) {
@@ -604,6 +604,11 @@ impl ProjectInfo {
                 }
             }
         }
+
+        // Order struct_slots by key for deterministic results
+        let mut struct_slots_vec: Vec<(U256, (u64, Option<String>))> = struct_slots.iter().map(|(k, v)| (*k, v.clone())).collect();
+        struct_slots_vec.sort_by(|a, b| a.0.cmp(&b.0));
+
         // parse the struct members + types
         for source in sources.values() {
             if let Some(ast) = source.ast.clone() {
@@ -612,7 +617,7 @@ impl ProjectInfo {
                         sources,
                         node,
                         type_defs,
-                        &struct_slots,
+                        &struct_slots_vec,
                         types,
                         storage,
                     );
