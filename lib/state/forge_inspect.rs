@@ -174,6 +174,7 @@ impl ForgeInspect {
             contract = format!("{}:{}", path, contract_name);
         }
         let forge_inspect = Command::new("forge")
+            .env("RUST_LOG", "error") // prevents `forge inspect` from contaminating the JSON with logs
             .current_dir(project_path)
             .arg("inspect")
             .arg("--force")
