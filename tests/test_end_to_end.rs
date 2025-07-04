@@ -1001,6 +1001,7 @@ mod tests {
         let contract = String::from("Calculator");
         let expected = String::from("tests/expected_dvfs/LinkedLibraries.dvf.json");
         let client_type = LocalClientType::Anvil;
+        let local_client = start_local_client(client_type.clone(), port);
         let url = format!("http://localhost:{}", port).to_string();
 
         // deploy the all contracts (incl. ext. libraries) with a bash script
@@ -1019,6 +1020,7 @@ mod tests {
             .args(&[
                 "--config",
                 &config_file.path().to_string_lossy(),
+                "--verbose",
                 "init",
                 "--address",
                 "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
@@ -1029,7 +1031,7 @@ mod tests {
                 "--contractname",
                 &contract,
                 "--initblock",
-                "3",
+                "4",
                 "--libraries",
                 "src/linked_libraries/SimpleMath.sol:SimpleMath:0x5FbDB2315678afecb367f032d93F642f64180aa3",
                 "--libraries",
@@ -1044,6 +1046,7 @@ mod tests {
         // std::fs::copy(outfile.path(), Path::new(&expected)).unwrap();
 
         assert_eq_files(&outfile.path(), &Path::new(&expected));
+        drop(local_client);
     }
 
     #[test]
