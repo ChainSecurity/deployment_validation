@@ -555,7 +555,7 @@ fn send_blocking_web3_post(
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
-    debug!("Web3 response: {:?}", res.result);
+    // debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(
