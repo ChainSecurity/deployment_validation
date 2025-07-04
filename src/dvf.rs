@@ -577,6 +577,12 @@ fn main() {
                     arg!(--artifacts <PATH>)
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
                 ),
         )
         .subcommand(
