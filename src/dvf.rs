@@ -88,8 +88,6 @@ fn validate_dvf(
 
     let filled = parse::CompleteDVF::from_path(input_file)?;
 
-    config.compare_chain_id(filled.chain_id)?;
-
     info!("Validating {}", input_file.display());
     filled.validate_id()?;
     if !allow_untrusted {
