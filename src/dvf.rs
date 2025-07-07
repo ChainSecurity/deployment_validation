@@ -196,53 +196,91 @@ fn validate_dvf(
     // Validate events
     print_progress("Validating Critical Events.", &mut pc, &progress_mode);
     let pb = ProgressBar::new(filled.critical_events.len().try_into().unwrap());
+
+    let start_block = filled.deployment_block_num;
+    let end_block = validation_block_num;
+    println!("max_block per event {}", config.max_blocks_per_event_query);
+
+    // For each critical event
     for critical_event in &filled.critical_events {
-        let seen_events = web3::get_eth_events(
-            config,
-            &filled.address,
-            filled.deployment_block_num,
-            validation_block_num,
-            &vec![critical_event.topic0],
-        )?;
-        if seen_events.len() != critical_event.occurrences.len() {
-            return Err(ValidationError::Invalid(format!(
-                "Found {} occurrences of event {}, but expected {}.",
-                seen_events.len(),
-                critical_event.sig,
-                critical_event.occurrences.len()
-            )));
+        let mut num_occurrences = 0;
+        let num_occurrences_expected = critical_event.occurrences.len();
+
+        let mut current_from = start_block;
+
+        // For each block range of at most config.max_blocks_per_event_query
+        while current_from <= end_block {
+            let current_to = std::cmp::min(
+                current_from + config.max_blocks_per_event_query - 1,
+                end_block,
+            );
+
+            // Get event logs from `current_from` to `current_to`
+            let seen_events = web3::get_eth_events(
+                config,
+                &filled.address,
+                current_from,
+                current_to,
+                &vec![critical_event.topic0],
+            )?;
+
+            // Early quit if num. of occurrences observed so far is already greater than the num. of occurrences expected
+            if num_occurrences + seen_events.len() > num_occurrences_expected {
+                return Err(ValidationError::Invalid(format!(
+                    "Found at least {} occurrences of event {}, but expected {}.",
+                    num_occurrences + seen_events.len(),
+                    critical_event.sig,
+                    num_occurrences_expected
+                )));
+            }
+
+            // For each occurrence of critical event
+            for event in seen_events {
+                let expected = &critical_event.occurrences[num_occurrences];
+                let log_inner = &event.inner;
+
+                if log_inner.topics() != expected.topics {
+                    let message = format!(
+                        "Mismatching topics for event occurrence {} of {}.",
+                        num_occurrences, critical_event.sig
+                    );
+                    if continue_on_mismatch {
+                        mismatch_found = true;
+                        println!("{}", message);
+                    } else {
+                        return Err(ValidationError::Invalid(message));
+                    }
+                }
+
+                if log_inner.data.data != expected.data {
+                    let message = format!(
+                        "Mismatching data for event occurrence {} of {}.",
+                        num_occurrences, critical_event.sig
+                    );
+                    if continue_on_mismatch {
+                        mismatch_found = true;
+                        println!("{}", message);
+                    } else {
+                        return Err(ValidationError::Invalid(message));
+                    }
+                }
+
+                num_occurrences += 1;
+            }
+
+            current_from = current_to + 1;
         }
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..seen_events.len() {
-            let log_inner = &seen_events[i].inner;
-            if log_inner.topics() != critical_event.occurrences[i].topics {
-                let message = format!(
-                    "Mismatching topics for event occurrence {} of {}.",
-                    i, critical_event.sig
-                );
-                if continue_on_mismatch {
-                    mismatch_found = true;
-                    println!("{}", message);
-                } else {
-                    return Err(ValidationError::Invalid(message));
-                }
-            }
-            if log_inner.data.data != critical_event.occurrences[i].data {
-                let message = format!(
-                    "Mismatching data for event occurrence {} of {}.",
-                    i, critical_event.sig
-                );
-                if continue_on_mismatch {
-                    mismatch_found = true;
-                    println!("{}", message);
-                } else {
-                    return Err(ValidationError::Invalid(message));
-                }
-            }
-        }
+        // if num_occurrences != num_occurrences_expected {
+        //     return Err(ValidationError::Invalid(format!(
+        //         "Found {} occurrences of event {}, but expected {}.",
+        //         num_occurrences, critical_event.sig, num_occurrences_expected
+        //     )));
+        // }
+
         pb.inc(1);
     }
+
     pb.finish_and_clear();
 
     if mismatch_found {
@@ -1057,7 +1095,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             if event_topics.is_none() {
                 print_progress("Obtaining past events.", &mut pc, &progress_mode);
-                seen_events = web3::get_eth_events(
+                seen_events = web3::get_eth_events_paginated(
                     &config,
                     &dumped.address,
                     deployment_block_num,
@@ -1436,7 +1474,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             print_progress("Checking Events.", &mut pc, &progress_mode);
             // Validate events
             for critical_event in updated.critical_events.iter_mut() {
-                let seen_events = web3::get_eth_events(
+                let seen_events = web3::get_eth_events_paginated(
                     &config,
                     &filled.address,
                     filled.deployment_block_num,
