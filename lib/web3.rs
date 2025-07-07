@@ -1377,12 +1377,6 @@ pub fn get_eth_events(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
-
-    // Handle weird edge case where result is an empty string
-    if result == serde_json::Value::String("".to_string()) {
-        info!("Received empty string as response, treating as empty event list.");
-        return Ok(vec![]);
-    }
     let events: Vec<Log> = serde_json::from_value(result)?;
     debug!("Found {} events.", events.len());
     debug!("{:?}", events);

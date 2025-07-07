@@ -125,7 +125,7 @@ pub struct DVFConfig {
 }
 
 fn default_max_blocks() -> u64 {
-    2000
+    9999
 }
 
 fn default_web3_timeout() -> u64 {
