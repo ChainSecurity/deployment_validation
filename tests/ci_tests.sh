@@ -47,7 +47,7 @@ cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
 # cp .dv_config.json /tmp/eval_config.json 
 envsubst < tests/config.json > /tmp/eval_config.json
 cargo run --bin dv -- --config  /tmp/eval_config.json sign examples/dvfs/frxETH_filtered.dvf.json
-RUST_BACKTRACE=1 RUST_LOG=debug cargo run --bin dv -- --verbose --config  /tmp/eval_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
+RUST_BACKTRACE=1 RUST_LOG=debug cargo run --bin dv -- --verbose --verbose --config  /tmp/eval_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
 
 RUST_BACKTRACE=1 cargo test 
 
