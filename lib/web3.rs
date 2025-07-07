@@ -29,7 +29,7 @@ use alloy_rpc_types_trace::parity::{
 use reth_trie::root;
 
 const NUM_STORAGE_QUERIES: u64 = 32;
-const LARGE_BLOCK_RANGE: u64 = 100000;
+const LARGE_BLOCK_RANGE: u64 = 5000;
 
 mod pathological_rpc_deserde {
     use serde::{de::Error, Deserialize};
