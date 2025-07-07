@@ -210,10 +210,8 @@ fn validate_dvf(
 
         // For each block range of at most config.max_blocks_per_event_query
         while current_from < end_block {
-            let current_to = std::cmp::min(
-                current_from + config.max_blocks_per_event_query,
-                end_block,
-            );
+            let current_to =
+                std::cmp::min(current_from + config.max_blocks_per_event_query, end_block);
 
             // Get event logs from `current_from` to `current_to`
             let seen_events = web3::get_eth_events(
