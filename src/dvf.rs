@@ -217,7 +217,7 @@ fn validate_dvf(
             );
 
             // Get event logs from `current_from` to `current_to`
-            let seen_events = web3::get_eth_events_paginated(
+            let seen_events = web3::get_eth_events(
                 config,
                 &filled.address,
                 current_from,
