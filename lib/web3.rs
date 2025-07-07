@@ -704,7 +704,7 @@ fn send_blocking_web3_post(
 
     let res_text = res_.text()?;
     debug!("Web3 response text: {:?}", res_text);
-    
+
     let res = serde_json::from_str::<Web3Response>(&res_text)?;
     debug!("Web3 response json: {:?}", res);
 
