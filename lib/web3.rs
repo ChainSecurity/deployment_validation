@@ -544,6 +544,7 @@ fn send_blocking_web3_post(
 
     let node_url = config.get_rpc_url()?;
 
+    debug!("Web3 node_url: {:?}", &node_url[0..20]);
     debug!("Web3 request_body: {:?}", request_body);
     let res = client
         .post(node_url)
@@ -555,7 +556,7 @@ fn send_blocking_web3_post(
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
-    // debug!("Web3 response: {:?}", res.result);
+    debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(
