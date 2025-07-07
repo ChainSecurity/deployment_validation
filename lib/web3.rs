@@ -700,17 +700,17 @@ fn send_blocking_web3_post(
 
     debug!("Web3 node_url: {:?}", &node_url[0..20]);
     debug!("Web3 request_body: {:?}", request_body);
-    let res = client
-        .post(node_url)
-        .json(&request_body)
-        .send()?
-        .json::<Web3Response>()?;
+    let res_ = client.post(node_url).json(&request_body).send()?;
+
+    debug!("Web3 response: {:?}", res_);
+
+    let res = res_.json::<Web3Response>()?;
 
     if let Some(error) = res.error {
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
-    debug!("Web3 response: {:?}", res.result);
+    // debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(
