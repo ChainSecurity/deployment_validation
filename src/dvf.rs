@@ -210,9 +210,9 @@ fn validate_dvf(
         let mut current_from = start_block;
 
         // For each block range of at most config.max_blocks_per_event_query
-        while current_from <= end_block {
+        while current_from < end_block {
             let current_to = std::cmp::min(
-                current_from + config.max_blocks_per_event_query - 1,
+                current_from + config.max_blocks_per_event_query,
                 end_block,
             );
 
