@@ -199,7 +199,7 @@ fn validate_dvf(
 
     let start_block = filled.deployment_block_num;
     let end_block = validation_block_num;
-    println!("max_block per event {}", config.max_blocks_per_event_query);
+    println!("Max_block per event {}", config.max_blocks_per_event_query);
 
     // For each critical event
     for critical_event in &filled.critical_events {
@@ -208,10 +208,12 @@ fn validate_dvf(
 
         let mut current_from = start_block;
 
-        // For each block range of at most config.max_blocks_per_event_query
+        // For each block range at most config.max_blocks_per_event_query - 1
         while current_from < end_block {
-            let current_to =
-                std::cmp::min(current_from + config.max_blocks_per_event_query, end_block);
+            let current_to = std::cmp::min(
+                current_from + config.max_blocks_per_event_query - 1,
+                end_block,
+            );
 
             // Get event logs from `current_from` to `current_to`
             let seen_events = web3::get_eth_events(
