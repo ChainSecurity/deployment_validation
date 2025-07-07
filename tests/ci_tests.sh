@@ -28,11 +28,11 @@ cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
 
 # try failing command first
 # cp .dv_config.json /tmp/eval_config.json 
+envsubst < tests/config.json > /tmp/eval_config.json
 cargo run --bin dv -- --config  /tmp/eval_config.json sign examples/dvfs/frxETH_filtered.dvf.json
 RUST_BACKTRACE=1 RUST_LOG=debug cargo run --bin dv -- --verbose --config  /tmp/eval_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
 
 RUST_BACKTRACE=1 cargo test 
-envsubst < tests/config.json > /tmp/eval_config.json
 cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
 cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
 # TODO: Parse output
