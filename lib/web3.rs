@@ -544,21 +544,18 @@ fn send_blocking_web3_post(
 
     let node_url = config.get_rpc_url()?;
 
-    debug!("Web3 node_url: {:?}", &node_url[0..20]);
     debug!("Web3 request_body: {:?}", request_body);
-    let res_ = client.post(node_url).json(&request_body).send()?;
-
-    let res_text = res_.text()?;
-    debug!("Web3 response text: {:?}", res_text);
-
-    let res = serde_json::from_str::<Web3Response>(&res_text)?;
-    debug!("Web3 response json: {:?}", res);
+    let res = client
+        .post(node_url)
+        .json(&request_body)
+        .send()?
+        .json::<Web3Response>()?;
 
     if let Some(error) = res.error {
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
-    // debug!("Web3 response: {:?}", res.result);
+    debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(
@@ -1166,7 +1163,7 @@ pub struct Web3Event {
 
 // Fetches events, does multiple calls if necessary
 // Inclusive for from_block and to_block
-pub fn get_eth_events_paginated(
+pub fn get_eth_events(
     config: &DVFConfig,
     address: &Address,
     from_block: u64,
@@ -1189,12 +1186,12 @@ pub fn get_eth_events_paginated(
             );
         }
         let mut last_block = from_block + config.max_blocks_per_event_query;
-        let mut events = get_eth_events_paginated(config, address, from_block, last_block, topics)?;
+        let mut events = get_eth_events(config, address, from_block, last_block, topics)?;
         while last_block < to_block {
             let next_last_block =
                 std::cmp::min(last_block + config.max_blocks_per_event_query - 1, to_block);
             let mut next_events =
-                get_eth_events_paginated(config, address, last_block + 1, next_last_block, topics)?;
+                get_eth_events(config, address, last_block + 1, next_last_block, topics)?;
             last_block = next_last_block;
             pb.set_position(next_last_block - from_block);
             events.append(&mut next_events);
@@ -1202,18 +1199,6 @@ pub fn get_eth_events_paginated(
         pb.finish_and_clear();
         return Ok(events);
     }
-    return get_eth_events(config, address, from_block, to_block, topics);
-}
-
-// Fetches events, in a single call, does NOT paginate the block range.
-pub fn get_eth_events(
-    config: &DVFConfig,
-    address: &Address,
-    from_block: u64,
-    to_block: u64,
-    topics: &Vec<B256>,
-) -> Result<Vec<Log>, ValidationError> {
-    println!("Quering events from {} to {}", from_block, to_block);
     let from_block_hex = format!("{:#x}", from_block);
     let to_block_hex = format!("{:#x}", to_block);
     let request_body = json!({
@@ -1223,12 +1208,6 @@ pub fn get_eth_events(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
-
-    // Handle weird edge case where result is an empty string
-    if result == serde_json::Value::String("".to_string()) {
-        info!("Received empty string as response, treating as empty event list.");
-        return Ok(vec![]);
-    }
     let events: Vec<Log> = serde_json::from_value(result)?;
     debug!("Found {} events.", events.len());
     debug!("{:?}", events);
