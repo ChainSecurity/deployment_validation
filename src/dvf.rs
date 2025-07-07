@@ -196,26 +196,24 @@ fn validate_dvf(
     // Validate events
     print_progress("Validating Critical Events.", &mut pc, &progress_mode);
     let pb = ProgressBar::new(filled.critical_events.len().try_into().unwrap());
-
     let start_block = filled.deployment_block_num;
     let end_block = validation_block_num;
     println!("Max_block per event {}", config.max_blocks_per_event_query);
 
-    // For each critical event
     for critical_event in &filled.critical_events {
         let mut num_occurrences = 0;
         let num_occurrences_expected = critical_event.occurrences.len();
 
         let mut current_from = start_block;
 
-        // For each block range at most config.max_blocks_per_event_query - 1
-        while current_from < end_block {
-            let current_to = std::cmp::min(
-                current_from + config.max_blocks_per_event_query - 1,
-                end_block,
-            );
+        // First chunk is full size
+        let first_chunk =
+            std::cmp::min(current_from + config.max_blocks_per_event_query, end_block);
 
-            // Get event logs from `current_from` to `current_to`
+        // First call (size = max_blocks_per_event_query, e.g. 10000)
+        let mut current_to = first_chunk;
+
+        while current_from <= end_block {
             let seen_events = web3::get_eth_events(
                 config,
                 &filled.address,
@@ -224,7 +222,6 @@ fn validate_dvf(
                 &vec![critical_event.topic0],
             )?;
 
-            // Early quit if num. of occurrences observed so far is already greater than the num. of occurrences expected
             if num_occurrences + seen_events.len() > num_occurrences_expected {
                 return Err(ValidationError::Invalid(format!(
                     "Found at least {} occurrences of event {}, but expected {}.",
@@ -234,7 +231,6 @@ fn validate_dvf(
                 )));
             }
 
-            // For each occurrence of critical event
             for event in seen_events {
                 let expected = &critical_event.occurrences[num_occurrences];
                 let log_inner = &event.inner;
@@ -269,6 +265,10 @@ fn validate_dvf(
             }
 
             current_from = current_to + 1;
+
+            // After first chunk, reduce chunk size by 1 (9998)
+            let next_chunk_size = config.max_blocks_per_event_query - 1;
+            current_to = std::cmp::min(current_from + next_chunk_size - 1, end_block);
         }
 
         // if num_occurrences != num_occurrences_expected {
