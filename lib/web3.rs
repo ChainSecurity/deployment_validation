@@ -337,7 +337,7 @@ pub fn get_eth_debug_trace(
                 .rpc_urls
                 .insert(config.active_chain_id.unwrap(), anvil_instance.endpoint());
             anvil_config.active_chain_id = config.active_chain_id;
-            anvil_config.web3_timeout = config.web3_timeout;
+            anvil_config.web3_timeout = 5000; // use hardcoded timeout as our default timeout of 700 is not reliably working here
 
             // Extract transaction data from the JSON response (already fetched in get_transaction_details)
             let from = tx_result["from"].as_str().unwrap();
@@ -594,7 +594,7 @@ fn send_blocking_blockscout_get(
     request: &str,
 ) -> Result<serde_json::Value, ValidationError> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(config.web3_timeout))
+        .timeout(Duration::from_millis(config.web3_timeout))
         .build()
         .unwrap();
 
@@ -633,7 +633,7 @@ fn send_blocking_web3_post(
     request_body: &serde_json::Value,
 ) -> Result<serde_json::Value, ValidationError> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(config.web3_timeout))
+        .timeout(Duration::from_millis(config.web3_timeout))
         .build()
         .unwrap();
 

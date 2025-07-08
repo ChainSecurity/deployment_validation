@@ -10,6 +10,7 @@ use std::num::ParseIntError;
 use std::path::Path;
 
 use ruint;
+use tracing::info;
 
 use crate::bytecode_verification::parse_json::ProjectInfo;
 use crate::utils::pretty::convert_bytes_to_i256;
@@ -128,23 +129,23 @@ impl From<serde_json::Error> for ValidationError {
 impl From<reqwest::Error> for ValidationError {
     fn from(error: reqwest::Error) -> Self {
         // Print the full error details
-        eprintln!("Request failed: {:?}", error);
+        info!("Request failed: {:?}", error);
 
         // Optionally, print more specific causes
         if error.is_timeout() {
-            eprintln!("Reason: Timeout");
+            info!("Reason: Timeout");
         } else if error.is_connect() {
-            eprintln!("Reason: Connection error");
+            info!("Reason: Connection error");
         } else if error.is_status() {
-            eprintln!("Reason: Received bad HTTP status");
+            info!("Reason: Received bad HTTP status");
         } else if error.is_request() {
-            eprintln!("Reason: Request failed to build");
+            info!("Reason: Request failed to build");
         }
 
         // Print source chain (if available)
         let mut source = error.source();
         while let Some(s) = source {
-            eprintln!("Caused by: {}", s);
+            info!("Caused by: {}", s);
             source = s.source();
         }
         ValidationError::Error(format!("Communication error occurred: {}", error))
