@@ -42,7 +42,7 @@ cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
-RUST_BACKTRACE=1 cargo test 
+
 envsubst < tests/config.json > /tmp/eval_config.json
 envsubst < tests/config_localsim.json > /tmp/eval_localsim_config.json
 cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
