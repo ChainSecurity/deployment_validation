@@ -75,13 +75,11 @@ To successfully create DVFs for on-chain smart contracts, you need access to the
 
 **Please note the following restrictions/requirements**:
 
-1. While Blockscout and Etherscan API keys are optional, at least one of them is required to determine the deployment transaction of a contract. If you provide neither, you are limited to local RPC nodes with less than 100 blocks.
-2. A Blockscout API key allows for faster execution.
+1. The Blockscout API is required to fetch the transaction hashes of a contract. This API can only be omitted if you fetch transactions based on events.
+2. The Etherscan API is optional but can be used instead of Blockscout to fetch the deployment transaction of a contract.
 3. Your RPC node **must** support either `debug_traceTransaction` or `trace_transaction`.
-4. Your RPC node **should** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` won't be able to decode mapping keys.
+4. For faster execution, your RPC node **may** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` will locally re-execute all transactions which might increase execution time.
 5. For faster execution, your RPC node **may** support `debug_storageRangeAt`.
-
-The RPC provider [QuickNode](https://www.quicknode.com/) supports all aforementioned requirements. A full list of supported RPC providers may be added here at a later point in time.
 
 To run `dv`, you can either [build from source](#building-from-source) it or use the pre-configured [Docker](#using-docker) image.
 
@@ -584,9 +582,8 @@ This section will be updated soon.
 - Empty-string mapping keys can currently not be decoded correctly.
 - Big transaction traces (`debug_traceTransaction` with opcode logger) of multiple GB may cause a crash.
 - Proxy Contracts without events when changing the implementation cannot be accurately secured, as implementation changes could be missed.
-- Successfully running validation against an non-finalized block at height H does not guarantee, validity at height H.
+- Successfully running validation against a non-finalized block at height H does not guarantee validity at height H.
 - Missing optimizations can cause longer waiting times than necessary.
-- Celoscan.io is currently not supported.
 
 ## Supported Networks
 
