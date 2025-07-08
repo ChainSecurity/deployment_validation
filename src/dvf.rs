@@ -471,6 +471,12 @@ fn main() {
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files"))
                 .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
+                )
+                .arg(
                     arg!(--implementationbuildcache <PATH>)
                         .help("Folder containing the implementation contract's build-info files"),
                 )
@@ -571,6 +577,12 @@ fn main() {
                     arg!(--artifacts <PATH>)
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
                 ),
         )
         .subcommand(
@@ -619,6 +631,12 @@ fn main() {
                     arg!(--artifacts <PATH>)
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
+                )
+               .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
@@ -783,6 +801,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let build_cache = sub_m.get_one::<String>("buildcache");
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
             let event_topics = sub_m
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
@@ -869,6 +890,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 env,
                 &artifacts_path,
                 build_cache,
+                libraries.clone(),
             )?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
@@ -990,6 +1012,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     imp_env,
                     &imp_artifacts_path,
                     imp_build_cache,
+                    libraries,
                 )?;
 
                 print_progress(
@@ -1564,6 +1587,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let mut pc = 1_u64;
             let progress_mode: ProgressMode = ProgressMode::GenerateBuildCache;
@@ -1571,7 +1597,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let build_cache_path = ProjectInfo::compile(project, env, &artifacts_path)?;
+            let build_cache_path = ProjectInfo::compile(project, env, &artifacts_path, libraries)?;
 
             println!("Build Cache: {}", build_cache_path.display());
             exit(0);
@@ -1583,6 +1609,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
             let address = sub_m.get_one::<Address>("address").unwrap();
@@ -1607,8 +1636,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let mut project_info =
-                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
+            let mut project_info = ProjectInfo::new(
+                &contract_name,
+                project,
+                env,
+                &artifacts_path,
+                build_cache,
+                libraries,
+            )?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");
@@ -1647,6 +1682,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
             let build_cache = sub_m.get_one::<String>("buildcache");
@@ -1655,8 +1693,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let progress_mode: ProgressMode = ProgressMode::ListEvents;
 
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
-            let project_info =
-                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
+            let project_info = ProjectInfo::new(
+                &contract_name,
+                project,
+                env,
+                &artifacts_path,
+                build_cache,
+                libraries,
+            )?;
 
             let mut event_table = Table::new();
             for event in project_info.events {

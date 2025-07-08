@@ -38,6 +38,7 @@ Once a DVF is published, any user can choose to trust the signer of that DVF and
    - [Registry](#registry)
    - [Etherscan Verified Contracts](#etherscan-verified-contracts)
    - [Initialization by event topics](#initialization-by-event-topics)
+   - [Public libraries](#public-libraries)
 
 7. [Common Problems](#common-problems)
 8. [Getting Help](#getting-help)
@@ -544,6 +545,18 @@ Alternatively, it is also possible to pass an empty list of event topics to sear
 dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --eventtopics "" new.dvf.json
 ```
 
+### Public libraries
+
+If your contracts use public libraries, they are not automatically linked during compilation. You have to explicitly pass the addresses of the libraries using the `--libraries` argument:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --libraries <LIBRARIES> new.dvf.json
+```
+
+`<LIBRARIES>` can be a comma-separated list of libraries. Each item must have the following format: `<PATH>:<NAME>:<ADDRESS>`.
+
+`<PATH>` is the path to the library contract file, relative to your project root. `<NAME>` is the name of the library contract. `<ADDRESS>` is the public address of the already deployed library.
+
 ## Common Problems
 
 Sometimes, it is possible that the `init` command cannot find a deployment transaction. In this case, you have the following options:
@@ -571,7 +584,6 @@ This section will be updated soon.
 
 ## Known Limitations and Bugs
 
-- Compilation with libraries is currently not supported. The best workaround is to compile using `forge build --libraries <LIBS> --build-info --build-info-path <TMPDIR>` and then use `<TMPDIR>` using the `--buildcache` argument.
 - Currently only solidity is supported.
 - Only projects with `solc` version starting from `0.5.13` are supported due to the lack of generated storage layout in older versions (see [solc release 0.5.13](https://github.com/ethereum/solidity/releases/tag/v0.5.13)).
 - The RPC endpoints automatically parsed in `dv generate-config` are not guaranteed to be compatible.
