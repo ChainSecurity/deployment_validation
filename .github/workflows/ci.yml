@@ -67,6 +67,7 @@ jobs:
           MAINNET_RPC: ${{ secrets.MAINNET_RPC }}
           SIGNER_ADDRESS: ${{ secrets.SIGNER_ADDRESS }}
           SIGNER_SECRET_KEY: ${{ secrets.SIGNER_SECRET_KEY }}
+          MAINNET_RPC_WO_OPCODE_LOGS: ${{ secrets.MAINNET_RPC_WO_OPCODE_LOGS }}
         run: ./tests/ci_tests.sh
 
       # TODO: Publish to Docker Hub
