@@ -297,7 +297,7 @@ impl CompareInitCode {
 
         for (arg, value) in project_info.constructor_args.iter_mut().zip(&decoded_args) {
             let encoded_value = value.abi_encode_packed();
-            if encoded_value.len() == 0 {
+            if encoded_value.is_empty() {
                 // Here we keep the arg.type_string we previous extracted from the ABI
                 // This happens with empty arrays
                 arg.value = "0x".to_string();

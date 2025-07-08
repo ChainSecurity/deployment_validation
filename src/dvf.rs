@@ -164,7 +164,7 @@ fn validate_dvf(
         return Err(ValidationError::from("Different codehash."));
     }
 
-    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+    let pretty_printer = PrettyPrinter::new(config, Some(registry));
 
     // Validate Storage slots
     print_progress("Validating Storage Variables.", &mut pc, &progress_mode);
@@ -181,7 +181,7 @@ fn validate_dvf(
         if !storage_variable.compare(&current_val[start_index..end_index]) {
             let message = get_mismatch_msg(
                 &pretty_printer,
-                &storage_variable,
+                storage_variable,
                 &current_val[start_index..end_index],
             );
             if continue_on_mismatch {
@@ -824,8 +824,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             // Parse optional initblock or take deployment_block_num + 1
             let (deployment_block_num, deployment_tx) = if user_deployment_tx.is_some() {
-                let block_num =
-                    web3::get_eth_transaction_block_number(&config, user_deployment_tx.unwrap())?;
+                let (block_num, _, _) =
+                    web3::get_transaction_details(&config, user_deployment_tx.unwrap())?;
                 (block_num, user_deployment_tx.unwrap().clone())
             } else {
                 web3::get_deployment(&config, &dumped.address)?

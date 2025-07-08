@@ -1,6 +1,23 @@
 #!/bin/bash
 set -ex
 
+compare_files() {
+    local file1="$1"
+    local file2="$2"
+    
+    echo "Comparing files..."
+    echo "File 1: $file1"
+    echo "File 2: $file2"
+    
+    if diff "$file1" "$file2" > /dev/null; then
+        echo "Files are identical"
+    else
+        echo "Files are different:"
+        diff "$file1" "$file2"
+        exit 1
+    fi
+}
+
 # Can use env with "set -a && source .env && set +a" for testing
 #export RUSTFLAGS='-D warnings'   # This flag makes pipeline fail on warnings
 pkill geth || true
@@ -27,8 +44,12 @@ cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
 RUST_BACKTRACE=1 cargo test 
 envsubst < tests/config.json > /tmp/eval_config.json
+envsubst < tests/config_localsim.json > /tmp/eval_localsim_config.json
 cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
-cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
+cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory --initblock 10008355 UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
+cargo run --bin dv --  --config  /tmp/eval_localsim_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory --initblock 10008355 UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f_localsim.dvf.json
+compare_files "UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json" "UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f_localsim.dvf.json"
+
 # TODO: Parse output
 cargo run --bin dv -- -c  /tmp/eval_config.json generate-build-cache --project /tmp/uni-factory
 cargo run --bin dv -- --verbose --verbose --config  /tmp/eval_config.json init --address 0x5e8422345238f34275888049021821e8e08caa1f --zerovalue --contractname frxETH --project examples/frxETH-public --initblock 15728402 examples/dvfs/frx_out.dvf.json
