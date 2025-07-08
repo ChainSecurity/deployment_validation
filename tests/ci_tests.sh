@@ -48,7 +48,7 @@ envsubst < tests/config_localsim.json > /tmp/eval_localsim_config.json
 cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
 cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory --initblock 10008355 UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
 cargo run --bin dv --  --config  /tmp/eval_localsim_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory --initblock 10008355 UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f_localsim.dvf.json
-compare_files "UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json" "UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f_localsim.dvf.json"
+compare_files "/tmp/dvfs/UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json" "/tmp/dvfs/UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f_localsim.dvf.json"
 
 # TODO: Parse output
 cargo run --bin dv -- -c  /tmp/eval_config.json generate-build-cache --project /tmp/uni-factory
