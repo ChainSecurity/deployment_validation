@@ -207,10 +207,8 @@ fn validate_dvf(
 
         let mut current_from = start_block;
         while current_from <= end_block {
-            let current_to = std::cmp::min(
-                current_from + config.max_blocks_per_event_query - 1,
-                end_block,
-            );
+            let current_to =
+                std::cmp::min(current_from + config.max_blocks_per_event_query, end_block);
             let seen_events = web3::get_eth_events(
                 config,
                 &filled.address,
