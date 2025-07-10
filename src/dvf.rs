@@ -206,15 +206,11 @@ fn validate_dvf(
         let num_occurrences_expected = critical_event.occurrences.len();
 
         let mut current_from = start_block;
-
-        // First chunk is full size
-        let first_chunk =
-            std::cmp::min(current_from + config.max_blocks_per_event_query, end_block);
-
-        // First call (size = max_blocks_per_event_query, e.g. 10000)
-        let mut current_to = first_chunk;
-
         while current_from <= end_block {
+            let current_to = std::cmp::min(
+                current_from + config.max_blocks_per_event_query - 1,
+                end_block,
+            );
             let seen_events = web3::get_eth_events(
                 config,
                 &filled.address,
@@ -266,18 +262,7 @@ fn validate_dvf(
             }
 
             current_from = current_to + 1;
-
-            // After first chunk, reduce chunk size by 1 (9998)
-            let next_chunk_size = config.max_blocks_per_event_query - 1;
-            current_to = std::cmp::min(current_from + next_chunk_size - 1, end_block);
         }
-
-        // if num_occurrences != num_occurrences_expected {
-        //     return Err(ValidationError::Invalid(format!(
-        //         "Found {} occurrences of event {}, but expected {}.",
-        //         num_occurrences, critical_event.sig, num_occurrences_expected
-        //     )));
-        // }
 
         pb.inc(1);
     }

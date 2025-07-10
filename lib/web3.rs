@@ -703,10 +703,10 @@ fn send_blocking_web3_post(
     let res_ = client.post(node_url).json(&request_body).send()?;
 
     let res_text = res_.text()?;
-    debug!("Web3 response text: {:?}", res_text);
+    // debug!("Web3 response text: {:?}", res_text);
 
     let res = serde_json::from_str::<Web3Response>(&res_text)?;
-    debug!("Web3 response json: {:?}", res);
+    // debug!("Web3 response json: {:?}", res);
 
     if let Some(error) = res.error {
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
