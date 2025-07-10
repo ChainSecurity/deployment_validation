@@ -1327,36 +1327,53 @@ pub fn get_eth_events_paginated(
     to_block: u64,
     topics: &Vec<B256>,
 ) -> Result<Vec<Log>, ValidationError> {
-    if to_block - from_block > config.max_blocks_per_event_query {
-        let pb = ProgressBar::new(to_block - from_block);
-        if to_block - from_block > LARGE_BLOCK_RANGE {
-            let mut num_events = String::new();
-            if topics.is_empty() {
-                num_events.push_str("all");
-            } else {
-                num_events.push_str(&topics.len().to_string());
-            }
-            info!(
-                "You are querying {} event(s) for a range of {} blocks. This will take some time.",
-                num_events,
-                to_block - from_block + 1
-            );
-        }
-        let mut last_block = from_block + config.max_blocks_per_event_query;
-        let mut events = get_eth_events_paginated(config, address, from_block, last_block, topics)?;
-        while last_block < to_block {
-            let next_last_block =
-                std::cmp::min(last_block + config.max_blocks_per_event_query - 1, to_block);
-            let mut next_events =
-                get_eth_events_paginated(config, address, last_block + 1, next_last_block, topics)?;
-            last_block = next_last_block;
-            pb.set_position(next_last_block - from_block);
-            events.append(&mut next_events);
-        }
-        pb.finish_and_clear();
-        return Ok(events);
+    let mut events = Vec::new();
+
+    // If the range is small enough, just make a single request
+    if to_block - from_block <= config.max_blocks_per_event_query {
+        return Ok(get_eth_events(
+            config, address, from_block, to_block, topics,
+        )?);
     }
-    return get_eth_events(config, address, from_block, to_block, topics);
+
+    // Otherwise, if the range is larger than the maximum allowed for one request, paginate
+    let pb = ProgressBar::new(to_block - from_block);
+
+    // Inform user if the block range is large
+    if to_block - from_block > LARGE_BLOCK_RANGE {
+        let mut num_events = String::new();
+        if topics.is_empty() {
+            num_events.push_str("all");
+        } else {
+            num_events.push_str(&topics.len().to_string());
+        }
+        info!(
+            "You are querying {} event(s) for a range of {} blocks. This will take some time.",
+            num_events,
+            to_block - from_block + 1
+        );
+    }
+
+    let mut current_from = from_block;
+    while current_from <= to_block {
+        // Calculate the end of this chunk (either the max allowed or the to_block)
+        let current_to = std::cmp::min(
+            current_from + config.max_blocks_per_event_query - 1,
+            to_block,
+        );
+
+        let mut chunk_events = get_eth_events(config, address, current_from, current_to, topics)?;
+        events.append(&mut chunk_events);
+
+        pb.set_position(current_to - from_block + 1);
+
+        // Move the starting point to the next block after the current range
+        current_from = current_to + 1;
+    }
+
+    pb.finish_and_clear();
+
+    Ok(events)
 }
 
 // Fetches events, in a single call, does NOT paginate the block range.
