@@ -25,18 +25,18 @@ pkill anvil || true
 pkill cached_proxy || true
 rm -rf /tmp/uni-factory /tmp/usdc_implementation2
 cargo build
-# cargo clippy
+cargo clippy
 mkdir -p /tmp/dvfs
 if [ "$REBUILD_CACHE" = "1" ]; then
     echo "Rebuilding Cache"
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -u $RPC_MAINNET &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -u $RPC_MAINNET &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
 else
     echo "Using Cache"
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 &
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc &
 fi
 cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
