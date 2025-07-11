@@ -11,6 +11,7 @@ mod tests {
     use std::io::Write;
     use std::panic;
     use std::path::Path;
+    use std::path::PathBuf;
     use std::process::{Child, Command as SimpleCommand, Stdio};
     use std::thread::sleep;
     use std::time::Duration;
@@ -50,6 +51,18 @@ mod tests {
                 #[allow(dropping_references)]
                 LocalClient::Anvil(a) => drop(a),
                 LocalClient::Geth(ref mut child) => drop(child.kill()),
+            }
+        }
+    }
+
+    struct CleanupGuard {
+        path: PathBuf,
+    }
+
+    impl Drop for CleanupGuard {
+        fn drop(&mut self) {
+            if self.path.exists() {
+                Command::new("rm").arg(&self.path).assert();
             }
         }
     }
@@ -664,6 +677,12 @@ mod tests {
             let mut new_dvf_path = config.dvf_storage.clone();
             new_dvf_path.push("MyToken.dvf.json");
             outfile.persist(new_dvf_path.as_path()).unwrap();
+            println!("persisting in {:?}", new_dvf_path.as_path());
+
+            // this will clean up the file even if the test fails mid-way
+            let cleanup = CleanupGuard {
+                path: new_dvf_path.clone(),
+            };
 
             let proxy_outfile = NamedTempFile::new().unwrap();
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -745,8 +764,7 @@ mod tests {
                 .success();
 
             // Remove MyToken.dvf.json
-            let mut rm_cmd = Command::new("rm");
-            rm_cmd.arg(new_dvf_path.as_path()).assert().success();
+            drop(cleanup);
 
             drop(local_client);
         }
