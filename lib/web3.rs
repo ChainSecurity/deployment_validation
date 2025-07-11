@@ -1331,9 +1331,7 @@ pub fn get_eth_events_paginated(
 
     // If the range is small enough, just make a single request
     if to_block - from_block <= config.max_blocks_per_event_query {
-        return Ok(get_eth_events(
-            config, address, from_block, to_block, topics,
-        )?);
+        return get_eth_events(config, address, from_block, to_block, topics);
     }
 
     // Otherwise, if the range is larger than the maximum allowed for one request, paginate
