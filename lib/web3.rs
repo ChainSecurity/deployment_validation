@@ -28,7 +28,7 @@ use alloy_rpc_types_trace::parity::{
 use reth_trie::root;
 
 const NUM_STORAGE_QUERIES: u64 = 32;
-const LARGE_BLOCK_RANGE: u64 = 5000;
+const LARGE_BLOCK_RANGE: u64 = 100000;
 
 mod pathological_rpc_deserde {
     use serde::{self, Deserialize};
@@ -544,21 +544,18 @@ fn send_blocking_web3_post(
 
     let node_url = config.get_rpc_url()?;
 
-    debug!("Web3 node_url: {:?}", &node_url[0..20]);
     debug!("Web3 request_body: {:?}", request_body);
-    let res_ = client.post(node_url).json(&request_body).send()?;
-
-    let res_text = res_.text()?;
-    // debug!("Web3 response text: {:?}", res_text);
-
-    let res = serde_json::from_str::<Web3Response>(&res_text)?;
-    // debug!("Web3 response json: {:?}", res);
+    let res = client
+        .post(node_url)
+        .json(&request_body)
+        .send()?
+        .json::<Web3Response>()?;
 
     if let Some(error) = res.error {
         return Err(ValidationError::from(format!("Web3Error: {:?}", error)));
     };
 
-    // debug!("Web3 response: {:?}", res.result);
+    debug!("Web3 response: {:?}", res.result);
     match res.result {
         Some(result) => Ok(result),
         None => Err(ValidationError::Error(

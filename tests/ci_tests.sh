@@ -8,30 +8,29 @@ pkill anvil || true
 pkill cached_proxy || true
 rm -rf /tmp/uni-factory /tmp/usdc_implementation2
 cargo build
-# cargo clippy
+cargo clippy
 mkdir -p /tmp/dvfs
 if [ "$REBUILD_CACHE" = "1" ]; then
     echo "Rebuilding Cache"
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -u $RPC_MAINNET &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -u $RPC_MAINNET &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u "https://eth.blockscout.com" &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
 else
     echo "Using Cache"
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 &
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 &
-    cargo run --bin cached_proxy -- -v -v -d tests/cachedrpc &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc &
 fi
 cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
-# RUST_BACKTRACE=1 cargo test 
+RUST_BACKTRACE=1 cargo test 
 envsubst < tests/config.json > /tmp/eval_config.json
-# cp tests/ci_config.json /tmp/eval_config.json
-# cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
-# cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
+cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
+cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
 # TODO: Parse output
-# cargo run --bin dv -- -c  /tmp/eval_config.json generate-build-cache --project /tmp/uni-factory
+cargo run --bin dv -- -c  /tmp/eval_config.json generate-build-cache --project /tmp/uni-factory
 cargo run --bin dv -- --verbose --verbose --config  /tmp/eval_config.json init --address 0x5e8422345238f34275888049021821e8e08caa1f --zerovalue --contractname frxETH --project examples/frxETH-public --initblock 15728402 examples/dvfs/frx_out.dvf.json
 cargo run --bin dv -- --config  /tmp/eval_config.json sign examples/dvfs/frxETH_filtered.dvf.json
 cargo run --bin dv -- --config  /tmp/eval_config.json validate --validationblock  15729502 examples/dvfs/frxETH_filtered.dvf.json
