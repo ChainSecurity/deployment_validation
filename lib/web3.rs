@@ -1203,7 +1203,10 @@ pub fn get_eth_events_paginated(
     let mut current_from = from_block;
     while current_from <= to_block {
         // Calculate the end of this chunk (either the max allowed or the to_block)
-        let current_to = std::cmp::min(current_from + config.max_blocks_per_event_query, to_block);
+        let current_to = std::cmp::min(
+            current_from + config.max_blocks_per_event_query - 1,
+            to_block,
+        );
 
         let mut chunk_events = get_eth_events(config, address, current_from, current_to, topics)?;
         events.append(&mut chunk_events);
