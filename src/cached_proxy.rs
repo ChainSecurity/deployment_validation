@@ -60,6 +60,7 @@ async fn generic_function(
 
     // If we are running in test mode, answer no non-cached queries
     if url.len() < 2 {
+        println!("This RPC request is not cached and the proxy is running in cache-only mode!");
         return web::Json("".into());
     }
 
@@ -164,6 +165,7 @@ async fn generic_path_function<T: AsRef<str> + std::fmt::Display>(
 
     // If we are running in test mode, answer no non-cached queries
     if url.len() < 2 {
+        println!("This RPC request is not cached and the proxy is running in cache-only mode!");
         return web::Json("".into());
     }
 
