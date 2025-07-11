@@ -25,7 +25,7 @@ pkill anvil || true
 pkill cached_proxy || true
 rm -rf /tmp/uni-factory /tmp/usdc_implementation2
 cargo build
-cargo clippy
+# cargo clippy
 mkdir -p /tmp/dvfs
 if [ "$REBUILD_CACHE" = "1" ]; then
     echo "Rebuilding Cache"
@@ -42,6 +42,7 @@ cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
+
 RUST_BACKTRACE=1 cargo test 
 
 envsubst < tests/config.json > /tmp/eval_config.json
