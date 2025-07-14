@@ -1442,7 +1442,10 @@ mod tests {
                     .assert()
                     .success();
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
-                // outfile.keep().unwrap();
+
+                // Uncomment to regenerate expected files
+                // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
+
                 drop(local_client);
             }
         }

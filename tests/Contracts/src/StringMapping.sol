@@ -10,6 +10,7 @@ contract StringMapping {
     constructor() {
         x["Hello this is a test"] = 5;
         x["A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string"] = 42;
+        x[""] = 16;
         y["abc"] = "a short string";
         y["a"] = "A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string.";
         emit SomeE("EventData", 1000);
@@ -25,6 +26,7 @@ contract StringMapping {
         x["Hello this is a test"] = 6;
         x["A"] = 100;
         x["escapethis\""] = 100;
+        x[""] = 17;
     }
 
     function dummy() external {}

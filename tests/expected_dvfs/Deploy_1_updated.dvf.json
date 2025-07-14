@@ -5,12 +5,20 @@
   "chain_id": 1337,
   "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0xbd44492ce35b11b438be83b11fef8e1f18f3dd1f847c791083f3659d2a66885c",
-  "codehash": "0x2feab59f98325c0ad112156daca7c79dc9e9e17c16be3e374874788370b91e02",
+  "deployment_tx": "0x733f24e286df79a6d3bdbbdaa551b64345fc3bf998966f25047570f468511e89",
+  "codehash": "0x4ab7128c62fe3ae0248fb042216104003ba394bada16ea26e7f9ff28c567330b",
   "insecure": false,
   "immutables": [],
   "constructor_args": [],
   "critical_storage_variables": [
+    {
+      "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "offset": 0,
+      "var_name": "x[]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000011",
+      "comparison_operator": "Equal"
+    },
     {
       "slot": "0x2fccf76901d0aa8dbb54cf0f8d3d8db6b27e630b57020bc913d21efd33831cbc",
       "offset": 0,
