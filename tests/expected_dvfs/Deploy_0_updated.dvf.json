@@ -5,8 +5,8 @@
   "chain_id": 1337,
   "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0x11819f70620f7d3a7a69eee5e9ad55cedec78c9fc5a83ab743fdec42a77ab504",
-  "codehash": "0x3867a08d0f6ad7f18a522cb18383fa3eb688bbde257d84652a614fda9167b190",
+  "deployment_tx": "0x3b301739a191c52d26550afb8db65f22d8737f131ae89d3638a7abad7db5d0ca",
+  "codehash": "0x250c83841bdc9c5a75901d02a03c13f61fe5a7322048edc7281cb883046cbd3d",
   "insecure": false,
   "immutables": [],
   "constructor_args": [],
@@ -18,6 +18,23 @@
       "var_type": "t_bytes_storage",
       "value": "0x4a75737420736f6d65206e6f726d616c2062797465732e00000000000000002e",
       "value_hint": "4a75737420736f6d65206e6f726d616c2062797465732e",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x9585a484f2986d2ea861217da743415385040e49ef9230f4bbc28c0e1788930",
+      "offset": 0,
+      "var_name": "x[0x4a7573742061206e69636520737472696e67]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000017",
+      "value_hint": "23",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "offset": 0,
+      "var_name": "x[0x]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000011",
       "comparison_operator": "Equal"
     },
     {
