@@ -12,6 +12,8 @@ contract BytesMapping {
         x[bytes("Hello this is a test")] = 5;
         x[bytes("A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string")] = 42;
         b = bytes("Just some normal bytes.");
+        x["Just a nice string"] = 23;
+        x[""] = 16;
     }
 
     function f() external {
