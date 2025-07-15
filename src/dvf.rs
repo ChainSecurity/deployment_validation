@@ -547,7 +547,7 @@ fn main() {
                         .value_parser(is_valid_blocknum),
                 )
                 .arg(
-                    arg!(--discover) 
+                    arg!(--discover)
                     .help(
                         "Also discover new storage variables and events"
                     ).action(clap::ArgAction::SetTrue)
@@ -866,7 +866,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let zerovalue = sub_m.get_flag("zerovalue");
             let user_deployment_tx = sub_m.get_one::<String>("deployment");
 
-
             let user_output_path = Path::new(sub_m.get_one::<String>("OUTPUT").unwrap());
             // This is just a file name so we will place it in the configured folder
             let output_path: &Path = if is_filename_only_path(user_output_path) {
@@ -983,7 +982,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             debug!("Copying parsed constructor arguments to dvf file");
             dumped.copy_constructor_args(&project_info, &pretty_printer);
 
-
             // Use the new helper function for discovery
             let discovery_params = DiscoveryParams {
                 config: &config,
@@ -997,10 +995,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 env,
                 build_cache,
                 libraries: libraries.clone(),
-                implementation_name: sub_m.get_one::<String>("implementation").map(|s| s.as_str()),
+                implementation_name: sub_m
+                    .get_one::<String>("implementation")
+                    .map(|s| s.as_str()),
                 implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
                 implementation_env: env,
-                implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+                implementation_artifacts: sub_m
+                    .get_one::<String>("implementationartifacts")
+                    .unwrap(),
                 implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
                 zerovalue,
                 event_topics: event_topics,
@@ -1211,7 +1213,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
-            
+
             let discover = sub_m.get_flag("discover");
             println!("running discover mode? {}", discover);
 
@@ -1264,12 +1266,17 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     artifacts: sub_m.get_one::<String>("artifacts").unwrap(),
                     env: *sub_m.get_one::<Environment>("env").unwrap(),
                     build_cache: sub_m.get_one::<String>("buildcache"),
-                    libraries: sub_m.get_many::<String>("libraries")
+                    libraries: sub_m
+                        .get_many::<String>("libraries")
                         .map(|vals| vals.cloned().collect()),
-                    implementation_name: sub_m.get_one::<String>("implementation").map(|s| s.as_str()),
+                    implementation_name: sub_m
+                        .get_one::<String>("implementation")
+                        .map(|s| s.as_str()),
                     implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
                     implementation_env: *sub_m.get_one::<Environment>("implementationenv").unwrap(),
-                    implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+                    implementation_artifacts: sub_m
+                        .get_one::<String>("implementationartifacts")
+                        .unwrap(),
                     implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
                     zerovalue,
                     event_topics: None, // Update mode doesn't filter by event topics
@@ -1278,13 +1285,15 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 };
 
                 let discovery_result = discover_storage_and_events(discovery_params)?;
-                
+
                 // Update existing storage variables and add new ones
-                let current_storage_map: HashMap<String, &parse::DVFStorageEntry> = discovery_result.critical_storage_variables
-                                    .iter()
-                                    .map(|var| (format!("{:#x}", var.slot), var))
-                                    .collect();
-                
+                let current_storage_map: HashMap<String, &parse::DVFStorageEntry> =
+                    discovery_result
+                        .critical_storage_variables
+                        .iter()
+                        .map(|var| (format!("{:#x}", var.slot), var))
+                        .collect();
+
                 // Check for changes in existing storage variables
                 for storage_variable in updated.critical_storage_variables.iter_mut() {
                     let slot_key = format!("{:#x}", storage_variable.slot);
@@ -1305,27 +1314,31 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                         }
                     }
                 }
-                
+
                 // Add new storage variables
-                let existing_slots: HashSet<_> = updated.critical_storage_variables
+                let existing_slots: HashSet<_> = updated
+                    .critical_storage_variables
                     .iter()
                     .map(|var| var.slot)
                     .collect();
-                    
+
                 for new_var in discovery_result.critical_storage_variables {
                     if !existing_slots.contains(&new_var.slot) {
-                        println!("Found new storage variable: {} at slot {}", 
-                            new_var.var_name, new_var.slot);
+                        println!(
+                            "Found new storage variable: {} at slot {}",
+                            new_var.var_name, new_var.slot
+                        );
                         updated.critical_storage_variables.push(new_var);
                     }
                 }
-                
+
                 // Update events similarly
-                let current_events_map: HashMap<B256, &parse::DVFEventEntry> = discovery_result.critical_events
+                let current_events_map: HashMap<B256, &parse::DVFEventEntry> = discovery_result
+                    .critical_events
                     .iter()
                     .map(|event| (event.topic0, event))
                     .collect();
-                
+
                 // Check for changes in existing events
                 for critical_event in updated.critical_events.iter_mut() {
                     if let Some(current_event) = current_events_map.get(&critical_event.topic0) {
@@ -1340,21 +1353,24 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                         }
                     }
                 }
-                
+
                 // Add new events
-                let existing_topics: HashSet<_> = updated.critical_events
+                let existing_topics: HashSet<_> = updated
+                    .critical_events
                     .iter()
                     .map(|event| event.topic0)
                     .collect();
-                    
+
                 for new_event in discovery_result.critical_events {
                     if !existing_topics.contains(&new_event.topic0) {
-                        println!("Found new event: {} with {} occurrences", 
-                            new_event.sig, new_event.occurrences.len());
+                        println!(
+                            "Found new event: {} with {} occurrences",
+                            new_event.sig,
+                            new_event.occurrences.len()
+                        );
                         updated.critical_events.push(new_event);
                     }
                 }
-                
             } else {
                 // Fallback: manual storage checking without project info (original approach)
                 for storage_variable in updated.critical_storage_variables.iter_mut() {
@@ -1379,15 +1395,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                             )
                         );
                         storage_variable.value = current_val[start_index..end_index].to_vec();
-                        
+
                         if let Some(var_type) = &storage_variable.var_type {
-                            storage_variable.value_hint = Some(
-                                pretty_printer.pretty_value_short_from_bytes(
+                            storage_variable.value_hint =
+                                Some(pretty_printer.pretty_value_short_from_bytes(
                                     var_type,
                                     &storage_variable.value,
                                     false,
-                                )
-                            );
+                                ));
                         } else {
                             storage_variable.value_hint = None;
                         }
@@ -1420,7 +1435,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                         replace_events = true;
                     }
 
-                    let num_shared = std::cmp::min(seen_events.len(), critical_event.occurrences.len());
+                    let num_shared =
+                        std::cmp::min(seen_events.len(), critical_event.occurrences.len());
                     #[allow(clippy::needless_range_loop)]
                     for i in 0..num_shared {
                         let log_innner = &seen_events[i].inner;
@@ -1663,8 +1679,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
     }
 }
 
-
-
 struct DiscoveryParams<'a> {
     config: &'a DVFConfig,
     contract_name: &'a str,
@@ -1697,24 +1711,28 @@ struct DiscoveryResult {
     proxy_warning: bool,
 }
 
-fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResult, ValidationError> {
+fn discover_storage_and_events(
+    params: DiscoveryParams,
+) -> Result<DiscoveryResult, ValidationError> {
     let registry = registry::Registry::from_config(params.config)?;
     let pretty_printer = PrettyPrinter::new(params.config, Some(&registry));
-    
+
     // Initialize storage layout and types based on project availability
-    let (mut storage_layout, mut types, mut contract_state) = if let Some(project_path) = params.project {
+    let (mut storage_layout, mut types, mut contract_state) = if let Some(project_path) =
+        params.project
+    {
         let artifacts_path = get_project_paths(project_path, params.artifacts);
 
         // Load main project info
         let project_info = ProjectInfo::new(
-                    &params.contract_name.to_string(),
-                    project_path,
-                    params.env,
-                    &artifacts_path,
-                    params.build_cache,
-                    params.libraries.clone(),
-                )?;
-        
+            &params.contract_name.to_string(),
+            project_path,
+            params.env,
+            &artifacts_path,
+            params.build_cache,
+            params.libraries.clone(),
+        )?;
+
         // Load storage layout using forge inspect
         let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             project_path,
@@ -1756,7 +1774,7 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
             imp_artifacts_path = get_project_paths(project_path, params.artifacts);
         } else {
             return Err(ValidationError::from(
-                "Implementation contract specified but no project path provided"
+                "Implementation contract specified but no project path provided",
             ));
         }
 
@@ -1813,7 +1831,11 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
             .filter_map(|e| e.transaction_hash.map(|h| format!("{:#x}", h)))
             .collect()
     } else {
-        print_progress("Obtaining past transactions.", params.pc, params.progress_mode);
+        print_progress(
+            "Obtaining past transactions.",
+            params.pc,
+            params.progress_mode,
+        );
         web3::get_all_txs_for_contract(
             params.config,
             params.address,
@@ -1833,16 +1855,19 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
     print_progress("Getting relevant traces.", params.pc, params.progress_mode);
     let mut seen_transactions = HashSet::new();
     let mut missing_traces = false;
-    
+
     for tx_hash in &tx_hashes {
         if seen_transactions.contains(tx_hash) {
             continue;
         }
         seen_transactions.insert(tx_hash);
-        
+
         let mut found_trace = true;
         if let Ok(trace) = web3::get_eth_debug_trace(params.config, tx_hash) {
-            if contract_state.record_traces(params.config, vec![trace]).is_err() {
+            if contract_state
+                .record_traces(params.config, vec![trace])
+                .is_err()
+            {
                 found_trace = false;
                 missing_traces = true;
             }
@@ -1850,7 +1875,7 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
             found_trace = false;
             missing_traces = true;
         }
-        
+
         if !found_trace {
             info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable.");
         }
@@ -1873,8 +1898,8 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
 
     let proxy_warning = critical_storage_variables
         .iter()
-        .any(|var| var.var_name == "unknown") && imp_project_info.is_some();
-
+        .any(|var| var.var_name == "unknown")
+        && imp_project_info.is_some();
 
     // Event discovery logic
     if params.event_topics.is_none() {
@@ -1901,39 +1926,39 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
                 let artifacts_path = get_project_paths(project_path, params.artifacts);
                 let contract_name_string = params.contract_name.to_string();
                 let project_info = ProjectInfo::new(
-                                    &contract_name_string,
-                                    project_path,
-                                    params.env,
-                                    &artifacts_path,
-                                    params.build_cache,
-                                    params.libraries.clone(),
-                                )?;
+                    &contract_name_string,
+                    project_path,
+                    params.env,
+                    &artifacts_path,
+                    params.build_cache,
+                    params.libraries.clone(),
+                )?;
                 project_info.events.clone()
             } else {
                 vec![]
             }
-        },
+        }
         Some(imp_project) => {
             let mut set_of_sigs: HashSet<B256> = HashSet::new();
             let mut res: Vec<Event> = vec![];
-            
+
             // Get main project events if available
             let main_events = if let Some(project_path) = params.project {
                 let artifacts_path = get_project_paths(project_path, params.artifacts);
                 let contract_name_string = params.contract_name.to_string();
                 let project_info = ProjectInfo::new(
-                                    &contract_name_string,
-                                    project_path,
-                                    params.env,
-                                    &artifacts_path,
-                                    params.build_cache,
-                                    params.libraries.clone(),
-                                )?;
+                    &contract_name_string,
+                    project_path,
+                    params.env,
+                    &artifacts_path,
+                    params.build_cache,
+                    params.libraries.clone(),
+                )?;
                 project_info.events.clone()
             } else {
                 vec![]
             };
-            
+
             for eventlist in [&main_events, &imp_project.events] {
                 for event in eventlist {
                     let sig = event.selector();
@@ -2004,8 +2029,7 @@ fn discover_storage_and_events(params: DiscoveryParams) -> Result<DiscoveryResul
             seen_events.len(),
             covered_events
         );
-        let used_topics_0: HashSet<B256> =
-            all_events.iter().map(|e| e.selector()).collect();
+        let used_topics_0: HashSet<B256> = all_events.iter().map(|e| e.selector()).collect();
         let all_topics_0: HashSet<B256> =
             seen_events.iter().map(|e| *e.topic0().unwrap()).collect();
         for unused_topic in all_topics_0.difference(&used_topics_0) {
