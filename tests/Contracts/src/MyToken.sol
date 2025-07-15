@@ -902,6 +902,7 @@ contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20Upgradeabl
      */
     uint256[45] private __gap;
 }
+
 contract MyToken is Initializable, ERC20Upgradeable {
     address public immutable router;
     int16 public immutable penalty;
@@ -913,7 +914,7 @@ contract MyToken is Initializable, ERC20Upgradeable {
         _disableInitializers();
     }
 
-    function initialize() public initializer virtual {
+    function initialize() public virtual initializer {
         __ERC20_init("MyToken", "MTK");
         _mint(msg.sender, 10 ** 19);
     }
@@ -921,13 +922,13 @@ contract MyToken is Initializable, ERC20Upgradeable {
     function dummy() external virtual {}
 }
 
-
 contract MyTokenV2 is MyToken {
     event DummyEvent();
+
     uint256 public dummyValue;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    function initialize() public reinitializer(2) override {
+    function initialize() public override reinitializer(2) {
         __ERC20_init("MyTokenV2", "MTKV2");
     }
 

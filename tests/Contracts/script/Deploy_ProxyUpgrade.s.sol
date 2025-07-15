@@ -1,7 +1,10 @@
 pragma solidity ^0.8.12;
 
 import "forge-std/Script.sol";
-import {TransparentUpgradeableProxy as TransparentUpgradeableProxy2, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy as TransparentUpgradeableProxy2,
+    ITransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import "../src/MyToken.sol";
@@ -31,12 +34,9 @@ contract S is Script {
         ProxyAdmin proxyAdmin = ProxyAdmin(address(bytes20(vm.load(address(p), ERC1967Utils.ADMIN_SLOT) << 96)));
         MyTokenV2 m2 = new MyTokenV2();
         proxyAdmin.upgradeAndCall(
-            ITransparentUpgradeableProxy(address(p)),
-            address(m2),
-            abi.encodeCall(MyTokenV2.initialize, ())
+            ITransparentUpgradeableProxy(address(p)), address(m2), abi.encodeCall(MyTokenV2.initialize, ())
         );
         real.dummy();
-        
 
         vm.stopBroadcast();
     }
