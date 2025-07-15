@@ -451,7 +451,7 @@ mod tests {
                 let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
 
                 // Uncomment to regenerate expected files
-                // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+                std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
                 assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
 
@@ -649,13 +649,11 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            /*
-            std::fs::copy(
-                outfile.path(),
-                Path::new("tests/expected_dvfs/MyToken.dvf.json"),
-            )
-            .unwrap();
-            */
+            // std::fs::copy(
+            //     outfile.path(),
+            //     Path::new("tests/expected_dvfs/MyToken.dvf.json"),
+            // )
+            // .unwrap();
 
             assert_eq_files(
                 &outfile.path(),
@@ -714,13 +712,11 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            /*
-            std::fs::copy(
-                proxy_outfile.path(),
-                Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
-            )
-            .unwrap();
-            */
+            // std::fs::copy(
+            //     proxy_outfile.path(),
+            //     Path::new("tests/expected_dvfs/TransparentUpgradeableProxy.dvf.json"),
+            // )
+            // .unwrap();
 
             // @note that this fails, since the wrong name is stored in the registry
             assert_eq_files(
@@ -773,6 +769,190 @@ mod tests {
             drop(local_client);
         }
     }
+
+    struct ContractVersion {
+        contract: String,
+        expected: String,
+        deployment_block: u64,
+        address: String,
+    }
+
+    #[test]
+    fn test_e2e_proxy_upgrade() {
+        let port = 8548u16;
+        let config_file = match DVFConfig::test_config_file(Some(port)) {
+            Ok(config) => config,
+            Err(err) => {
+                println!("{}", err);
+                assert!(false);
+                return;
+            }
+        };
+        let url = format!("http://localhost:{}", port).to_string();
+        for client_type in LocalClientType::iterator() {
+            let local_client = start_local_client(client_type.clone(), port);
+
+            // forge script script/Deploy_Proxy.s.sol --rpc-url "http://127.0.0.1:8546" --broadcast
+            let mut forge_cmd = Command::new("forge");
+            forge_cmd.current_dir("tests/Contracts");
+            let forge_assert = forge_cmd
+                .args(&[
+                    "script",
+                    "script/Deploy_ProxyUpgrade.s.sol",
+                    "--rpc-url",
+                    &url,
+                    "--broadcast",
+                    "--slow",
+                ])
+                .assert()
+                .success();
+            println!(
+                "{}",
+                &String::from_utf8_lossy(&forge_assert.get_output().stdout)
+            );
+            let v1: ContractVersion = ContractVersion {
+                contract: String::from("MyToken"),
+                expected: String::from("tests/expected_dvfs/MyTokenUpgrade.dvf.json"),
+                deployment_block: 3,
+                address: String::from("0x5fbdb2315678afecb367f032d93f642f64180aa3"),
+            };
+            let v2: ContractVersion = ContractVersion {
+                contract: String::from("MyTokenV2"),
+                expected: String::from("tests/expected_dvfs/MyTokenUpgradeV2.dvf.json"),
+                deployment_block: 24,
+                address: String::from("0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"),
+            };
+
+            // let config = DVFConfig::from_path(&config_file.path()).unwrap();
+            // let mut new_dvf_path = config.dvf_storage.clone();
+
+            for v in [v1, v2] {
+                let outfile = NamedTempFile::new().unwrap();
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "init",
+                        "--address",
+                        &v.address,
+                        "--chainid",
+                        &chain_id_str(client_type.clone()),
+                        "--project",
+                        "tests/Contracts/",
+                        "--initblock",
+                        &v.deployment_block.to_string(),
+                        "--contractname",
+                        &v.contract,
+                        &outfile.path().to_string_lossy(),
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+                // Uncomment to regenerate expected files
+                std::fs::copy(
+                    outfile.path(),
+                    &Path::new(&v.expected),
+                )
+                .unwrap();
+
+                assert_eq_files(
+                    &outfile.path(),
+                    &Path::new(&v.expected),
+                );
+                
+                // Sign
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "sign",
+                        &outfile.path().to_string_lossy(),
+                    ])
+                    .assert()
+                    .success();
+
+                // new_dvf_path.push(&v.dv_path);
+                // outfile.persist(new_dvf_path.as_path()).unwrap();
+
+            }
+
+            let proxy_outfile = NamedTempFile::new().unwrap();
+            let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+            let assert = dvf_cmd
+                .args(&[
+                    "--config",
+                    &config_file.path().to_string_lossy(),
+                    "init",
+                    "--address",
+                    "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+                    "--chainid",
+                    &chain_id_str(client_type.clone()),
+                    "--project",
+                    "tests/Contracts/",
+                    "--contractname",
+                    "TransparentUpgradeableProxy",
+                    "--implementation",
+                    "MyToken",
+                    "--initblock",
+                    "3",
+                    &proxy_outfile.path().to_string_lossy(),
+                ])
+                .assert()
+                .success();
+            println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+            // Uncomment to regenerate expected files
+            std::fs::copy(
+                proxy_outfile.path(),
+                Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade.dvf.json"),
+            )
+            .unwrap();            
+
+            // @note that this fails, since the wrong name is stored in the registry
+            assert_eq_files(
+                proxy_outfile.path(),
+                Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade.dvf.json"),
+            );
+    
+            // Update
+            let mut dvf_cmd: Command = Command::cargo_bin("dv").unwrap();      
+            let assert = dvf_cmd
+                .args(&[
+                    "--config",
+                    &config_file.path().to_string_lossy(),
+                    "update",
+                    "--validationblock",
+                    "26",
+                    "--discover",
+                    &proxy_outfile.path().to_string_lossy(),
+                    "--implementation",
+                    "MyTokenV2",
+                    "--project",
+                    "tests/Contracts/",             
+                ])
+                .assert()
+                .success();
+            println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+
+            // Uncomment to regenerate expected files
+            let updated_path = format!("{}_updated.dvf.json", proxy_outfile.path().to_string_lossy());
+            std::fs::copy(Path::new(&updated_path), Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade_updated.dvf.json")).unwrap();
+
+            assert_eq_files(
+                Path::new(&updated_path),
+                Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade_updated.dvf.json"),
+            );
+            // Remove MyToken.dvf.json
+            // let mut rm_cmd: Command = Command::new("rm");
+            // rm_cmd.arg(new_dvf_path.as_path()).assert().success();
+
+            drop(local_client);
+        }
+    }
+    
 
     #[test]
     fn test_e2e_init_validate() {

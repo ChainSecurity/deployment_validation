@@ -53,6 +53,7 @@
       "var_name": "x[Hello this is a test]",
       "var_type": "t_uint256",
       "value": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "value_hint": "6",
       "comparison_operator": "Equal"
     },
     {

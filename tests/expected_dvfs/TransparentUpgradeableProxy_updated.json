@@ -1,0 +1,198 @@
+{
+  "version": "0.9.1",
+  "contract_name": "TransparentUpgradeableProxy",
+  "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+  "chain_id": 31337,
+  "deployment_block_num": 3,
+  "init_block_num": 3,
+  "deployment_tx": "0x45c4b4e7934f4dc4a2d83d990db1818b3dcd82618b9dd3809c048e5156180318",
+  "codehash": "0x07a3f582ceb15f50e21a238db7f4aab8320b4fac8d78379d05feaf2721f139b1",
+  "insecure": false,
+  "immutables": [
+    {
+      "var_name": "_admin",
+      "value": "0x000000000000000000000000cafac3dd18ac6c6e92c921884f9e4176737c052c"
+    }
+  ],
+  "constructor_args": [
+    {
+      "var_name": "_logic",
+      "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+    },
+    {
+      "var_name": "initialOwner",
+      "value": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+    },
+    {
+      "var_name": "_data",
+      "value": "0x8129fc1c"
+    }
+  ],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "_initialized",
+      "var_type": "t_uint8",
+      "value": "0x02",
+      "value_hint": "2",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x35",
+      "offset": 0,
+      "var_name": "_totalSupply",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+      "value_hint": "1. * 10^19",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x36",
+      "offset": 0,
+      "var_name": "_name (length=7)",
+      "var_type": "t_string_storage",
+      "value": "0x4d79546f6b656e56320000000000000000000000000000000000000000000012",
+      "value_hint": "MyTokenV2",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x37",
+      "offset": 0,
+      "var_name": "_symbol (length=3)",
+      "var_type": "t_string_storage",
+      "value": "0x4d544b563200000000000000000000000000000000000000000000000000000a",
+      "value_hint": "MTKV2",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "offset": 0,
+      "var_name": "StorageSlot.IMPLEMENTATION_SLOT.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103",
+      "offset": 0,
+      "var_name": "StorageSlot.ADMIN_SLOT.AddressSlot.value",
+      "var_type": "t_address",
+      "value": "0xcafac3dd18ac6c6e92c921884f9e4176737c052c",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xf6d04bbe1a75429862aa97cc198c639a5559580c07ae94016a2b25986f2e3abd",
+      "offset": 0,
+      "var_name": "_balances[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000008ac7230489e80000",
+      "value_hint": "1. * 10^19",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x65",
+      "offset": 0,
+      "var_name": "dummyValue",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "AdminChanged(address,address)",
+      "topic0": "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f",
+      "occurrences": [
+        {
+          "topics": [
+            "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cafac3dd18ac6c6e92c921884f9e4176737c052c"
+        }
+      ]
+    },
+    {
+      "sig": "Upgraded(address)",
+      "topic0": "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+      "occurrences": [
+        {
+          "topics": [
+            "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+            "0x0000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa3"
+          ],
+          "data": "0x"
+        },
+        {
+          "topics": [
+            "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
+            "0x0000000000000000000000004ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"
+          ],
+          "data": "0x"
+        }
+      ]
+    },
+    {
+      "sig": "Approval(address,address,uint256)",
+      "topic0": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+      "occurrences": []
+    },
+    {
+      "sig": "Initialized(uint8)",
+      "topic0": "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498",
+      "occurrences": [
+        {
+          "topics": [
+            "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000001"
+        },
+        {
+          "topics": [
+            "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000000000000000000002"
+        }
+      ]
+    },
+    {
+      "sig": "Transfer(address,address,uint256)",
+      "topic0": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+      "occurrences": [
+        {
+          "topics": [
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+          ],
+          "data": "0x0000000000000000000000000000000000000000000000008ac7230489e80000"
+        }
+      ]
+    },
+    {
+      "sig": "DummyEvent()",
+      "topic0": "0x321d83059d08b108790a2ca1fd77d843211cdfff5dc3b5d7fb4574be368d4497",
+      "occurrences": [
+        {
+          "topics": [
+            "0x321d83059d08b108790a2ca1fd77d843211cdfff5dc3b5d7fb4574be368d4497"
+          ],
+          "data": "0x"
+        }
+      ]
+    }
+  ],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org",
+    "implementation_name": "MyToken"
+  }
+}
