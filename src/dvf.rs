@@ -7,7 +7,6 @@ use std::str::FromStr;
 use alloy::primitives::{Address, B256};
 use clap::{arg, value_parser, ArgMatches, Command};
 use colored::Colorize;
-use console::style;
 use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, CompareInitCode};
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
@@ -19,7 +18,7 @@ use dvf_libs::dvf::discovery::{
 use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::utils::pretty::PrettyPrinter;
-use dvf_libs::utils::progress::ProgressMode;
+use dvf_libs::utils::progress::{print_progress, ProgressMode};
 use dvf_libs::utils::read_write_file::get_project_paths;
 use dvf_libs::web3;
 use indicatif::ProgressBar;
@@ -765,6 +764,25 @@ fn main() {
     };
 }
 
+fn updated_filename(original_path: &Path) -> PathBuf {
+    // Extract the directory and name
+    let parent = original_path.parent().unwrap_or_else(|| Path::new(""));
+    let file_name = original_path
+        .file_name()
+        .unwrap_or_else(|| std::ffi::OsStr::new(""))
+        .to_string_lossy();
+    let name = file_name.split(".dvf.json").next();
+
+    // Create a new stem with "_updated" added.
+    let updated_name = format!("{}_updated", name.unwrap_or(""));
+
+    // Assemble the new path.
+    let mut updated_path = PathBuf::from(parent);
+    updated_path.push(updated_name);
+    updated_path.set_extension("dvf.json");
+    updated_path
+}
+
 fn get_mismatch_msg(
     pretty_printer: &PrettyPrinter,
     storage_variable: &DVFStorageEntry,
@@ -810,7 +828,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let event_topics = sub_m
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
-            let event_topics_clone = event_topics.clone();
+
             let zerovalue = sub_m.get_flag("zerovalue");
             let user_deployment_tx = sub_m.get_one::<String>("deployment");
 
@@ -948,7 +966,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 build_cache,
                 libraries.clone(),
                 zerovalue,
-                event_topics_clone,
+                event_topics,
                 sub_m,
                 &mut pc,
                 &progress_mode,
@@ -1598,37 +1616,4 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             "Please specify a command.".to_string(),
         )),
     }
-}
-
-fn updated_filename(original_path: &Path) -> PathBuf {
-    // Extract the directory and name
-    let parent = original_path.parent().unwrap_or_else(|| Path::new(""));
-    let file_name = original_path
-        .file_name()
-        .unwrap_or_else(|| std::ffi::OsStr::new(""))
-        .to_string_lossy();
-    let name = file_name.split(".dvf.json").next();
-
-    // Create a new stem with "_updated" added.
-    let updated_name = format!("{}_updated", name.unwrap_or(""));
-
-    // Assemble the new path.
-    let mut updated_path = PathBuf::from(parent);
-    updated_path.push(updated_name);
-    updated_path.set_extension("dvf.json");
-    updated_path
-}
-
-fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
-    let total = match pm {
-        ProgressMode::InitProxy => 14,
-        ProgressMode::Init => 12,
-        ProgressMode::Update => 4,
-        ProgressMode::Validation => 5,
-        ProgressMode::BytecodeCheck => 3,
-        ProgressMode::GenerateBuildCache => 1,
-        ProgressMode::ListEvents => 1,
-    };
-    println!("{} {}", style(format!("[{i:2}/{total:2}]")).bold().dim(), s);
-    *i += 1;
 }
