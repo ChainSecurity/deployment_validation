@@ -1,12 +1,12 @@
 {
   "version": "0.9.1",
-  "id": "0x024834e1407a5c744ed9744a0685ef87f1b189e81b23d109d05d930573f36669",
+  "id": "0xea582136017acdbdec6da968a7c63c78c13e25b9d435e7fd72fb64a75ff786e6",
   "contract_name": "MyToken",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 31337,
+  "chain_id": 1337,
   "deployment_block_num": 2,
   "init_block_num": 3,
-  "deployment_tx": "0x304bc6298708bb09d7da6f199ee02fbcce1bdbb398fc3eb421cd3a03750e34f5",
+  "deployment_tx": "0x42d8e1a6dc338ecb42716c59dce82a58e56c067dff2a20975f28e05970e89400",
   "codehash": "0xa77e382f36db7714068fa97e6bc080fbc6b04a900a3199ab1aba56c9dea88f4d",
   "insecure": false,
   "immutables": [

@@ -451,7 +451,7 @@ mod tests {
                 let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
 
                 // Uncomment to regenerate expected files
-                std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+                // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
                 assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
 
@@ -823,9 +823,6 @@ mod tests {
                 address: String::from("0x4ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"),
             };
 
-            // let config = DVFConfig::from_path(&config_file.path()).unwrap();
-            // let mut new_dvf_path = config.dvf_storage.clone();
-
             for v in [v1, v2] {
                 let outfile = NamedTempFile::new().unwrap();
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -851,7 +848,7 @@ mod tests {
                 println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 // Uncomment to regenerate expected files
-                std::fs::copy(outfile.path(), &Path::new(&v.expected)).unwrap();
+                // std::fs::copy(outfile.path(), &Path::new(&v.expected)).unwrap();
 
                 assert_eq_files(&outfile.path(), &Path::new(&v.expected));
 
@@ -866,9 +863,6 @@ mod tests {
                     ])
                     .assert()
                     .success();
-
-                // new_dvf_path.push(&v.dv_path);
-                // outfile.persist(new_dvf_path.as_path()).unwrap();
             }
 
             let proxy_outfile = NamedTempFile::new().unwrap();
@@ -897,11 +891,11 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            std::fs::copy(
-                proxy_outfile.path(),
-                Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade.dvf.json"),
-            )
-            .unwrap();
+            // std::fs::copy(
+            //     proxy_outfile.path(),
+            //     Path::new("tests/expected_dvfs/TransparentUpgradeableProxyUpgrade.dvf.json"),
+            // )
+            // .unwrap();
 
             // @note that this fails, since the wrong name is stored in the registry
             assert_eq_files(
@@ -929,18 +923,18 @@ mod tests {
                 .success();
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
-            // Uncomment to regenerate expected files
             let updated_path = format!(
                 "{}_updated.dvf.json",
                 proxy_outfile.path().to_string_lossy()
             );
-            std::fs::copy(
-                Path::new(&updated_path),
-                Path::new(
-                    "tests/expected_dvfs/TransparentUpgradeableProxyUpgrade_updated.dvf.json",
-                ),
-            )
-            .unwrap();
+            // Uncomment to regenerate expected files
+            // std::fs::copy(
+            //     Path::new(&updated_path),
+            //     Path::new(
+            //         "tests/expected_dvfs/TransparentUpgradeableProxyUpgrade_updated.dvf.json",
+            //     ),
+            // )
+            // .unwrap();
 
             assert_eq_files(
                 Path::new(&updated_path),
@@ -948,9 +942,6 @@ mod tests {
                     "tests/expected_dvfs/TransparentUpgradeableProxyUpgrade_updated.dvf.json",
                 ),
             );
-            // Remove MyToken.dvf.json
-            // let mut rm_cmd: Command = Command::new("rm");
-            // rm_cmd.arg(new_dvf_path.as_path()).assert().success();
 
             drop(local_client);
         }

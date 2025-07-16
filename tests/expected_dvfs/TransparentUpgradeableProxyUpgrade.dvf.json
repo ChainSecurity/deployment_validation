@@ -1,12 +1,12 @@
 {
   "version": "0.9.1",
-  "id": "0xdea34793be4dbfa1b940fc82b0831f2fc9410280de7e2b4854eacbd168e14974",
+  "id": "0x8091eaf511afa2caa8a44c2e359299ea560f608d3f207dd16f8c75d4ad591b43",
   "contract_name": "TransparentUpgradeableProxy",
   "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-  "chain_id": 31337,
+  "chain_id": 1337,
   "deployment_block_num": 3,
   "init_block_num": 3,
-  "deployment_tx": "0x45c4b4e7934f4dc4a2d83d990db1818b3dcd82618b9dd3809c048e5156180318",
+  "deployment_tx": "0xafab58d1b40c949aa4680c09e8012680d2d52708b49ad9666a206ec8a03b531b",
   "codehash": "0x07a3f582ceb15f50e21a238db7f4aab8320b4fac8d78379d05feaf2721f139b1",
   "insecure": false,
   "immutables": [
