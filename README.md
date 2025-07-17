@@ -140,7 +140,7 @@ docker run --rm -v $PWD:/home/dv/shared -it ghcr.io/chainsecurity/deployment_val
 
 ## Configuration
 
-Before `dv` can be used for validation and/or DVF creation, a configuration file has to be created. `dv` searches for the file in `~/.dvf_config.json` by default.
+Before `dv` can be used for validation and/or DVF creation, a configuration file has to be created. `dv` searches for the file in `~/.dv_config.json` by default.
 If you want to store the file at a different location, the `--config` parameter has to be used any time you run `dv`:
 
 ```
