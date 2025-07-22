@@ -68,7 +68,7 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
     let tx_id = matches.get_one::<String>("txid").unwrap().to_string();
     let name = matches.get_one::<String>("name").unwrap().to_string();
 
-    let chain_id = *matches.get_one::<u64>("chainid").unwrap_or(&1);
+    let chain_id = *matches.get_one::<u64>("chainid").unwrap_or(&31337);
     config.set_chain_id(chain_id)?;
 
     let trace_w_a = web3::get_eth_debug_trace(&config, &tx_id)?;
@@ -95,12 +95,17 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
     let pretty_printer = PrettyPrinter::new(&config, None);
 
     let mut global_state = ContractState::new_with_address(&trace_w_a.address, &pretty_printer);
-    let forge_inspect = forge_inspect::ForgeInspect::generate_and_parse_layout(
+    let forge_inspect = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
         Path::new("tests/Contracts"),
         &name,
         None,
     );
-    global_state.add_forge_inspect(&forge_inspect);
+    let fi_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
+        Path::new("tests/Contracts"),
+        &name,
+        None,
+    );
+    global_state.add_forge_inspect(&forge_inspect, &fi_ir);
     global_state.record_traces(&config, vec![trace_w_a.clone()])?;
     let mut table = Table::new();
     let critical_vars = global_state.get_critical_storage_variables(

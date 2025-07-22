@@ -1415,8 +1415,9 @@ impl StorageSnapshot {
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
             }
         };
-        debug!("Storage Snapshot: {:?}", snapshot);
+        // println!("Storage Snapshot: {:?}", snapshot);
         let unused_parts = Self::init_unused_parts(&snapshot);
+        // println!("Unused {:?}", unused_parts);
         Ok(StorageSnapshot {
             snapshot,
             unused_parts,
@@ -1525,6 +1526,7 @@ impl StorageSnapshot {
         let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
         depth_to_address.insert(1, trace_w_a.address);
         // depth -> last_storage
+        // depth -> (slot -> value)
         let mut last_storage: HashMap<u64, HashMap<U256, U256>> = HashMap::new();
 
         let last_depth = 1_u64;
@@ -1569,6 +1571,9 @@ impl StorageSnapshot {
                 let slot = stack[stack.len() - 1];
                 last_store.insert(slot, value);
                 //last_storage.insert(log.depth, last_store);
+                
+                // fruspa probably modify here
+                println!("add_trace found opcode SSTORE slot {:?} value {:?}", slot, value);
             }
 
             // Save upon successful return

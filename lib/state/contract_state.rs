@@ -5,14 +5,19 @@ use std::str::FromStr;
 
 use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
+use regex::Regex;
+use sha3::{Digest, Keccak256};
 use tracing::{debug, info};
 
 use crate::dvf::config::DVFConfig;
 use crate::dvf::parse;
 use crate::dvf::parse::DVFStorageEntry;
 use crate::dvf::parse::ValidationError;
+use crate::state;
 use crate::state::contract_state::parse::DVFStorageComparisonOperator;
-use crate::state::forge_inspect::{ForgeInspect, StateVariable, TypeDescription};
+use crate::state::forge_inspect::{
+    ForgeInspectIrOptimized, ForgeInspectLayoutStorage, StateVariable, TypeDescription,
+};
 use crate::utils::pretty::PrettyPrinter;
 use crate::web3::{get_internal_create_addresses, StorageSnapshot, TraceWithAddress};
 
@@ -37,6 +42,11 @@ pub struct ContractState<'a> {
     pub types: HashMap<String, TypeDescription>,
     // Storage Index of Mapping -> (Key, derived storage slot)
     pub mapping_usages: HashMap<U256, HashSet<(String, U256)>>,
+
+    // Mapping name -> List of static-type keys
+    // TODO name
+    pub mapping_label_to_sv_index: HashMap<String, usize>,
+
     // The contract address
     pub address: Address,
     // Print human readable
@@ -49,6 +59,7 @@ impl<'a> ContractState<'a> {
             state_variables: vec![],
             types: HashMap::new(),
             mapping_usages: HashMap::new(),
+            mapping_label_to_sv_index: HashMap::new(),
             address: Address::from_str(address).unwrap(),
             pretty_printer,
         }
@@ -59,6 +70,7 @@ impl<'a> ContractState<'a> {
             state_variables: vec![],
             types: HashMap::new(),
             mapping_usages: HashMap::new(),
+            mapping_label_to_sv_index: HashMap::new(),
             address: *address,
             pretty_printer,
         }
@@ -85,6 +97,8 @@ impl<'a> ContractState<'a> {
         if !found {
             self.state_variables.push(sv.clone());
         }
+        // self.mapping_label_to_sv_index
+        //     .insert(sv.label.clone(), self.state_variables.len() - 1);
     }
 
     fn add_type(&mut self, var_type: &String, type_desc: &TypeDescription) {
@@ -97,14 +111,99 @@ impl<'a> ContractState<'a> {
         }
     }
 
-    pub fn add_forge_inspect(&mut self, fi: &ForgeInspect) {
-        for (var_type, type_desc) in fi.types.iter() {
+    /// Given the contract IR optimized output, extracts the mapping assigments with static keys
+    fn add_static_key_mapping_entries(&mut self, fi_ir_optimized: &ForgeInspectIrOptimized) {
+        // self.mapping_usages
+        //                 .entry(U256::from_str("1").unwrap())
+        //                 .or_insert_with(HashSet::new)
+        //                 .insert((String::from("0x"), U256::from_str("90833963927758799113719025603677964796474124828269229747399379044572608754728").unwrap()));
+        // return;
+        // let mut assignments = Vec::new();
+        let lines: Vec<&str> = fi_ir_optimized.ir.lines().collect();
+        let mut last_key: Option<String> = None;
+        let mut last_slot: Option<String> = None;
+
+        let re_mstore =
+            Regex::new(r#"mstore\(([^,]+),\s*/\*\*.*?"(?:.*?)"\s*\*/\s*(0x[0-9a-fA-F]+)\)"#)
+                .unwrap();
+        let re_sstore = Regex::new(
+            r#"sstore\(keccak256\([^\)]*\),\s*/\*\*.*?"(?:.*?)"\s*\*/\s*(0x[0-9a-fA-F]+)\)"#,
+        )
+        .unwrap();
+
+        for line in &lines {
+            if line.trim_ascii_start().starts_with("///") {
+                continue;
+            }
+
+            println!("Consider line: {:?}", line);
+            if let Some(caps) = re_mstore.captures(line) {
+                let mem_location = caps.get(1).unwrap().as_str();
+                let val = caps.get(2).unwrap().as_str();
+
+                println!("Captured mem_location {:?} val {:?}", mem_location, val);
+
+                match mem_location {
+                    "0x20" => last_slot = Some(val.to_string()),
+                    _ => last_key = Some(val.to_string()),
+                }
+            }
+
+            if let Some(caps) = re_sstore.captures(line) {
+                if let (Some(ref last_key_), Some(ref last_slot_)) = (last_key.clone(), last_slot.clone()) {
+                    println!("Captured key string {:?} slot string {:?}", last_key_, last_slot_);
+                    let key_bytes =
+                        hex::decode(last_key_.trim_start_matches("0x"))
+                            .unwrap();
+                    let slot_bytes =
+                        hex::decode(last_slot_.trim_start_matches("0x"))
+                            .unwrap();
+
+                    let mut padded_key = vec![0u8; 32];
+                    let mut padded_slot = vec![0u8; 32];
+
+                    padded_key[32 - key_bytes.len()..].copy_from_slice(&key_bytes);
+                    padded_slot[32 - slot_bytes.len()..].copy_from_slice(&slot_bytes);
+
+                    let mut keccak_input = vec![];
+                    keccak_input.extend_from_slice(&padded_key);
+                    keccak_input.extend_from_slice(&padded_slot);
+
+                    // let mut hasher = Keccak256::new();
+                    // hasher.update(&keccak_input);
+                    // let entry_slot = hasher.finalize();
+                    // println!("keccak input {:?}", keccak_input.clone());
+                    let entry_slot = U256::from_be_bytes(keccak256(keccak_input).into());
+                    // let entry_slot_hex = format!("0x{}", hex::encode(entry_slot));
+
+                    let last_slot_u256 = U256::from_str_radix(last_slot_.trim_start_matches("0x"), 16).unwrap();
+
+                    self.mapping_usages
+                        .entry(last_slot_u256)
+                        .or_insert_with(HashSet::new)
+                        .insert((last_key_.clone(), entry_slot));
+
+                    // Reset key (next store might use new key)
+                    last_key = None;
+                }
+            }
+        }
+    }
+
+    pub fn add_forge_inspect(
+        &mut self,
+        fi_layout: &ForgeInspectLayoutStorage,
+        fi_ir_optimized: &ForgeInspectIrOptimized,
+    ) {
+        for (var_type, type_desc) in fi_layout.types.iter() {
             self.add_type(var_type, type_desc);
         }
 
-        for sv in &fi.storage {
-            self.add_state_variable(sv);
+        for state_variable in &fi_layout.storage {
+            self.add_state_variable(state_variable);
         }
+
+        self.add_static_key_mapping_entries(&fi_ir_optimized);
     }
 
     fn memory_as_string(memory: &Vec<String>) -> String {
@@ -146,6 +245,7 @@ impl<'a> ContractState<'a> {
             let mut key: Option<String> = None;
             // Mapping storage index, only meaningful when key is Some
             let mut index: U256 = U256::from(1);
+
             for log in trace_w_a.trace.struct_logs {
                 // Boring state
                 if log.stack.is_none() {
@@ -182,10 +282,30 @@ impl<'a> ContractState<'a> {
                     depth_to_address.insert(log.depth + 1, depth_to_address[&log.depth]);
                 }
 
+                // handle static-type mapping keys
+                // if log.op == "SSTORE" {
+                //     // let value = stack[stack.len() - 2];
+                //     let slot = stack[stack.len() - 1];
+                //     println!("SSTORE found slot: {:?}", slot);
+
+                //     let target_slot = U256::from_str("78541660797044910968829902406342334108369226379826116161446442989268089806461")
+                //         .expect("invalid slot number");
+
+                //     if slot == target_slot {
+                //         println!("SSTORE is storing at slot corresponding to static-type key!");
+                //         key = Some(
+                //             "0000000000000000000000000000000000000000000000000000000000000001"
+                //                 .to_string(),
+                //         );
+                //         index = U256::from(0);
+                //     }
+                // }
+
                 if depth_to_address[&log.depth] == self.address {
                     if let Some(key_in) = key {
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
+                            println!("Of course mapping usages does not contain this index {:?}, entry slot {:?}", index, target_slot);
                             let mut usage_set = HashSet::new();
                             usage_set.insert((key_in, *target_slot));
                             self.mapping_usages.insert(index, usage_set);
@@ -196,6 +316,8 @@ impl<'a> ContractState<'a> {
                         }
                         key = None;
                     }
+
+                    // handle dynamic-type mapping keys
                     if log.op == "KECCAK256" || log.op == "SHA3" {
                         let length_in_bytes = stack[stack.len() - 2];
                         let sha3_input = format!(
@@ -215,7 +337,7 @@ impl<'a> ContractState<'a> {
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
-                            debug!("Found key {} for index {}.", key.clone().unwrap(), index);
+                            println!("Found key {} for index {}.", key.clone().unwrap(), index);
                         }
                     }
                 }
@@ -245,7 +367,7 @@ impl<'a> ContractState<'a> {
         pi_types: &HashMap<String, TypeDescription>,
         zerovalue: bool,
     ) -> Result<Vec<parse::DVFStorageEntry>, ValidationError> {
-        let default_values = &ForgeInspect::default_values();
+        let default_values = &ForgeInspectLayoutStorage::default_values();
         // Add default types as we might need them
         let mut types = default_values.types.clone();
         types.extend(pi_types.to_owned());
@@ -255,18 +377,21 @@ impl<'a> ContractState<'a> {
 
         let mut critical_storage_variables = Vec::<parse::DVFStorageEntry>::new();
 
-        for state_variable in &self.state_variables {
+        // @fruspa forge inspect state variables
+        for state_variable in self.state_variables.clone() {
+            println!("stor var {:?}", state_variable);
             critical_storage_variables.extend(self.get_critical_variable(
-                state_variable,
+                &state_variable,
                 snapshot,
                 table,
                 zerovalue,
             )?);
         }
 
+        // @fruspa extra special storage from ast parsing
         let mut storage = default_values.storage.clone();
         storage.extend(pi_storage.to_owned());
-        for sv in &storage {
+        for state_variable in &storage {
             // // Skip used slots, assume that the we won't have partial usage in case of structs
             // let min_size = cmp::min(self.get_number_of_bytes(&sv.var_type), 32 - sv.offset);
             // if !snapshot.check_if_set_and_unused(&sv.slot, sv.offset, min_size) {
@@ -275,7 +400,7 @@ impl<'a> ContractState<'a> {
             // }
 
             let new_critical_storage_variables =
-                self.get_critical_variable(sv, snapshot, table, zerovalue)?;
+                self.get_critical_variable(state_variable, snapshot, table, zerovalue)?;
             let mut has_nonzero = false;
             for crit_var in &new_critical_storage_variables {
                 if !crit_var.is_zero() {
@@ -369,7 +494,7 @@ impl<'a> ContractState<'a> {
     }
 
     fn get_critical_variable(
-        &self,
+        &mut self,
         state_variable: &StateVariable,
         snapshot: &mut StorageSnapshot,
         table: &mut Table,
@@ -487,6 +612,45 @@ impl<'a> ContractState<'a> {
             return Ok(critical_storage_variables);
         }
         if Self::is_mapping(&state_variable.var_type) {
+            // handle static-type keys
+            // if self.is_mapping_entry(&state_variable.var_type) {
+
+            //     // get corresponding mapping state variable (different than mapping entry state variable)
+            //     let split: Vec<String> = state_variable
+            //         .label
+            //         .split(".")
+            //         .map(str::to_string)
+            //         .collect();
+            //     if split.len() != 2 {
+            //         println!("Invalid mapping entry label! {}", state_variable.label);
+            //         return Ok(vec![]);
+            //     }
+            //     let mapping_label = split[0].clone();
+            //     let key_str = split[1].clone();
+
+            //     // find state_variable.label in state_variables
+            //     if self
+            //         .mapping_label_to_sv_index
+            //         .contains_key(&mapping_label)
+            //     {
+            //         // get the state variable of the mapping for this entry
+            //         let state_variable_idx = self.mapping_label_to_sv_index[&mapping_label].clone();
+            //         let mapping_state_variable = self.state_variables[state_variable_idx].clone();
+
+            //         // sorted_static_keys.sort();
+            //         // println!("sorted static keys: {:?}", sorted_static_keys);
+            //         let mapping_slot = mapping_state_variable.slot;
+            //         let entry_slot =
+            //             keccak256([mapping_slot.as_le_slice(), key_str.as_bytes()].concat());
+
+            //         self.mapping_usages
+            //             .entry(mapping_slot)
+            //             .or_insert_with(HashSet::new)
+            //             .insert((key_str, U256::from_le_slice(&entry_slot.as_slice())));
+            //     }
+            // }
+
+            // handle static and dynamic-type keys
             if !self.mapping_usages.contains_key(&state_variable.slot) {
                 debug!("No mapping keys for {}", state_variable.slot);
                 return Ok(vec![]);
@@ -498,7 +662,9 @@ impl<'a> ContractState<'a> {
                 .into_iter()
                 .collect();
             sorted_keys.sort();
+            println!("sorted dynamic keys: {:?}", sorted_keys);
             for (sorted_key, target_slot) in &sorted_keys {
+                println!("sorted_key {}, target_slot {}", sorted_key, target_slot);
                 let key_type = self.get_key_type(&state_variable.var_type);
 
                 // Skip if key is longer than actual key type of the mapping
@@ -663,7 +829,7 @@ impl<'a> ContractState<'a> {
         }
         panic!(
             "Unknown solidity type: {state_variable:?}, {:?}",
-            self.types[&state_variable.var_type]
+            &state_variable.var_type
         );
     }
 
@@ -726,6 +892,10 @@ impl<'a> ContractState<'a> {
     pub fn is_mapping(var_type: &str) -> bool {
         var_type.starts_with("t_mapping")
     }
+
+    // pub fn is_mapping_entry(&self, var_type: &str) -> bool {
+    //     Self::is_mapping(var_type) && self.types[var_type].encoding == "mapping_entry"
+    // }
 
     pub fn is_variable_bytes(var_type: &str) -> bool {
         var_type.starts_with("t_bytes") && !var_type.chars().last().unwrap().is_ascii_digit()
