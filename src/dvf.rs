@@ -1000,9 +1000,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let mut contract_state =
                 ContractState::new_with_address(&dumped.address, &pretty_printer);
             contract_state.add_forge_inspect(&fi_layout, &fi_ir);
-            // contract_state.types.extend(project_info.types.clone());
-            // let assign = contract_state.types["t_mapping_entry"].clone();
-            // println!("\n\nCULO {:?}", assign);
 
             // Proxy Mode
             let mut storage: Vec<StateVariable> = project_info.storage.clone();
@@ -1039,7 +1036,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     tmp_project_info.absolute_path.clone(),
                 );
                 contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
-                // contract_state.types.extend(tmp_project_info.types.clone());
 
                 storage.extend(tmp_project_info.storage.clone());
                 types.extend(tmp_project_info.types.clone());

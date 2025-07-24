@@ -6,14 +6,12 @@ use std::str::FromStr;
 use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
 use regex::Regex;
-use sha3::{Digest, Keccak256};
 use tracing::{debug, info};
 
 use crate::dvf::config::DVFConfig;
 use crate::dvf::parse;
 use crate::dvf::parse::DVFStorageEntry;
 use crate::dvf::parse::ValidationError;
-use crate::state;
 use crate::state::contract_state::parse::DVFStorageComparisonOperator;
 use crate::state::forge_inspect::{
     ForgeInspectIrOptimized, ForgeInspectLayoutStorage, StateVariable, TypeDescription,
@@ -42,11 +40,6 @@ pub struct ContractState<'a> {
     pub types: HashMap<String, TypeDescription>,
     // Storage Index of Mapping -> (Key, derived storage slot)
     pub mapping_usages: HashMap<U256, HashSet<(String, U256)>>,
-
-    // Mapping name -> List of static-type keys
-    // TODO name
-    pub mapping_label_to_sv_index: HashMap<String, usize>,
-
     // The contract address
     pub address: Address,
     // Print human readable
@@ -59,7 +52,6 @@ impl<'a> ContractState<'a> {
             state_variables: vec![],
             types: HashMap::new(),
             mapping_usages: HashMap::new(),
-            mapping_label_to_sv_index: HashMap::new(),
             address: Address::from_str(address).unwrap(),
             pretty_printer,
         }
@@ -70,7 +62,6 @@ impl<'a> ContractState<'a> {
             state_variables: vec![],
             types: HashMap::new(),
             mapping_usages: HashMap::new(),
-            mapping_label_to_sv_index: HashMap::new(),
             address: *address,
             pretty_printer,
         }
@@ -97,8 +88,6 @@ impl<'a> ContractState<'a> {
         if !found {
             self.state_variables.push(sv.clone());
         }
-        // self.mapping_label_to_sv_index
-        //     .insert(sv.label.clone(), self.state_variables.len() - 1);
     }
 
     fn add_type(&mut self, var_type: &String, type_desc: &TypeDescription) {
@@ -116,15 +105,9 @@ impl<'a> ContractState<'a> {
         if let Ok(num) = u128::from_str_radix(val.trim_start_matches("0x"), 16) {
             // make sure all values are represented as hexadecimal strings of uint256
             format!("0x{:064x}", num)
-        // else {
-        // if val.starts_with("0x") {
-        //     val.to_string()
-        //     format!("0x{:064x}", val)
-        // } else if let Ok(num) = u128::from_str_radix(val, 10) {
-        //     // make sure all values are represented as hexadecimal strings of uint256
-        //     format!("0x{:064x}", num)
         } else {
-            val.to_string() // fallback, maybe a variable reference
+            // fallback, maybe a variable reference
+            val.to_string() 
         }
     }
 
@@ -310,7 +293,6 @@ impl<'a> ContractState<'a> {
             let mut key: Option<String> = None;
             // Mapping storage index, only meaningful when key is Some
             let mut index: U256 = U256::from(1);
-
             for log in trace_w_a.trace.struct_logs {
                 // Boring state
                 if log.stack.is_none() {
@@ -347,30 +329,11 @@ impl<'a> ContractState<'a> {
                     depth_to_address.insert(log.depth + 1, depth_to_address[&log.depth]);
                 }
 
-                // handle static-type mapping keys
-                // if log.op == "SSTORE" {
-                //     // let value = stack[stack.len() - 2];
-                //     let slot = stack[stack.len() - 1];
-                //     println!("SSTORE found slot: {:?}", slot);
-
-                //     let target_slot = U256::from_str("78541660797044910968829902406342334108369226379826116161446442989268089806461")
-                //         .expect("invalid slot number");
-
-                //     if slot == target_slot {
-                //         println!("SSTORE is storing at slot corresponding to static-type key!");
-                //         key = Some(
-                //             "0000000000000000000000000000000000000000000000000000000000000001"
-                //                 .to_string(),
-                //         );
-                //         index = U256::from(0);
-                //     }
-                // }
-
                 if depth_to_address[&log.depth] == self.address {
                     if let Some(key_in) = key {
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
-                            println!("Of course mapping usages does not contain this index {:?}, entry slot {:?}", index, target_slot);
+                            println!("Mapping usages does not contain index {:?}, entry slot {:?}", index, target_slot);
                             let mut usage_set = HashSet::new();
                             usage_set.insert((key_in, *target_slot));
                             self.mapping_usages.insert(index, usage_set);
@@ -559,7 +522,7 @@ impl<'a> ContractState<'a> {
     }
 
     fn get_critical_variable(
-        &mut self,
+        &self,
         state_variable: &StateVariable,
         snapshot: &mut StorageSnapshot,
         table: &mut Table,
@@ -677,44 +640,6 @@ impl<'a> ContractState<'a> {
             return Ok(critical_storage_variables);
         }
         if Self::is_mapping(&state_variable.var_type) {
-            // handle static-type keys
-            // if self.is_mapping_entry(&state_variable.var_type) {
-
-            //     // get corresponding mapping state variable (different than mapping entry state variable)
-            //     let split: Vec<String> = state_variable
-            //         .label
-            //         .split(".")
-            //         .map(str::to_string)
-            //         .collect();
-            //     if split.len() != 2 {
-            //         println!("Invalid mapping entry label! {}", state_variable.label);
-            //         return Ok(vec![]);
-            //     }
-            //     let mapping_label = split[0].clone();
-            //     let key_str = split[1].clone();
-
-            //     // find state_variable.label in state_variables
-            //     if self
-            //         .mapping_label_to_sv_index
-            //         .contains_key(&mapping_label)
-            //     {
-            //         // get the state variable of the mapping for this entry
-            //         let state_variable_idx = self.mapping_label_to_sv_index[&mapping_label].clone();
-            //         let mapping_state_variable = self.state_variables[state_variable_idx].clone();
-
-            //         // sorted_static_keys.sort();
-            //         // println!("sorted static keys: {:?}", sorted_static_keys);
-            //         let mapping_slot = mapping_state_variable.slot;
-            //         let entry_slot =
-            //             keccak256([mapping_slot.as_le_slice(), key_str.as_bytes()].concat());
-
-            //         self.mapping_usages
-            //             .entry(mapping_slot)
-            //             .or_insert_with(HashSet::new)
-            //             .insert((key_str, U256::from_le_slice(&entry_slot.as_slice())));
-            //     }
-            // }
-
             // handle static and dynamic-type keys
             if !self.mapping_usages.contains_key(&state_variable.slot) {
                 debug!("No mapping keys for {}", state_variable.slot);
@@ -727,7 +652,6 @@ impl<'a> ContractState<'a> {
                 .into_iter()
                 .collect();
             sorted_keys.sort();
-            // println!("sorted dynamic keys: {:?}", sorted_keys);
             for (sorted_key, target_slot) in &sorted_keys {
                 println!("sorted_key {}, target_slot {}", sorted_key, target_slot);
                 let key_type = self.get_key_type(&state_variable.var_type);
@@ -894,7 +818,7 @@ impl<'a> ContractState<'a> {
         }
         panic!(
             "Unknown solidity type: {state_variable:?}, {:?}",
-            &state_variable.var_type
+            self.types[&state_variable.var_type]
         );
     }
 
@@ -957,10 +881,6 @@ impl<'a> ContractState<'a> {
     pub fn is_mapping(var_type: &str) -> bool {
         var_type.starts_with("t_mapping")
     }
-
-    // pub fn is_mapping_entry(&self, var_type: &str) -> bool {
-    //     Self::is_mapping(var_type) && self.types[var_type].encoding == "mapping_entry"
-    // }
 
     pub fn is_variable_bytes(var_type: &str) -> bool {
         var_type.starts_with("t_bytes") && !var_type.chars().last().unwrap().is_ascii_digit()

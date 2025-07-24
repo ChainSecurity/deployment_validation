@@ -88,8 +88,6 @@ impl ProjectInfo {
             .current_dir(project)
             .arg("build")
             .arg("--build-info")
-            // .arg("--extra-output")
-            // .arg("storageLayout")
             .arg("--build-info-path")
             .arg(build_info_path.to_str().unwrap());
 
@@ -1142,159 +1140,6 @@ impl ProjectInfo {
         }
     }
 
-    /// Parses the AST of a contract for assignments to mappings where the key is a static type.
-    fn find_static_mapping_writes(
-        sources: &BTreeMap<PathBuf, SourceFile>,
-        type_defs: &Types,
-        exported_ids: &Vec<usize>,
-        storage: &mut Vec<StateVariable>,
-        storage_layout: &StorageLayout,
-        types: &mut HashMap<String, TypeDescription>,
-    ) {
-        for source in sources.values() {
-            if let Some(ast) = source.ast.clone() {
-                for node in &ast.nodes {
-                    Self::find_static_mapping_writes_helper(
-                        sources,
-                        node,
-                        type_defs,
-                        exported_ids,
-                        storage,
-                        storage_layout,
-                        types,
-                    );
-                }
-            }
-        }
-    }
-
-    fn find_static_mapping_writes_helper(
-        sources: &BTreeMap<PathBuf, SourceFile>,
-        node: &EAstNode,
-        type_defs: &Types,
-        exported_ids: &Vec<usize>,
-        storage: &mut Vec<StateVariable>,
-        storage_layout: &StorageLayout,
-        types: &mut HashMap<String, TypeDescription>,
-    ) {
-        if node.node_type == NodeType::ContractDefinition
-            && node.id.is_some()
-            && !exported_ids.contains(&node.id.unwrap())
-        {
-            return;
-        }
-
-        // variables are typically assigned in function definitions
-
-        // if node.node_type == NodeType::FunctionDefinition {
-        //     println!("MMMH OOOK: {:?}", node.node_type);
-        // }
-
-        if node.node_type == NodeType::FunctionDefinition && node.id.is_some() {
-            let Some(body_node) = &node.body else {
-                return;
-            };
-
-            let Some(stmts) = body_node.other.get("statements") else {
-                return;
-            };
-
-            for stmt in stmts.as_array().unwrap().iter() {
-                //Looking for Assignment nodes
-                if stmt["nodeType"] != "ExpressionStatement" {
-                    continue;
-                }
-
-                let expression = &stmt["expression"];
-                if expression["nodeType"] != "Assignment" {
-                    continue;
-                }
-
-                // println!("\nAt this point storage is {:?}", self.id_to_ast);
-                // let mapping_name = String::new();
-                // let mapping_type = String::new();
-
-                // find left side of the assignment
-                let left_hand_side = &expression["leftHandSide"];
-                let Some(base_expression) = &left_hand_side.get("baseExpression") else {
-                    continue;
-                };
-                if base_expression["nodeType"] != "Identifier"
-                    || !base_expression["typeDescriptions"]["typeIdentifier"]
-                        .as_str()
-                        .unwrap()
-                        .starts_with("t_mapping")
-                {
-                    continue;
-                }
-                // get the type of the mapping keys and values
-                let mapping_type = base_expression["typeDescriptions"]["typeIdentifier"].to_string();
-                println!("base expr: {:?}, mapping_type {}", base_expression, mapping_type);
-                let re = regex::Regex::new(r"t_mapping\$_(.*)_\$_(.*)_\$").unwrap();
-                let Some(caps) = re.captures(&mapping_type) else {
-                    panic!("Failed to extract mapping type: {}", &mapping_type);
-                };
-                let key_type = caps[1].to_string();
-                let value_type = caps[2].to_string();
-
-                // let variable_ast_id = base_expression.get("referencedDeclaration");
-                let Some(mapping_label) = base_expression["name"].as_str() else {
-                    continue;
-                };
-
-                // get the key string
-                let Some(index_expression) = &left_hand_side.get("indexExpression") else {
-                    continue;
-                };
-                let Some(key_str) = index_expression["arguments"][0]["value"].as_str() else {
-                    continue;
-                };
-                // let key_str = index_expression["arguments"][0]["value"].as_str().unwrap().to_string();
-
-                let mapping_entry_type = format!(
-                    "t_mapping_entry"
-                );
-                types.insert(
-                    mapping_entry_type.clone(),
-                    TypeDescription {
-                        encoding: String::from("mapping_entry"),
-                        label: "POOO".to_string(),
-                        number_of_bytes: 32,
-                        base: None,
-                        key: Some(key_type),
-                        value: Some(value_type),
-                        members: None,
-                    },
-                );
-                // @note here we don't know the mapping slot unless we parse the AST for it.
-                // For efficiency reasons, we figure out the mapping slot later using the storage layout from forge inspect
-                storage.push(StateVariable {
-                    contract: String::from(""),
-                    label: format!("{}.{}", mapping_label, key_str),
-                    offset: 0,
-                    slot: U256::from(0), 
-                    var_type: mapping_entry_type.clone(),
-                });
-
-                println!("Inserted label {}", format!("{}.{}", mapping_label, key_str));
-                println!("Inserted type {}", mapping_entry_type);
-            }
-        }
-
-        //Recurse through the AST
-        for subnode in &node.nodes {
-            Self::find_static_mapping_writes_helper(
-                sources,
-                subnode,
-                type_defs,
-                exported_ids,
-                storage,
-                storage_layout,
-                types,
-            );
-        }
-    }
-
     /// Parses the AST of a contract for descriptions (name and type) of variables that are directly
     /// written to storage using assembly.
     /// Creates a set of StorageVariables and TypeDescriptions that can be used by ContractState.
@@ -1784,16 +1629,6 @@ impl ProjectInfo {
             &mut storage,
             &mut types,
         );
-
-        // Self::find_static_mapping_writes(
-        //     &build_info.output.sources,
-        //     &type_defs,
-        //     &exported_ids,
-        //     &mut storage,
-        //     &contract.storage_layout, 
-        //     &mut types,
-        // );
-        // println!("Storage after finding static mappings writes: {:?}", storage);
 
         let immutables = Self::extract_immutables(&deployed_bytecode, &id_to_ast);
 
