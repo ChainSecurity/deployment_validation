@@ -1,0 +1,82 @@
+{
+  "version": "0.9.1",
+  "id": "0x45f2ab5fb4dd26589122948436b0c8963ea0f2ebc56efe05b2b4931f9acf3754",
+  "contract_name": "StaticInMapping",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 1337,
+  "deployment_block_num": 2,
+  "init_block_num": 4,
+  "deployment_tx": "0xee0f30f454c60689932be3068a44e92e9e59f8ff5e92351a57153cd259458185",
+  "codehash": "0x9f192fd66f7d7f061d58e1f2bd1f7572bf01d5d4f976585e8cff140a190c9575",
+  "insecure": false,
+  "immutables": [],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x723077b8a1b173adc35e5f0e7e3662fd1208212cb629f9c128551ea7168da722",
+      "offset": 0,
+      "var_name": "static_in_mapping[0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "value_hint": "5",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x755311b9e2cee471a91b161ccc5deed933d844b5af2b885543cc3c04eb640983",
+      "offset": 0,
+      "var_name": "static_in_mapping2[16]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xada5013122d395ba3c54772283fb069b10426056ef8ca54750cb9bb552a59e7d",
+      "offset": 0,
+      "var_name": "static_in_mapping[0x0000000000000000000000000000000000000001]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000010",
+      "value_hint": "16",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xc8d233a0ebef7c9a17d2b0b17eea62cca39002a128ccf419119b4a1a1f1e7428",
+      "offset": 0,
+      "var_name": "static_in_mapping2[17]",
+      "var_type": "t_uint256",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000053",
+      "value_hint": "83",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xdf7ad3c7a2e3db70708daeb487d406b3e889e02ca33162d16b44f6ca5b94f74e",
+      "offset": 0,
+      "var_name": "static_in_mapping[0x5fbdb2315678afecb367f032d93f642f64180aa3]",
+      "var_type": "t_uint256",
+      "value": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "value_hint": "uint256 Max Value",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0xe2689cd4a84e23ad2f564004f1c9013e9589d260bde6380aba3ca7e09e4df40c",
+      "offset": 0,
+      "var_name": "static_in_mapping2[5]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002d",
+      "value_hint": "45",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}

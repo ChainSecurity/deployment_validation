@@ -19,7 +19,7 @@ contract StaticInMapping {
     function assign() external {
         // compiler computes sha3 of key
         static_in_mapping[address(1)] = 16;
-        static_in_mapping2[1+3] = 42;
+        static_in_mapping2[1+15] = 42;
         static_in_mapping2[1+16] = 81+2;
     }
 

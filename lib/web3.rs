@@ -258,6 +258,7 @@ pub fn get_eth_debug_trace(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
+    println!("Sending to {:?}", config.get_rpc_url()?);
     // Parse the response as a JSON list
     let trace: DefaultFrame = serde_json::from_value(result)?;
 

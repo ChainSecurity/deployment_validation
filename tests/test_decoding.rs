@@ -31,12 +31,17 @@ mod tests {
         .unwrap();
         let pretty_printer = PrettyPrinter::new(&empty_config, None);
         let mut global_state = ContractState::new_with_address(&trace_w_a.address, &pretty_printer);
-        let forge_inspect = forge_inspect::ForgeInspect::generate_and_parse_layout(
+        let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             Path::new("tests/Contracts"),
             contract_name,
             None,
         );
-        global_state.add_forge_inspect(&forge_inspect);
+        let fi_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
+            Path::new("tests/Contracts"),
+            contract_name,
+            None,
+        );
+        global_state.add_forge_inspect(&fi_layout, &fi_ir);
         global_state
             .record_traces(&empty_config, vec![trace_w_a.clone()])
             .unwrap();
@@ -88,6 +93,7 @@ mod tests {
 
             assert_eq!(generated_result.len(), expected_result.len());
             for i in 0..generated_result.len() {
+                // println!("{:?}", generated_result[i]);
                 assert_eq!(generated_result[i], expected_result[i]);
             }
         }

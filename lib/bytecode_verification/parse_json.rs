@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use alloy::json_abi::Constructor;
 use alloy::primitives::U256;
 use clap::ValueEnum;
-use foundry_compilers::artifacts::StorageLayout;
 use semver::Version;
 use serde_json;
 use serde_json::Value;

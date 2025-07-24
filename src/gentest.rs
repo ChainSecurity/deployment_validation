@@ -95,7 +95,7 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
     let pretty_printer = PrettyPrinter::new(&config, None);
 
     let mut global_state = ContractState::new_with_address(&trace_w_a.address, &pretty_printer);
-    let forge_inspect = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
+    let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
         Path::new("tests/Contracts"),
         &name,
         None,
@@ -105,7 +105,7 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
         &name,
         None,
     );
-    global_state.add_forge_inspect(&forge_inspect, &fi_ir);
+    global_state.add_forge_inspect(&fi_layout, &fi_ir);
     global_state.record_traces(&config, vec![trace_w_a.clone()])?;
     let mut table = Table::new();
     let critical_vars = global_state.get_critical_storage_variables(

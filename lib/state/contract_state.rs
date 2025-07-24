@@ -138,14 +138,14 @@ impl<'a> ContractState<'a> {
                 continue;
             }
 
-            println!("Consider line: {:?}", line);
+            // println!("Consider line: {:?}", line);
 
             // Capture let _var := 0x...
             if let Some(caps) = re_let.captures(line) {
                 let var_name = caps[1].to_string();
                 let raw_val = caps[2].to_string();
                 let value = Self::normalize_to_hex(&raw_val);
-                println!("Captured let: {:?} val: {:?}", var_name, value);
+                // println!("Captured let: {:?} val: {:?}", var_name, value);
                 variables.insert(var_name, value);
             }
 
@@ -153,7 +153,7 @@ impl<'a> ContractState<'a> {
             if let Some(caps) = re_mstore.captures(line) {
                 let mut dest = caps[1].to_string();
                 let mut val = caps[2].to_string();
-                println!("Captured mstore dest: {:?} val: {:?}", dest, val);
+                // println!("Captured mstore dest: {:?} val: {:?}", dest, val);
 
                 if let Some(resolved_dest) = variables.get(&dest).cloned() {
                     dest = resolved_dest;
@@ -166,7 +166,7 @@ impl<'a> ContractState<'a> {
                 // dest = Self::normalize_to_hex(&dest);
                 val = Self::normalize_to_hex(&val);
 
-                println!("Resolved mstore dest: {:?} val: {:?}", dest, val);
+                // println!("Resolved mstore dest: {:?} val: {:?}", dest, val);
 
                 match dest.as_str() {
                     "0x20" => last_slot = Some(val),
@@ -176,20 +176,20 @@ impl<'a> ContractState<'a> {
 
             if let Some(caps) = re_sstore.captures(line) {
                 if let (Some(last_key_), Some(last_slot_)) = (last_key.clone(), last_slot.clone()) {
-                    println!(
-                        "Captured key string {:?} slot string {:?}",
-                        last_key_, last_slot_
-                    );
+                    // println!(
+                    //     "Captured key string {:?} slot string {:?}",
+                    //     last_key_, last_slot_
+                    // );
 
                     // Resolve from variable map if needed
                     let resolved_last_key = variables.get(&last_key_).cloned().unwrap_or(last_key_);
                     let resolved_last_slot =
                         variables.get(&last_slot_).cloned().unwrap_or(last_slot_);
 
-                    println!(
-                        "Resolved sstore last_key_: {:?} last_slot_: {:?}",
-                        resolved_last_key, resolved_last_slot
-                    );
+                    // println!(
+                    //     "Resolved sstore last_key_: {:?} last_slot_: {:?}",
+                    //     resolved_last_key, resolved_last_slot
+                    // );
 
                     match (
                         hex::decode(resolved_last_key.trim_start_matches("0x")).ok(),
@@ -205,7 +205,7 @@ impl<'a> ContractState<'a> {
                             let mut keccak_input = vec![];
                             keccak_input.extend_from_slice(&padded_key);
                             keccak_input.extend_from_slice(&padded_slot);
-                            println!("keccak input {:?}", keccak_input);
+                            // println!("keccak input {:?}", keccak_input);
 
                             let entry_slot = U256::from_be_bytes(keccak256(keccak_input).into());
 
