@@ -111,79 +111,144 @@ impl<'a> ContractState<'a> {
         }
     }
 
+    // Utility to normalize all numeric values to hex
+    fn normalize_to_hex(val: &str) -> String {
+        if let Ok(num) = u128::from_str_radix(val.trim_start_matches("0x"), 16) {
+            // make sure all values are represented as hexadecimal strings of uint256
+            format!("0x{:064x}", num)
+        // else {
+        // if val.starts_with("0x") {
+        //     val.to_string()
+        //     format!("0x{:064x}", val)
+        // } else if let Ok(num) = u128::from_str_radix(val, 10) {
+        //     // make sure all values are represented as hexadecimal strings of uint256
+        //     format!("0x{:064x}", num)
+        } else {
+            val.to_string() // fallback, maybe a variable reference
+        }
+    }
+
     /// Given the contract IR optimized output, extracts the mapping assigments with static keys
     fn add_static_key_mapping_entries(&mut self, fi_ir_optimized: &ForgeInspectIrOptimized) {
-        // self.mapping_usages
-        //                 .entry(U256::from_str("1").unwrap())
-        //                 .or_insert_with(HashSet::new)
-        //                 .insert((String::from("0x"), U256::from_str("90833963927758799113719025603677964796474124828269229747399379044572608754728").unwrap()));
-        // return;
-        // let mut assignments = Vec::new();
         let lines: Vec<&str> = fi_ir_optimized.ir.lines().collect();
         let mut last_key: Option<String> = None;
         let mut last_slot: Option<String> = None;
 
-        let re_mstore =
-            Regex::new(r#"mstore\(([^,]+),\s*/\*\*.*?"(?:.*?)"\s*\*/\s*(0x[0-9a-fA-F]+)\)"#)
-                .unwrap();
+        // attempts to track variables
+        // variable_name -> variable_value
+        let mut variables: HashMap<String, String> = HashMap::new();
+
+        let re_let = Regex::new(r#"let\s+(\S+)\s*:=\s*([0-9a-fA-F]+)"#).unwrap();
+        let re_mstore = Regex::new(
+            r#"mstore\(\s*(?:/\*\*.*?\*/\s*)?([^\s,]+)\s*,\s*(?:/\*\*.*?\*/\s*)?([^\s\)]+)\s*\)"#,
+        )
+        .unwrap();
         let re_sstore = Regex::new(
             r#"sstore\(keccak256\([^\)]*\),\s*/\*\*.*?"(?:.*?)"\s*\*/\s*(0x[0-9a-fA-F]+)\)"#,
         )
         .unwrap();
 
         for line in &lines {
-            if line.trim_ascii_start().starts_with("///") {
+            let line = &line.trim_ascii_start();
+
+            if line.starts_with("///") {
                 continue;
             }
 
             println!("Consider line: {:?}", line);
+
+            // Capture let _var := 0x...
+            if let Some(caps) = re_let.captures(line) {
+                let var_name = caps[1].to_string();
+                let raw_val = caps[2].to_string();
+                let value = Self::normalize_to_hex(&raw_val);
+                println!("Captured let: {:?} val: {:?}", var_name, value);
+                variables.insert(var_name, value);
+            }
+
+            // Match mstore(dest, value)
             if let Some(caps) = re_mstore.captures(line) {
-                let mem_location = caps.get(1).unwrap().as_str();
-                let val = caps.get(2).unwrap().as_str();
+                let mut dest = caps[1].to_string();
+                let mut val = caps[2].to_string();
+                println!("Captured mstore dest: {:?} val: {:?}", dest, val);
 
-                println!("Captured mem_location {:?} val {:?}", mem_location, val);
+                if let Some(resolved_dest) = variables.get(&dest).cloned() {
+                    dest = resolved_dest;
+                }
 
-                match mem_location {
-                    "0x20" => last_slot = Some(val.to_string()),
-                    _ => last_key = Some(val.to_string()),
+                if let Some(resolved_val) = variables.get(&val).cloned() {
+                    val = resolved_val;
+                }
+
+                // dest = Self::normalize_to_hex(&dest);
+                val = Self::normalize_to_hex(&val);
+
+                println!("Resolved mstore dest: {:?} val: {:?}", dest, val);
+
+                match dest.as_str() {
+                    "0x20" => last_slot = Some(val),
+                    _ => last_key = Some(val),
                 }
             }
 
             if let Some(caps) = re_sstore.captures(line) {
-                if let (Some(ref last_key_), Some(ref last_slot_)) = (last_key.clone(), last_slot.clone()) {
-                    println!("Captured key string {:?} slot string {:?}", last_key_, last_slot_);
-                    let key_bytes =
-                        hex::decode(last_key_.trim_start_matches("0x"))
+                if let (Some(last_key_), Some(last_slot_)) = (last_key.clone(), last_slot.clone()) {
+                    println!(
+                        "Captured key string {:?} slot string {:?}",
+                        last_key_, last_slot_
+                    );
+
+                    // Resolve from variable map if needed
+                    let resolved_last_key = variables.get(&last_key_).cloned().unwrap_or(last_key_);
+                    let resolved_last_slot =
+                        variables.get(&last_slot_).cloned().unwrap_or(last_slot_);
+
+                    println!(
+                        "Resolved sstore last_key_: {:?} last_slot_: {:?}",
+                        resolved_last_key, resolved_last_slot
+                    );
+
+                    match (
+                        hex::decode(resolved_last_key.trim_start_matches("0x")).ok(),
+                        hex::decode(resolved_last_slot.trim_start_matches("0x")).ok(),
+                    ) {
+                        (Some(key_bytes), Some(slot_bytes)) => {
+                            let mut padded_key = vec![0u8; 32];
+                            let mut padded_slot = vec![0u8; 32];
+
+                            padded_key[32 - key_bytes.len()..].copy_from_slice(&key_bytes);
+                            padded_slot[32 - slot_bytes.len()..].copy_from_slice(&slot_bytes);
+
+                            let mut keccak_input = vec![];
+                            keccak_input.extend_from_slice(&padded_key);
+                            keccak_input.extend_from_slice(&padded_slot);
+                            println!("keccak input {:?}", keccak_input);
+
+                            let entry_slot = U256::from_be_bytes(keccak256(keccak_input).into());
+
+                            let mapping_slot = U256::from_str_radix(
+                                resolved_last_slot.trim_start_matches("0x"),
+                                16,
+                            )
                             .unwrap();
-                    let slot_bytes =
-                        hex::decode(last_slot_.trim_start_matches("0x"))
-                            .unwrap();
 
-                    let mut padded_key = vec![0u8; 32];
-                    let mut padded_slot = vec![0u8; 32];
+                            self.mapping_usages
+                                .entry(mapping_slot)
+                                .or_insert_with(HashSet::new)
+                                .insert((resolved_last_key, entry_slot));
+                        }
+                        _ => {
+                            println!(
+                                "Warning: could not decode key or slot in line: {}, key: {}, slot: {}",
+                                line, resolved_last_key, resolved_last_slot
+                            );
+                            // reset slot after unrecognised sstore
+                            last_slot = None;
+                            continue;
+                        }
+                    }
 
-                    padded_key[32 - key_bytes.len()..].copy_from_slice(&key_bytes);
-                    padded_slot[32 - slot_bytes.len()..].copy_from_slice(&slot_bytes);
-
-                    let mut keccak_input = vec![];
-                    keccak_input.extend_from_slice(&padded_key);
-                    keccak_input.extend_from_slice(&padded_slot);
-
-                    // let mut hasher = Keccak256::new();
-                    // hasher.update(&keccak_input);
-                    // let entry_slot = hasher.finalize();
-                    // println!("keccak input {:?}", keccak_input.clone());
-                    let entry_slot = U256::from_be_bytes(keccak256(keccak_input).into());
-                    // let entry_slot_hex = format!("0x{}", hex::encode(entry_slot));
-
-                    let last_slot_u256 = U256::from_str_radix(last_slot_.trim_start_matches("0x"), 16).unwrap();
-
-                    self.mapping_usages
-                        .entry(last_slot_u256)
-                        .or_insert_with(HashSet::new)
-                        .insert((last_key_.clone(), entry_slot));
-
-                    // Reset key (next store might use new key)
+                    // always reset key after an sstore
                     last_key = None;
                 }
             }
@@ -662,7 +727,7 @@ impl<'a> ContractState<'a> {
                 .into_iter()
                 .collect();
             sorted_keys.sort();
-            println!("sorted dynamic keys: {:?}", sorted_keys);
+            // println!("sorted dynamic keys: {:?}", sorted_keys);
             for (sorted_key, target_slot) in &sorted_keys {
                 println!("sorted_key {}, target_slot {}", sorted_key, target_slot);
                 let key_type = self.get_key_type(&state_variable.var_type);
@@ -672,7 +737,7 @@ impl<'a> ContractState<'a> {
                 // the last 32 bytes correspond to a slot
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
-                if self.has_inplace_encoding(&key_type) && sorted_key.len() > 64 {
+                if self.has_inplace_encoding(&key_type) && sorted_key.trim_start_matches("0x").len() > 64 {
                     continue;
                 }
 
