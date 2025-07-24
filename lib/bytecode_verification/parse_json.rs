@@ -28,7 +28,7 @@ use alloy::json_abi::Event;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
     BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
-    DeployedBytecode, Node as EAstNode, NodeType, SolcInput, SourceFile
+    DeployedBytecode, Node as EAstNode, NodeType, SolcInput, SourceFile,
 };
 use foundry_compilers::buildinfo::BuildInfo as BInfo;
 use foundry_compilers::CompilerOutput;

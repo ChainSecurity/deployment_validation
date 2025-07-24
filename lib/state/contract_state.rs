@@ -107,7 +107,7 @@ impl<'a> ContractState<'a> {
             format!("0x{:064x}", num)
         } else {
             // fallback, maybe a variable reference
-            val.to_string() 
+            val.to_string()
         }
     }
 
@@ -333,7 +333,10 @@ impl<'a> ContractState<'a> {
                     if let Some(key_in) = key {
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
-                            println!("Mapping usages does not contain index {:?}, entry slot {:?}", index, target_slot);
+                            println!(
+                                "Mapping usages does not contain index {:?}, entry slot {:?}",
+                                index, target_slot
+                            );
                             let mut usage_set = HashSet::new();
                             usage_set.insert((key_in, *target_slot));
                             self.mapping_usages.insert(index, usage_set);
@@ -661,7 +664,9 @@ impl<'a> ContractState<'a> {
                 // the last 32 bytes correspond to a slot
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
-                if self.has_inplace_encoding(&key_type) && sorted_key.trim_start_matches("0x").len() > 64 {
+                if self.has_inplace_encoding(&key_type)
+                    && sorted_key.trim_start_matches("0x").len() > 64
+                {
                     continue;
                 }
 

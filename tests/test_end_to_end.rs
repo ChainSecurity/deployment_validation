@@ -550,7 +550,11 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            std::fs::copy(factory_outfile.path(), Path::new("tests/expected_dvfs/PullPaymentGIO.dvf.json")).unwrap();
+            std::fs::copy(
+                factory_outfile.path(),
+                Path::new("tests/expected_dvfs/PullPaymentGIO.dvf.json"),
+            )
+            .unwrap();
 
             // Remove the extra byte again
             truncate_last_byte(src_name);

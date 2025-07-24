@@ -1572,9 +1572,12 @@ impl StorageSnapshot {
                 let slot = stack[stack.len() - 1];
                 last_store.insert(slot, value);
                 //last_storage.insert(log.depth, last_store);
-                
+
                 // fruspa probably modify here
-                println!("add_trace found opcode SSTORE slot {:?} value {:?}", slot, value);
+                println!(
+                    "add_trace found opcode SSTORE slot {:?} value {:?}",
+                    slot, value
+                );
             }
 
             // Save upon successful return
