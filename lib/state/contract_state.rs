@@ -184,7 +184,6 @@ impl<'a> ContractState<'a> {
 
                 if depth_to_address[&log.depth] == self.address {
                     if let Some(key_in) = key {
-                        // println!("idk where we are, but we are adding mapping key {:?}", key_in);
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
                             let mut usage_set = HashSet::new();
@@ -207,7 +206,6 @@ impl<'a> ContractState<'a> {
                                 &log.memory.unwrap(),
                             )
                         );
-                        // println!("SHA input {:?}, length {:?}", sha3_input, length_in_bytes);
                         // Look for mapping usages
                         if length_in_bytes >= U256::from(32_u64)
                             && length_in_bytes < U256::from(usize::MAX / 2)
@@ -217,7 +215,7 @@ impl<'a> ContractState<'a> {
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
-                            println!("Found key {} for index {}.", key.clone().unwrap(), index);
+                            debug!("Found key {} for index {}.", key.clone().unwrap(), index);
                         }
                     }
                 }
@@ -247,7 +245,6 @@ impl<'a> ContractState<'a> {
         pi_types: &HashMap<String, TypeDescription>,
         zerovalue: bool,
     ) -> Result<Vec<parse::DVFStorageEntry>, ValidationError> {
-        println!("Prugna");
         let default_values = &ForgeInspect::default_values();
         // Add default types as we might need them
         let mut types = default_values.types.clone();
@@ -259,7 +256,6 @@ impl<'a> ContractState<'a> {
         let mut critical_storage_variables = Vec::<parse::DVFStorageEntry>::new();
 
         for state_variable in &self.state_variables {
-            println!("1. Considering sv {:?}", state_variable);
             critical_storage_variables.extend(self.get_critical_variable(
                 state_variable,
                 snapshot,
@@ -267,7 +263,6 @@ impl<'a> ContractState<'a> {
                 zerovalue,
             )?);
         }
-        println!("Crit storage vars {:?}", critical_storage_variables);
 
         let mut storage = default_values.storage.clone();
         storage.extend(pi_storage.to_owned());
@@ -278,7 +273,7 @@ impl<'a> ContractState<'a> {
             //     debug!("Skipping default var {} because it overlaps with existing or is uninitialized.", sv.label);
             //     continue;
             // }
-            println!("2. Considering sv {:?}", sv);
+
             let new_critical_storage_variables =
                 self.get_critical_variable(sv, snapshot, table, zerovalue)?;
             let mut has_nonzero = false;
@@ -504,7 +499,6 @@ impl<'a> ContractState<'a> {
                 .collect();
             sorted_keys.sort();
             for (sorted_key, target_slot) in &sorted_keys {
-                println!("Considering mapping key {:?} with slot {:?}", sorted_key, target_slot);
                 let key_type = self.get_key_type(&state_variable.var_type);
 
                 // Skip if key is longer than actual key type of the mapping

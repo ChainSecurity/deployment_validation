@@ -11,7 +11,6 @@ mod tests {
     use std::io::Write;
     use std::panic;
     use std::path::Path;
-    use std::path::PathBuf;
     use std::process::{Child, Command as SimpleCommand, Stdio};
     use std::thread::sleep;
     use std::time::Duration;
@@ -51,18 +50,6 @@ mod tests {
                 #[allow(dropping_references)]
                 LocalClient::Anvil(a) => drop(a),
                 LocalClient::Geth(ref mut child) => drop(child.kill()),
-            }
-        }
-    }
-
-    struct CleanupGuard {
-        path: PathBuf,
-    }
-
-    impl Drop for CleanupGuard {
-        fn drop(&mut self) {
-            if self.path.exists() {
-                Command::new("rm").arg(&self.path).assert();
             }
         }
     }
@@ -311,47 +298,47 @@ mod tests {
             updated: String::from("tests/expected_dvfs/Deploy_0_updated.dvf.json"),
         });
 
-        // testcases.push(TestCaseE2EUpdate {
-        //     script: String::from("script/Deploy_1.s.sol"),
-        //     contract: String::from("StringMapping"),
-        //     expected: String::from("tests/expected_dvfs/Deploy_1_b1.dvf.json"),
-        //     updated: String::from("tests/expected_dvfs/Deploy_1_updated.dvf.json"),
-        // });
-
-        // // testcases.push(TestCaseE2EUpdate {
-        // //    script: String::from("script/Deploy_2.s.sol"),
-        // //    contract: String::from("CrazyStruct"),
-        // //    expected: String::from("tests/expected_dvfs/Deploy_2_b1.dvf.json"),
-        // //    updated: String::from("tests/expected_dvfs/Deploy_2_updated.dvf.json"),
-        // // });
+        testcases.push(TestCaseE2EUpdate {
+            script: String::from("script/Deploy_1.s.sol"),
+            contract: String::from("StringMapping"),
+            expected: String::from("tests/expected_dvfs/Deploy_1_b1.dvf.json"),
+            updated: String::from("tests/expected_dvfs/Deploy_1_updated.dvf.json"),
+        });
 
         // testcases.push(TestCaseE2EUpdate {
-        //     script: String::from("script/Deploy_3.s.sol"),
-        //     contract: String::from("StructInEvent"),
-        //     expected: String::from("tests/expected_dvfs/Deploy_3_b1.dvf.json"),
-        //     updated: String::from("tests/expected_dvfs/Deploy_3_updated.dvf.json"),
+        //    script: String::from("script/Deploy_2.s.sol"),
+        //    contract: String::from("CrazyStruct"),
+        //    expected: String::from("tests/expected_dvfs/Deploy_2_b1.dvf.json"),
+        //    updated: String::from("tests/expected_dvfs/Deploy_2_updated.dvf.json"),
         // });
 
-        // testcases.push(TestCaseE2EUpdate {
-        //     script: String::from("script/Deploy_4.s.sol"),
-        //     contract: String::from("StaticArrayOfDynamicArray"),
-        //     expected: String::from("tests/expected_dvfs/Deploy_4_b1.dvf.json"),
-        //     updated: String::from("tests/expected_dvfs/Deploy_4_updated.dvf.json"),
-        // });
+        testcases.push(TestCaseE2EUpdate {
+            script: String::from("script/Deploy_3.s.sol"),
+            contract: String::from("StructInEvent"),
+            expected: String::from("tests/expected_dvfs/Deploy_3_b1.dvf.json"),
+            updated: String::from("tests/expected_dvfs/Deploy_3_updated.dvf.json"),
+        });
 
-        // testcases.push(TestCaseE2EUpdate {
-        //     script: String::from("script/Deploy_5.s.sol"),
-        //     contract: String::from("NestedMapping"),
-        //     expected: String::from("tests/expected_dvfs/Deploy_5_b1.dvf.json"),
-        //     updated: String::from("tests/expected_dvfs/Deploy_5_updated.dvf.json"),
-        // });
+        testcases.push(TestCaseE2EUpdate {
+            script: String::from("script/Deploy_4.s.sol"),
+            contract: String::from("StaticArrayOfDynamicArray"),
+            expected: String::from("tests/expected_dvfs/Deploy_4_b1.dvf.json"),
+            updated: String::from("tests/expected_dvfs/Deploy_4_updated.dvf.json"),
+        });
 
-        // testcases.push(TestCaseE2EUpdate {
-        //     script: String::from("script/Deploy_6.s.sol"),
-        //     contract: String::from("Enum"),
-        //     expected: String::from("tests/expected_dvfs/Deploy_6_b1.dvf.json"),
-        //     updated: String::from("tests/expected_dvfs/Deploy_6_updated.dvf.json"),
-        // });
+        testcases.push(TestCaseE2EUpdate {
+            script: String::from("script/Deploy_5.s.sol"),
+            contract: String::from("NestedMapping"),
+            expected: String::from("tests/expected_dvfs/Deploy_5_b1.dvf.json"),
+            updated: String::from("tests/expected_dvfs/Deploy_5_updated.dvf.json"),
+        });
+
+        testcases.push(TestCaseE2EUpdate {
+            script: String::from("script/Deploy_6.s.sol"),
+            contract: String::from("Enum"),
+            expected: String::from("tests/expected_dvfs/Deploy_6_b1.dvf.json"),
+            updated: String::from("tests/expected_dvfs/Deploy_6_updated.dvf.json"),
+        });
 
         for testcase in testcases {
             let url = format!("http://localhost:{}", port).to_string();
@@ -377,7 +364,7 @@ mod tests {
                     &String::from_utf8_lossy(&forge_assert.get_output().stdout)
                 );
 
-                let outfile = String::from("./empty.dvf.json");
+                let outfile = NamedTempFile::new().unwrap();
                 let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
                 let assert = dvf_cmd
                     .args(&[
@@ -394,7 +381,7 @@ mod tests {
                         &testcase.contract,
                         "--initblock",
                         "2",
-                        &outfile,
+                        &outfile.path().to_string_lossy(),
                     ])
                     .assert()
                     .success();
@@ -403,90 +390,87 @@ mod tests {
                 // Uncomment to regenerate expected files
                 // std::fs::copy(outfile.path(), Path::new(&testcase.expected)).unwrap();
 
-                // assert_eq_files(&outfile, &Path::new(&testcase.expected));
+                assert_eq_files(&outfile.path(), &Path::new(&testcase.expected));
 
-                // // Sign
-                // let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
-                // let assert = dvf_cmd
-                //     .args(&[
-                //         "--config",
-                //         &config_file.path().to_string_lossy(),
-                //         "sign",
-                //         &outfile.path().to_string_lossy(),
-                //     ])
-                //     .assert()
-                //     .success();
-                // println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+                // Sign
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "sign",
+                        &outfile.path().to_string_lossy(),
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
-                // // Validate
-                // let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
-                // let assert = dvf_cmd
-                //     .args(&[
-                //         "--config",
-                //         &config_file.path().to_string_lossy(),
-                //         "validate",
-                //         "--validationblock",
-                //         "2",
-                //         &outfile.path().to_string_lossy(),
-                //     ])
-                //     .assert()
-                //     .success();
-                // println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+                // Validate
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "validate",
+                        "--validationblock",
+                        "2",
+                        &outfile.path().to_string_lossy(),
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
-                // // Update
-                // let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
-                // let assert = dvf_cmd
-                //     .args(&[
-                //         "--config",
-                //         &config_file.path().to_string_lossy(),
-                //         "update",
-                //         "--validationblock",
-                //         "5",
-                //         &outfile.path().to_string_lossy(),
-                //     ])
-                //     .assert()
-                //     .success();
-                // println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+                // Update
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "update",
+                        "--validationblock",
+                        "5",
+                        &outfile.path().to_string_lossy(),
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
-                // let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
+                let updated_path = format!("{}_updated.dvf.json", outfile.path().to_string_lossy());
 
-                // // Uncomment to regenerate expected files
-                // // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
+                // Uncomment to regenerate expected files
+                // std::fs::copy(Path::new(&updated_path), Path::new(&testcase.updated)).unwrap();
 
-                // assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
+                assert_eq_files(&Path::new(&updated_path), &Path::new(&testcase.updated));
 
-                // // Sign
-                // let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
-                // let assert = dvf_cmd
-                //     .args(&[
-                //         "--config",
-                //         &config_file.path().to_string_lossy(),
-                //         "sign",
-                //         &updated_path,
-                //     ])
-                //     .assert()
-                //     .success();
-                // println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+                // Sign
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "sign",
+                        &updated_path,
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
-                // // Validate
-                // let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
-                // let assert = dvf_cmd
-                //     .args(&[
-                //         "--config",
-                //         &config_file.path().to_string_lossy(),
-                //         "validate",
-                //         "--validationblock",
-                //         "5",
-                //         &updated_path,
-                //     ])
-                //     .assert()
-                //     .success();
-                // println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
+                // Validate
+                let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
+                let assert = dvf_cmd
+                    .args(&[
+                        "--config",
+                        &config_file.path().to_string_lossy(),
+                        "validate",
+                        "--validationblock",
+                        "5",
+                        &updated_path,
+                    ])
+                    .assert()
+                    .success();
+                println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
                 drop(local_client);
-
-                // TODO REMOVE
-                break;
             }
         }
     }
@@ -680,12 +664,6 @@ mod tests {
             let mut new_dvf_path = config.dvf_storage.clone();
             new_dvf_path.push("MyToken.dvf.json");
             outfile.persist(new_dvf_path.as_path()).unwrap();
-            println!("persisting in {:?}", new_dvf_path.as_path());
-
-            // this will clean up the file even if the test fails mid-way
-            let cleanup = CleanupGuard {
-                path: new_dvf_path.clone(),
-            };
 
             let proxy_outfile = NamedTempFile::new().unwrap();
             let mut dvf_cmd = Command::cargo_bin("dv").unwrap();
@@ -767,7 +745,8 @@ mod tests {
                 .success();
 
             // Remove MyToken.dvf.json
-            drop(cleanup);
+            let mut rm_cmd = Command::new("rm");
+            rm_cmd.arg(new_dvf_path.as_path()).assert().success();
 
             drop(local_client);
         }

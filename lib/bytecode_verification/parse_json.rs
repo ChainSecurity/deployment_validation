@@ -1424,7 +1424,6 @@ impl ProjectInfo {
         build_cache: Option<&String>,
         libraries: Option<Vec<String>>,
     ) -> Result<Self, ValidationError> {
-
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),
             None => Self::compile(project, env, artifacts_path, libraries)?,
