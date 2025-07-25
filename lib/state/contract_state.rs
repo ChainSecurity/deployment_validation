@@ -112,8 +112,8 @@ impl<'a> ContractState<'a> {
     }
 
     /// Given the contract IR optimized output, extracts the mapping assigments with static keys
-    fn add_static_key_mapping_entries(&mut self, fi_ir_optimized: &ForgeInspectIrOptimized) {
-        let lines: Vec<&str> = fi_ir_optimized.ir.lines().collect();
+    fn add_static_key_mapping_entries(&mut self, ir_string: &String) {
+        let lines: Vec<&str> = ir_string.lines().collect();
         let mut last_key: Option<String> = None;
         let mut last_slot: Option<String> = None;
 
@@ -251,7 +251,13 @@ impl<'a> ContractState<'a> {
             self.add_state_variable(state_variable);
         }
 
-        self.add_static_key_mapping_entries(&fi_ir_optimized);
+        // add static-key mapping entries to the tracked mapping variables (if the contract IR is available)
+        match &fi_ir_optimized.ir {
+            Ok(ir_string) => self.add_static_key_mapping_entries(&ir_string),
+            Err(error) => {
+                info!("Warning: could not obtain IR for contract\n{error:?}");
+            }
+        }
     }
 
     fn memory_as_string(memory: &Vec<String>) -> String {

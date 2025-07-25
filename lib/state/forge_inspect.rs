@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::io::Error;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
@@ -154,12 +155,14 @@ impl ForgeInspectLayoutStorage {
         contract_name: &str,
         contract_path: Option<String>,
     ) -> Self {
+        // @note a failed forge inspect causes a panic here.
         let layout = forge_inspect_helper(
             project_path,
             contract_name,
             contract_path,
             String::from("storageLayout"),
-        );
+        )
+        .unwrap();
         serde_json::from_str::<ForgeInspectLayoutStorage>(&layout).unwrap()
     }
 
@@ -168,9 +171,8 @@ impl ForgeInspectLayoutStorage {
     }
 }
 
-#[derive(Deserialize, Debug, Default)]
 pub struct ForgeInspectIrOptimized {
-    pub ir: String,
+    pub ir: Result<String, Error>,
 }
 
 impl ForgeInspectIrOptimized {
@@ -179,6 +181,7 @@ impl ForgeInspectIrOptimized {
         contract_name: &str,
         contract_path: Option<String>,
     ) -> Self {
+        // @note a failed forge inspect does NOT panic because IR is not available for all contracts
         let ir_output = forge_inspect_helper(
             project_path,
             contract_name,
@@ -195,7 +198,7 @@ fn forge_inspect_helper(
     contract_name: &str,
     contract_path: Option<String>,
     field: String,
-) -> String {
+) -> Result<String, Error> {
     // Create a temporary directory
     let temp_dir = TempDir::new().unwrap();
     // Get the path of the temporary directory
@@ -229,18 +232,18 @@ fn forge_inspect_helper(
         .arg(temp_cache_path.as_os_str())
         .arg(contract)
         .arg(field)
-        .output()
-        .expect("Could not create storage layout");
+        .output()?;
 
-    assert!(
-        forge_inspect.status.success(),
-        "Failed to run forge inspect:\n{}",
-        String::from_utf8_lossy(&forge_inspect.stderr)
-    );
+    if !forge_inspect.status.success() {
+        return Err(Error::other(format!(
+            "Failed to run forge inspect: {}",
+            String::from_utf8_lossy(&forge_inspect.stderr)
+        )));
+    }
 
-    let layout = String::from_utf8(forge_inspect.stdout).unwrap();
-    debug!("{}", layout);
+    let output = String::from_utf8(forge_inspect.stdout).unwrap();
+    debug!("{}", output);
     debug!("Parsed forge inspect output.");
 
-    return layout;
+    return Ok(output);
 }
