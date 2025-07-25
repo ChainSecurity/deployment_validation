@@ -52,6 +52,7 @@ fn main() {
             Arg::new("chainid")
                 .long("chainid")
                 .help("Chain ID")
+                .value_parser(clap::value_parser!(u64))
                 .action(ArgAction::Set),
         )
         .get_matches();
@@ -68,7 +69,7 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
     let tx_id = matches.get_one::<String>("txid").unwrap().to_string();
     let name = matches.get_one::<String>("name").unwrap().to_string();
 
-    let chain_id = *matches.get_one::<u64>("chainid").unwrap_or(&31337);
+    let chain_id = *matches.get_one::<u64>("chainid").unwrap_or(&1337);
     config.set_chain_id(chain_id)?;
 
     let trace_w_a = web3::get_eth_debug_trace(&config, &tx_id)?;

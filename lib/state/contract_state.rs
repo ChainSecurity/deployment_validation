@@ -174,7 +174,7 @@ impl<'a> ContractState<'a> {
                 }
             }
 
-            if let Some(caps) = re_sstore.captures(line) {
+            if let Some(_caps) = re_sstore.captures(line) {
                 if let (Some(last_key_), Some(last_slot_)) = (last_key.clone(), last_slot.clone()) {
                     // println!(
                     //     "Captured key string {:?} slot string {:?}",
@@ -408,7 +408,7 @@ impl<'a> ContractState<'a> {
 
         let mut critical_storage_variables = Vec::<parse::DVFStorageEntry>::new();
 
-        // @fruspa forge inspect state variables
+        // forge inspect state vddariables
         for state_variable in self.state_variables.clone() {
             println!("stor var {:?}", state_variable);
             critical_storage_variables.extend(self.get_critical_variable(
@@ -419,7 +419,7 @@ impl<'a> ContractState<'a> {
             )?);
         }
 
-        // @fruspa extra special storage from ast parsing
+        // extra storage variables extracted from AST parsing
         let mut storage = default_values.storage.clone();
         storage.extend(pi_storage.to_owned());
         for state_variable in &storage {

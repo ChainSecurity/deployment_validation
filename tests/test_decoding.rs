@@ -93,7 +93,6 @@ mod tests {
 
             assert_eq!(generated_result.len(), expected_result.len());
             for i in 0..generated_result.len() {
-                // println!("{:?}", generated_result[i]);
                 assert_eq!(generated_result[i], expected_result[i]);
             }
         }

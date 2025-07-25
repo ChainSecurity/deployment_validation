@@ -31,14 +31,22 @@ const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
 
 mod pathological_rpc_deserde {
-    use serde::{self, Deserialize};
+    use serde::{de::Error, Deserialize};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
     where
-        D: super::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value {
+            serde_json::Value::Number(n) => {
+                n.as_u64().ok_or_else(|| Error::custom("Invalid number"))
+            }
+            serde_json::Value::String(s) => {
+                u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(Error::custom)
+            }
+            _ => Err(Error::custom("Expected a hex string or integer")),
+        }
     }
 }
 
@@ -258,7 +266,7 @@ pub fn get_eth_debug_trace(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
-    println!("Sending to {:?}", config.get_rpc_url()?);
+    // println!("Sending to {:?}", config.get_rpc_url()?);
     // Parse the response as a JSON list
     let trace: DefaultFrame = serde_json::from_value(result)?;
 
@@ -1573,11 +1581,10 @@ impl StorageSnapshot {
                 last_store.insert(slot, value);
                 //last_storage.insert(log.depth, last_store);
 
-                // fruspa probably modify here
-                println!(
-                    "add_trace found opcode SSTORE slot {:?} value {:?}",
-                    slot, value
-                );
+                // println!(
+                //     "add_trace found opcode SSTORE slot {:?} value {:?}",
+                //     slot, value
+                // );
             }
 
             // Save upon successful return
