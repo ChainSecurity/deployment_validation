@@ -31,14 +31,22 @@ const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
 
 mod pathological_rpc_deserde {
-    use serde::{self, Deserialize};
+    use serde::{de::Error, Deserialize};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
     where
-        D: super::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value {
+            serde_json::Value::Number(n) => {
+                n.as_u64().ok_or_else(|| Error::custom("Invalid number"))
+            }
+            serde_json::Value::String(s) => {
+                u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(Error::custom)
+            }
+            _ => Err(Error::custom("Expected a hex string or integer")),
+        }
     }
 }
 

@@ -57,18 +57,18 @@ mod tests {
     fn test_expected_results() {
         for contract_name in [
             "BytesMapping",
-            // "CrazyStruct",
-            // "DynamicArrayOfStaticArray",
-            // "Enum",
-            // "NestedMapping",
-            // "StaticArray",
-            // "StaticArrayOfDynamicArray",
-            // "StaticArrayOfStaticArray",
-            // "StaticArrayOfStruct",
-            // "StaticInMapping",
+            "CrazyStruct",
+            "DynamicArrayOfStaticArray",
+            "Enum",
+            "NestedMapping",
+            "StaticArray",
+            "StaticArrayOfDynamicArray",
+            "StaticArrayOfStaticArray",
+            "StaticArrayOfStruct",
+            "StaticInMapping",
             "StringMapping",
-            // "StructInMapping",
-            // "StructInStruct",
+            "StructInMapping",
+            "StructInStruct",
         ] {
             let path = format!("./tests/data/trace_{}.json", contract_name);
             println!("Reading {}", path);

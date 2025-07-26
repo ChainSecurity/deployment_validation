@@ -52,6 +52,7 @@ fn main() {
             Arg::new("chainid")
                 .long("chainid")
                 .help("Chain ID")
+                .value_parser(clap::value_parser!(u64))
                 .action(ArgAction::Set),
         )
         .get_matches();
