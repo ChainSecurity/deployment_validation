@@ -592,7 +592,7 @@ This section will be updated soon.
 - Contracts performing `delegatecall` to more than one other contract are currently not supported.
 - `dv update` currently only updates values of existing storage variables in the DVF and does not add newly added storage values.
 - Multiple contracts with the same name compiled with different compiler versions in one project are not supported.
-- Static mapping keys (e.g., `mapping[0]`) can currently not be decoded.
+- Multi-dimensional mappings with static keys (e.g., `mapping[1][2]`) can currently not be decoded.
 - Empty-string mapping keys can currently not be decoded correctly.
 - Big transaction traces (`debug_traceTransaction` with opcode logger) of multiple GB may cause a crash.
 - Proxy Contracts without events when changing the implementation cannot be accurately secured, as implementation changes could be missed.

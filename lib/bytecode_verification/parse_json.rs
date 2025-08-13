@@ -99,8 +99,8 @@ impl ProjectInfo {
         let program = command.get_program();
         let args: Vec<_> = command.get_args().collect();
 
-        println!("Command: {:?}", program);
-        println!("Args: {:?}", args);
+        info!("Command: {:?}", program);
+        info!("Args: {:?}", args);
 
         let build = command.output().expect("Could not build project");
 

@@ -245,5 +245,5 @@ fn forge_inspect_helper(
     debug!("{}", output);
     debug!("Parsed forge inspect output.");
 
-    return Ok(output);
+    Ok(output)
 }

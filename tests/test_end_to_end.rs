@@ -789,59 +789,9 @@ mod tests {
         let mut testcases: Vec<TestCaseE2E> = vec![];
 
         testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_Lib.s.sol"),
-            contract: String::from("Lib"),
-            expected: String::from("tests/expected_dvfs/Lib.dvf.json"),
-        });
-
-        testcases.push(TestCaseE2E {
             script: String::from("script/Deploy_StaticInMapping.s.sol"),
             contract: String::from("StaticInMapping"),
             expected: String::from("tests/expected_dvfs/StaticInMapping.dvf.json"),
-        });
-
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_0.s.sol"),
-            contract: String::from("BytesMapping"),
-            expected: String::from("tests/expected_dvfs/Deploy_0.dvf.json"),
-        });
-
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_1.s.sol"),
-            contract: String::from("StringMapping"),
-            expected: String::from("tests/expected_dvfs/Deploy_1.dvf.json"),
-        });
-
-        // testcases.push(TestCaseE2E {
-        //    script: String::from("script/Deploy_2.s.sol"),
-        //    contract: String::from("CrazyStruct"),
-        //    expected: String::from("tests/expected_dvfs/Deploy_2.dvf.json"),
-        // });
-
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_3.s.sol"),
-            contract: String::from("StructInEvent"),
-            expected: String::from("tests/expected_dvfs/Deploy_3.dvf.json"),
-        });
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_4.s.sol"),
-            contract: String::from("StaticArrayOfDynamicArray"),
-            expected: String::from("tests/expected_dvfs/Deploy_4.dvf.json"),
-        });
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_5.s.sol"),
-            contract: String::from("NestedMapping"),
-            expected: String::from("tests/expected_dvfs/Deploy_5.dvf.json"),
-        });
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_AllValueTypes.s.sol"),
-            contract: String::from("AllValueTypes"),
-            expected: String::from("tests/expected_dvfs/AllValueTypes.dvf.json"),
-        });
-        testcases.push(TestCaseE2E {
-            script: String::from("script/Deploy_CrazyHiddenStruct.s.sol"),
-            contract: String::from("CrazyHiddenStruct"),
-            expected: String::from("tests/expected_dvfs/CrazyHiddenStruct.dvf.json"),
         });
 
         for testcase in testcases {

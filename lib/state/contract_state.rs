@@ -112,7 +112,7 @@ impl<'a> ContractState<'a> {
     }
 
     /// Given the contract IR optimized output, extracts the mapping assigments with static keys
-    fn add_static_key_mapping_entries(&mut self, ir_string: &String) {
+    fn add_static_key_mapping_entries(&mut self, ir_string: &str) {
         let lines: Vec<&str> = ir_string.lines().collect();
         let mut last_key: Option<String> = None;
         let mut last_slot: Option<String> = None;
@@ -217,7 +217,7 @@ impl<'a> ContractState<'a> {
 
                             self.mapping_usages
                                 .entry(mapping_slot)
-                                .or_insert_with(HashSet::new)
+                                .or_default()
                                 .insert((resolved_last_key, entry_slot));
                         }
                         _ => {
@@ -253,7 +253,7 @@ impl<'a> ContractState<'a> {
 
         // add static-key mapping entries to the tracked mapping variables (if the contract IR is available)
         match &fi_ir_optimized.ir {
-            Ok(ir_string) => self.add_static_key_mapping_entries(&ir_string),
+            Ok(ir_string) => self.add_static_key_mapping_entries(ir_string),
             Err(error) => {
                 info!("Warning: could not obtain IR for contract\n{error:?}");
             }
@@ -339,8 +339,8 @@ impl<'a> ContractState<'a> {
                     if let Some(key_in) = key {
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
-                            println!(
-                                "Mapping usages does not contain index {:?}, entry slot {:?}",
+                            debug!(
+                                "Mapping usages do not contain index {:?}, entry slot {:?}",
                                 index, target_slot
                             );
                             let mut usage_set = HashSet::new();
@@ -374,7 +374,7 @@ impl<'a> ContractState<'a> {
                             assert!(sha3_input.len() == usize_str_length);
                             key = Some(sha3_input[2..usize_str_length - 64].to_string());
                             index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16)?;
-                            println!("Found key {} for index {}.", key.clone().unwrap(), index);
+                            debug!("Found key {} for index {}.", key.clone().unwrap(), index);
                         }
                     }
                 }
@@ -414,9 +414,8 @@ impl<'a> ContractState<'a> {
 
         let mut critical_storage_variables = Vec::<parse::DVFStorageEntry>::new();
 
-        // forge inspect state vddariables
+        // forge inspect state variables
         for state_variable in self.state_variables.clone() {
-            println!("stor var {:?}", state_variable);
             critical_storage_variables.extend(self.get_critical_variable(
                 &state_variable,
                 snapshot,
@@ -662,7 +661,6 @@ impl<'a> ContractState<'a> {
                 .collect();
             sorted_keys.sort();
             for (sorted_key, target_slot) in &sorted_keys {
-                println!("sorted_key {}, target_slot {}", sorted_key, target_slot);
                 let key_type = self.get_key_type(&state_variable.var_type);
 
                 // Skip if key is longer than actual key type of the mapping

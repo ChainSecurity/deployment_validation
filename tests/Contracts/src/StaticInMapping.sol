@@ -5,8 +5,11 @@ pragma solidity ^0.8.13;
 contract StaticInMapping {
     mapping(address => uint256) static_in_mapping;
     mapping(uint256 => uint256) static_in_mapping2;
+    mapping(string => uint256) static_in_mapping3;
+    mapping(uint256 => mapping(uint256 => uint256)) static_in_mapping4;
     uint256 someInt;
     uint64[6][] dynamicStatic;
+    uint256 constant KEY = 345;
 
     constructor() {
         // static_in_mapping[address(this)] = 2 ** 128 - 1;
@@ -33,6 +36,9 @@ contract StaticInMapping {
         static_in_mapping[address(1)] = 16;
         static_in_mapping2[1 + 15] = 42;
         static_in_mapping2[1 + 16] = 81 + 2;
+        static_in_mapping2[KEY] = 100;
+        static_in_mapping3["hello"] = 200;
+        static_in_mapping4[1][2] = 300; // TODO: This currently does not work
 
         someInt = 100;
     }
