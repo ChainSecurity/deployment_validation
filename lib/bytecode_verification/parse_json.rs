@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use alloy::json_abi::Constructor;
+use alloy::primitives::U256;
 use clap::ValueEnum;
 use semver::Version;
 use serde_json;
@@ -24,7 +25,6 @@ use colored::Colorize;
 use std::str::FromStr;
 
 use alloy::json_abi::Event;
-use alloy::primitives::U256;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
     BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
@@ -99,8 +99,8 @@ impl ProjectInfo {
         let program = command.get_program();
         let args: Vec<_> = command.get_args().collect();
 
-        println!("Command: {:?}", program);
-        println!("Args: {:?}", args);
+        info!("Command: {:?}", program);
+        info!("Args: {:?}", args);
 
         let build = command.output().expect("Could not build project");
 
@@ -1424,8 +1424,6 @@ impl ProjectInfo {
         build_cache: Option<&String>,
         libraries: Option<Vec<String>>,
     ) -> Result<Self, ValidationError> {
-        println!("Libraries are {:?}", libraries);
-
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),
             None => Self::compile(project, env, artifacts_path, libraries)?,

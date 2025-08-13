@@ -164,7 +164,7 @@ fn validate_dvf(
         return Err(ValidationError::from("Different codehash."));
     }
 
-    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+    let pretty_printer = PrettyPrinter::new(config, Some(registry));
 
     // Validate Storage slots
     print_progress("Validating Storage Variables.", &mut pc, &progress_mode);
@@ -181,7 +181,7 @@ fn validate_dvf(
         if !storage_variable.compare(&current_val[start_index..end_index]) {
             let message = get_mismatch_msg(
                 &pretty_printer,
-                &storage_variable,
+                storage_variable,
                 &current_val[start_index..end_index],
             );
             if continue_on_mismatch {
@@ -987,14 +987,19 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             print_progress("Obtaining storage layout.", &mut pc, &progress_mode);
             // Fetch storage layout
-            let layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
+            let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
+                project,
+                &dumped.contract_name,
+                project_info.absolute_path.clone(),
+            );
+            let fi_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
                 project,
                 &dumped.contract_name,
                 project_info.absolute_path.clone(),
             );
             let mut contract_state =
                 ContractState::new_with_address(&dumped.address, &pretty_printer);
-            contract_state.add_forge_inspect(&layout);
+            contract_state.add_forge_inspect(&fi_layout, &fi_ir);
 
             // Proxy Mode
             let mut storage: Vec<StateVariable> = project_info.storage.clone();
@@ -1020,12 +1025,19 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &mut pc,
                     &progress_mode,
                 );
-                let implementation_layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
-                    &imp_path,
-                    implementation_name,
-                    tmp_project_info.absolute_path.clone(),
-                );
-                contract_state.add_forge_inspect(&implementation_layout);
+                let fi_impl_layout =
+                    forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
+                        &imp_path,
+                        implementation_name,
+                        tmp_project_info.absolute_path.clone(),
+                    );
+                let fi_impl_ir =
+                    forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
+                        &imp_path,
+                        implementation_name,
+                        tmp_project_info.absolute_path.clone(),
+                    );
+                contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
                 storage.extend(tmp_project_info.storage.clone());
                 types.extend(tmp_project_info.types.clone());

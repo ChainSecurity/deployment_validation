@@ -550,7 +550,11 @@ mod tests {
             println!("{}", &String::from_utf8_lossy(&assert.get_output().stdout));
 
             // Uncomment to regenerate expected files
-            // std::fs::copy(factory_outfile.path(), Path::new("tests/expected_dvfs/PullPayment.dvf.json")).unwrap();
+            // std::fs::copy(
+            //     factory_outfile.path(),
+            //     Path::new("tests/expected_dvfs/PullPayment.dvf.json"),
+            // )
+            // .unwrap();
 
             // Remove the extra byte again
             truncate_last_byte(src_name);
@@ -788,6 +792,12 @@ mod tests {
             script: String::from("script/Deploy_Lib.s.sol"),
             contract: String::from("Lib"),
             expected: String::from("tests/expected_dvfs/Lib.dvf.json"),
+        });
+
+        testcases.push(TestCaseE2E {
+            script: String::from("script/Deploy_StaticInMapping.s.sol"),
+            contract: String::from("StaticInMapping"),
+            expected: String::from("tests/expected_dvfs/StaticInMapping.dvf.json"),
         });
 
         testcases.push(TestCaseE2E {

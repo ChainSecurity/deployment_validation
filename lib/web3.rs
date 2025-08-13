@@ -31,14 +31,22 @@ const NUM_STORAGE_QUERIES: u64 = 32;
 const LARGE_BLOCK_RANGE: u64 = 100000;
 
 mod pathological_rpc_deserde {
-    use serde::{self, Deserialize};
+    use serde::{de::Error, Deserialize};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
     where
-        D: super::Deserializer<'de>,
+        D: serde::Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(serde::de::Error::custom)
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value {
+            serde_json::Value::Number(n) => {
+                n.as_u64().ok_or_else(|| Error::custom("Invalid number"))
+            }
+            serde_json::Value::String(s) => {
+                u64::from_str_radix(s.trim_start_matches("0x"), 16).map_err(Error::custom)
+            }
+            _ => Err(Error::custom("Expected a hex string or integer")),
+        }
     }
 }
 
@@ -258,6 +266,7 @@ pub fn get_eth_debug_trace(
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
+    // println!("Sending to {:?}", config.get_rpc_url()?);
     // Parse the response as a JSON list
     let trace: DefaultFrame = serde_json::from_value(result)?;
 
@@ -1415,8 +1424,9 @@ impl StorageSnapshot {
                 //Self::validate_snapshot_with_mpt_root(config, &snapshot, address, init_block_num);
             }
         };
-        debug!("Storage Snapshot: {:?}", snapshot);
+        // println!("Storage Snapshot: {:?}", snapshot);
         let unused_parts = Self::init_unused_parts(&snapshot);
+        // println!("Unused {:?}", unused_parts);
         Ok(StorageSnapshot {
             snapshot,
             unused_parts,
@@ -1525,6 +1535,7 @@ impl StorageSnapshot {
         let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
         depth_to_address.insert(1, trace_w_a.address);
         // depth -> last_storage
+        // depth -> (slot -> value)
         let mut last_storage: HashMap<u64, HashMap<U256, U256>> = HashMap::new();
 
         let last_depth = 1_u64;
@@ -1569,6 +1580,11 @@ impl StorageSnapshot {
                 let slot = stack[stack.len() - 1];
                 last_store.insert(slot, value);
                 //last_storage.insert(log.depth, last_store);
+
+                // println!(
+                //     "add_trace found opcode SSTORE slot {:?} value {:?}",
+                //     slot, value
+                // );
             }
 
             // Save upon successful return

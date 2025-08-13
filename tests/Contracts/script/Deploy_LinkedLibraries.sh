@@ -35,8 +35,3 @@ CALCULATOR_ADDR=$(forge create src/linked_libraries/Calculator.sol:Calculator \
   --json | jq -r .deployedTo)
 
 echo "Deployed Calculator to: $CALCULATOR_ADDR"
-
-# clean up because we want to test that the DV tool is able to generate the build files
-forge clean
-
-
