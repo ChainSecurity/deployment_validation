@@ -183,7 +183,7 @@ fn validate_dvf(
                 &pretty_printer,
                 storage_variable,
                 &current_val[start_index..end_index],
-                true
+                true,
             );
             if continue_on_mismatch {
                 mismatch_found = true;
@@ -798,7 +798,7 @@ fn get_mismatch_msg(
     pretty_printer: &PrettyPrinter,
     storage_variable: &DVFStorageEntry,
     current_value_slice: &[u8],
-    display_mismatch: bool
+    display_mismatch: bool,
 ) -> String {
     let var_type = storage_variable.var_type.clone().unwrap_or_default();
     let dec_current_value_slice = pretty_printer.pretty_value_short_from_bytes(
@@ -1189,12 +1189,11 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let discover = sub_m.get_flag("discover");
             println!("running discover mode? {}", discover);
 
-            let progress_mode;
-            if discover {
-                progress_mode = ProgressMode::UpdateFull;
+            let progress_mode = if discover {
+                ProgressMode::UpdateFull
             } else {
-                progress_mode = ProgressMode::Update;
-            }
+                ProgressMode::Update
+            };
 
             print_progress("Loading file.", &mut pc, &progress_mode);
 

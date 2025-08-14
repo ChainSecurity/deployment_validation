@@ -1399,15 +1399,12 @@ impl StorageSnapshot {
         use_storage_range: bool,
     ) -> Result<Self, ValidationError> {
         // First try special call
-        let snapshot;
-        if use_storage_range {
-            snapshot = Some(get_eth_storage_snapshot(config, address, init_block_num));
+        let snapshot = if use_storage_range {
+            Some(get_eth_storage_snapshot(config, address, init_block_num))
         } else {
-            snapshot = None;
-        }
-        let snapshot: HashMap<U256, [u8; 32]> = if let Some(Ok(storage_snapshot)) =
-            snapshot
-        {
+            None
+        };
+        let snapshot: HashMap<U256, [u8; 32]> = if let Some(Ok(storage_snapshot)) = snapshot {
             /*
             Self::validate_snapshot_with_mpt_root(
                 config,
