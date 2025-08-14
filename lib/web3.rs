@@ -1379,7 +1379,7 @@ pub fn get_eth_events(
     to_block: u64,
     topics: &Vec<B256>,
 ) -> Result<Vec<Log>, ValidationError> {
-    println!("Quering events from {} to {}", from_block, to_block);
+    println!("Querying events from {} to {}", from_block, to_block);
     let from_block_hex = format!("{:#x}", from_block);
     let to_block_hex = format!("{:#x}", to_block);
     let request_body = json!({

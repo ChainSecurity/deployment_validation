@@ -221,8 +221,7 @@ fn validate_dvf(
 
             if num_occurrences + seen_events.len() > num_occurrences_expected {
                 return Err(ValidationError::Invalid(format!(
-                    "Found at least {} occurrences of event {}, but expected {}.",
-                    num_occurrences + seen_events.len(),
+                    "Found more occurrences of event {} than expected ({}).",
                     critical_event.sig,
                     num_occurrences_expected
                 )));
@@ -262,6 +261,14 @@ fn validate_dvf(
             }
 
             current_from = current_to + 1;
+        }
+
+        if num_occurrences < num_occurrences_expected {
+            return Err(ValidationError::Invalid(format!(
+                "Found less occurrences of event {} than expected ({}).",
+                critical_event.sig,
+                num_occurrences_expected
+            )));
         }
 
         pb.inc(1);
@@ -304,7 +311,7 @@ fn validate_dvf(
                             registry,
                             seen_ids,
                             allow_untrusted,
-                            false,
+                            continue_on_mismatch,
                             Some(reference.contract_name.clone()),
                         ));
                     }

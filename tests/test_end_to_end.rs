@@ -1392,7 +1392,7 @@ mod tests {
                 let output = String::from_utf8_lossy(&dvf_assert.get_output().stdout);
                 println!("{}", &output);
 
-                assert!(output.contains("Deployment invalid: Found at least 3 occurrences of event Huh((uint256,address,bool,uint64[6],uint128)), but expected 2"), "The string does not contain the required text.");
+                assert!(output.contains("Deployment invalid: Found more occurrences of event Huh((uint256,address,bool,uint64[6],uint128)) than expected (2)."));
                 drop(local_client);
             }
         }
