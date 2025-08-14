@@ -1396,11 +1396,15 @@ impl StorageSnapshot {
         address: &Address,
         init_block_num: u64,
         tx_hashes: &Vec<String>,
+        use_storage_range: bool,
     ) -> Result<Self, ValidationError> {
         // First try special call
-        let snapshot: HashMap<U256, [u8; 32]> = if let Ok(storage_snapshot) =
-            get_eth_storage_snapshot(config, address, init_block_num)
-        {
+        let snapshot = if use_storage_range {
+            Some(get_eth_storage_snapshot(config, address, init_block_num))
+        } else {
+            None
+        };
+        let snapshot: HashMap<U256, [u8; 32]> = if let Some(Ok(storage_snapshot)) = snapshot {
             /*
             Self::validate_snapshot_with_mpt_root(
                 config,

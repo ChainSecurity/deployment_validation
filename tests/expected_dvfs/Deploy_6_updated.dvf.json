@@ -17,6 +17,7 @@
       "var_name": "s",
       "var_type": "t_uint8",
       "value": "0x03",
+      "value_hint": "3",
       "comparison_operator": "Equal"
     }
   ],
