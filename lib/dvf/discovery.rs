@@ -78,16 +78,15 @@ pub fn discover_storage_and_events(
         // Load storage layout using forge inspect
         let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             project_path,
-            &params.contract_name,
+            params.contract_name,
             project_info.absolute_path.clone(),
         );
         let fi_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
             project_path,
-            &params.contract_name,
+            params.contract_name,
             project_info.absolute_path.clone(),
         );
-        let mut contract_state =
-            ContractState::new_with_address(params.address, &pretty_printer);
+        let mut contract_state = ContractState::new_with_address(params.address, &pretty_printer);
         contract_state.add_forge_inspect(&fi_layout, &fi_ir);
 
         (
@@ -138,18 +137,16 @@ pub fn discover_storage_and_events(
             params.pc,
             params.progress_mode,
         );
-        let fi_impl_layout =
-        forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
+        let fi_impl_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             &imp_path,
             implementation_name,
             tmp_project_info.absolute_path.clone(),
         );
-        let fi_impl_ir =
-            forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
-                &imp_path,
-                implementation_name,
-                tmp_project_info.absolute_path.clone(),
-            );
+        let fi_impl_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
+            &imp_path,
+            implementation_name,
+            tmp_project_info.absolute_path.clone(),
+        );
         contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
         storage_layout.extend(tmp_project_info.storage.clone());
@@ -410,6 +407,7 @@ pub fn discover_storage_and_events(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_discovery_params_for_init<'a>(
     config: &'a DVFConfig,
     dumped: &'a parse::CompleteDVF,
@@ -452,6 +450,7 @@ pub fn create_discovery_params_for_init<'a>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_discovery_params_for_update<'a>(
     config: &'a DVFConfig,
     updated: &'a parse::CompleteDVF,
