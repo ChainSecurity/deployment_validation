@@ -1,10 +1,11 @@
 {
   "version": "0.9.1",
+  "id": "0xdf8305c2fe8f3b111189989267e5845cb90d271206f6a152ba5fd7736f3da7a6",
   "contract_name": "TransparentUpgradeableProxy",
   "address": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
   "chain_id": 1337,
   "deployment_block_num": 3,
-  "init_block_num": 3,
+  "init_block_num": 26,
   "deployment_tx": "0xafab58d1b40c949aa4680c09e8012680d2d52708b49ad9666a206ec8a03b531b",
   "codehash": "0x07a3f582ceb15f50e21a238db7f4aab8320b4fac8d78379d05feaf2721f139b1",
   "insecure": false,
@@ -104,14 +105,7 @@
     {
       "sig": "AdminChanged(address,address)",
       "topic0": "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f",
-      "occurrences": [
-        {
-          "topics": [
-            "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f"
-          ],
-          "data": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cafac3dd18ac6c6e92c921884f9e4176737c052c"
-        }
-      ]
+      "occurrences": []
     },
     {
       "sig": "Upgraded(address)",
@@ -121,13 +115,6 @@
           "topics": [
             "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
             "0x0000000000000000000000005fbdb2315678afecb367f032d93f642f64180aa3"
-          ],
-          "data": "0x"
-        },
-        {
-          "topics": [
-            "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
-            "0x0000000000000000000000004ed7c70f96b99c776995fb64377f0d4ab3b0e1c1"
           ],
           "data": "0x"
         }
@@ -147,28 +134,13 @@
             "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
           ],
           "data": "0x0000000000000000000000000000000000000000000000000000000000000001"
-        },
-        {
-          "topics": [
-            "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
-          ],
-          "data": "0x0000000000000000000000000000000000000000000000000000000000000002"
         }
       ]
     },
     {
       "sig": "Transfer(address,address,uint256)",
       "topic0": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-      "occurrences": [
-        {
-          "topics": [
-            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
-          ],
-          "data": "0x0000000000000000000000000000000000000000000000008ac7230489e80000"
-        }
-      ]
+      "occurrences": []
     },
     {
       "sig": "DummyEvent()",
