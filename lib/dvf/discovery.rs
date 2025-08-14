@@ -25,9 +25,8 @@ pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
     pub contract_name: &'a str,
     pub address: &'a Address,
-    pub deployment_block_num: u64,
-    pub init_block_num: u64,
-    pub validation_block_num: u64,
+    pub start_block_num: u64,
+    pub end_block_num: u64,
     pub project: Option<&'a PathBuf>,
     pub artifacts: &'a str,
     pub env: Environment,
@@ -42,6 +41,7 @@ pub struct DiscoveryParams<'a> {
     pub event_topics: Option<Vec<B256>>,
     pub pc: &'a mut u64,
     pub progress_mode: &'a ProgressMode,
+    pub use_storage_range: bool,
 }
 
 pub struct DiscoveryResult {
@@ -165,8 +165,8 @@ pub fn discover_storage_and_events(
         seen_events = web3::get_eth_events(
             params.config,
             params.address,
-            params.deployment_block_num,
-            params.init_block_num,
+            params.start_block_num,
+            params.end_block_num,
             event_topics,
         )?;
         seen_events
@@ -182,8 +182,8 @@ pub fn discover_storage_and_events(
         web3::get_all_txs_for_contract(
             params.config,
             params.address,
-            params.deployment_block_num,
-            params.validation_block_num,
+            params.start_block_num,
+            params.end_block_num,
         )?
     };
 
@@ -191,8 +191,9 @@ pub fn discover_storage_and_events(
     let mut snapshot = web3::StorageSnapshot::from_api(
         params.config,
         params.address,
-        params.validation_block_num,
+        params.end_block_num,
         &tx_hashes,
+        params.use_storage_range,
     )?;
 
     print_progress("Getting relevant traces.", params.pc, params.progress_mode);
@@ -250,8 +251,8 @@ pub fn discover_storage_and_events(
         seen_events = web3::get_eth_events(
             params.config,
             params.address,
-            params.deployment_block_num,
-            params.validation_block_num,
+            params.start_block_num,
+            params.end_block_num,
             &vec![],
         )?;
     }
@@ -428,9 +429,8 @@ pub fn create_discovery_params_for_init<'a>(
         config,
         contract_name: &dumped.contract_name,
         address: &dumped.address,
-        deployment_block_num,
-        init_block_num,
-        validation_block_num: init_block_num,
+        start_block_num: deployment_block_num,
+        end_block_num: init_block_num,
         project: Some(project),
         artifacts,
         env,
@@ -447,6 +447,7 @@ pub fn create_discovery_params_for_init<'a>(
         event_topics,
         pc,
         progress_mode,
+        use_storage_range: true,
     }
 }
 
@@ -469,9 +470,8 @@ pub fn create_discovery_params_for_update<'a>(
         config,
         contract_name: &updated.contract_name,
         address: &updated.address,
-        deployment_block_num: updated.deployment_block_num,
-        init_block_num: updated.init_block_num,
-        validation_block_num,
+        start_block_num: updated.init_block_num + 1,
+        end_block_num: validation_block_num,
         project,
         artifacts,
         env,
@@ -488,5 +488,6 @@ pub fn create_discovery_params_for_update<'a>(
         event_topics: None, // Update mode doesn't filter by event topics
         pc,
         progress_mode,
+        use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
     }
 }

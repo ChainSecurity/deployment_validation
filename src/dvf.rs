@@ -183,6 +183,7 @@ fn validate_dvf(
                 &pretty_printer,
                 storage_variable,
                 &current_val[start_index..end_index],
+                true
             );
             if continue_on_mismatch {
                 mismatch_found = true;
@@ -555,52 +556,62 @@ fn main() {
                 .arg(
                     arg!(--project <PATH>)
                         .help("Path to the root folder of the source code project (optional, improves storage layout discovery)")
-                        .value_parser(is_valid_path),
+                        .value_parser(is_valid_path)
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--artifacts <PATH>)
                         .help("Relative path to the compilation artifacts")
-                        .default_value("artifacts"),
+                        .default_value("artifacts")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--buildcache <PATH>)
-                        .help("Build cache, if you have a very large project"),
+                        .help("Build cache, if you have a very large project")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--libraries <LIBRARIES>)
                         .help("Library linking information (address mapping)")
                         .value_parser(value_parser!(String))
-                        .action(clap::ArgAction::Append),
+                        .action(clap::ArgAction::Append)
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--env <ENV>)
                         .help("The compile environment")
                         .value_parser(value_parser!(Environment))
-                        .default_value("foundry"),
+                        .default_value("foundry")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--implementation <NAME>)
-                        .help("Optional name of the implementation contract"),
+                        .help("Optional name of the implementation contract")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--implementationproject <PATH>)
                         .help("Path to the root folder of the implementation project")
-                        .value_parser(is_valid_path),
+                        .value_parser(is_valid_path)
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--implementationenv <ENV>)
                         .help("Implementation project's development environment")
                         .value_parser(value_parser!(Environment))
-                        .default_value("foundry"),
+                        .default_value("foundry")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--implementationartifacts <PATH>)
                         .help("Folder containing the implementation project artifacts")
-                        .default_value("artifacts"),
+                        .default_value("artifacts")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--implementationbuildcache <PATH>)
-                        .help("Folder containing the implementation contract's build-info files"),
+                        .help("Folder containing the implementation contract's build-info files")
+                        .requires("discover"),
                 )
                 .arg(
                     arg!(--zerovalue)
@@ -787,6 +798,7 @@ fn get_mismatch_msg(
     pretty_printer: &PrettyPrinter,
     storage_variable: &DVFStorageEntry,
     current_value_slice: &[u8],
+    display_mismatch: bool
 ) -> String {
     let var_type = storage_variable.var_type.clone().unwrap_or_default();
     let dec_current_value_slice = pretty_printer.pretty_value_short_from_bytes(
@@ -797,8 +809,15 @@ fn get_mismatch_msg(
     let dec_old_value =
         pretty_printer.pretty_value_short_from_bytes(&var_type, &storage_variable.value, true);
 
+    let msg = if display_mismatch {
+        "Value mismatch"
+    } else {
+        "Updated value"
+    };
+
     format!(
-        "Value mismatch for {} (slot {:#x}, offset {}).\nNew value: 0x{} Decoded: {}\nOperator:  {}\nOld value: 0x{} Decoded: {}",
+        "{} for {} (slot {:#x}, offset {}).\nNew value: 0x{} Decoded: {}\nOperator:  {}\nOld value: 0x{} Decoded: {}",
+        msg,
         storage_variable.var_name,
         storage_variable.slot,
         storage_variable.offset,
@@ -984,9 +1003,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     "{}. Warning. You are using an old compiler without storage layout. There will be no storage decoding.", pc
                 );
                 pc += 1;
-            } else if proxy_warning {
+            } else if proxy_warning && sub_m.get_one::<String>("implementation").is_none() {
                 println!(
-                    "{}. Warning. Not everything could be decoded. This could be because this is a proxy contract. In that case use --implementation to decode more.", pc
+                    "{}. Warning. Some storage slots could not be decoded. This might happen because this is a proxy contract. In that case, use --implementation to decode more.", pc
                 );
                 pc += 1;
             }
@@ -1170,7 +1189,13 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let discover = sub_m.get_flag("discover");
             println!("running discover mode? {}", discover);
 
-            let progress_mode = ProgressMode::Update;
+            let progress_mode;
+            if discover {
+                progress_mode = ProgressMode::UpdateFull;
+            } else {
+                progress_mode = ProgressMode::Update;
+            }
+
             print_progress("Loading file.", &mut pc, &progress_mode);
 
             let filled = parse::CompleteDVF::from_path(&input_path)?;
@@ -1225,6 +1250,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                         &progress_mode,
                     ))?;
 
+                updated.init_block_num = validation_block_num;
+
                 // Update existing storage variables and add new ones
                 let current_storage_map: HashMap<String, &parse::DVFStorageEntry> =
                     discovery_result
@@ -1245,7 +1272,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                                 get_mismatch_msg(
                                     &pretty_printer,
                                     storage_variable,
-                                    &current_var.value
+                                    &current_var.value,
+                                    false
                                 )
                             );
                             storage_variable.value = current_var.value.clone();
@@ -1330,7 +1358,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                             get_mismatch_msg(
                                 &pretty_printer,
                                 storage_variable,
-                                &current_val[start_index..end_index]
+                                &current_val[start_index..end_index],
+                                false
                             )
                         );
                         storage_variable.value = current_val[start_index..end_index].to_vec();
@@ -1421,6 +1450,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     break;
                 }
             }
+            updated.generate_id()?;
             updated.write_to_file(&output_path)?;
             println!("Wrote the updated file to file: {}", output_path.display());
             println!(

@@ -308,9 +308,12 @@ dv validate --continue new.dvf.json
 
 ### Update DVF
 
-**Please note: The `update` command is currently only updating existing storage variables in a DVF and might not be suitable for fully updating a DVF to the current state of a smart contract. This behavior will be changed in future releases.**
+To update an existing DVF, you have two different options:
 
-To update the values of storage variables in a DVF to the state of the latest block and gather all events up to this block, run the following command:
+#. Update the values of existing storage variables in a DVF to the state of the latest block and gather all events up to this block.
+#. Update the DVF with all incoming changes starting from the init block and gather all events up to this block.
+
+For the first option, run the following command:
 
 ```
 dv update new.dvf.json
@@ -323,6 +326,22 @@ dv update --validationblock <B> new.dvf.json
 ```
 
 `<B>` must be greater than the deployment block of the contract and smaller than or equal to the current block of the smart contract's chain.
+
+For the second option, you can add the `--discover` flag:
+
+```
+dv update --discover new.dvf.json
+```
+
+When using the `--discover` flag, you can also specify all the flags related to implementation contracts (since these can change over time):
+
+```
+dv update --discover --implementation <IMPL_NAME> ... new.dvf.json
+```
+
+See [Proxies and Delegated calls](#proxies-and-delegated-calls) for more details.
+
+With the `--discover` flag, `dv` updates your DVF with all new storage slots starting from the init block until your chosen validation block. This can result in slots you previously discarded to reappear if the value of the slot changed after the init block.
 
 ### Check Bytecode
 
@@ -590,7 +609,6 @@ This section will be updated soon.
 - As detailed [above](#dvf-creation), many public RPCs are not or only partially supported for DVF creation.
 - Finding the deployment transaction of a contract currently requires either Blockscout or Etherscan API keys to collect all relevant information.
 - Contracts performing `delegatecall` to more than one other contract are currently not supported.
-- `dv update` currently only updates values of existing storage variables in the DVF and does not add newly added storage values.
 - Multiple contracts with the same name compiled with different compiler versions in one project are not supported.
 - Multi-dimensional mappings with static keys (e.g., `mapping[1][2]`) can currently not be decoded.
 - Empty-string mapping keys can currently not be decoded correctly.
