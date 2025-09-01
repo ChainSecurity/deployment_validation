@@ -30,6 +30,7 @@ use colored::Colorize;
 use dotenv::dotenv;
 use scanf::sscanf;
 use std::env;
+use crate::bytecode_verification::parse_json::Environment;
 
 pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
 const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
@@ -118,10 +119,46 @@ pub struct DVFConfig {
     #[serde(default = "default_web3_timeout")]
     pub web3_timeout: u64,
     pub signer: Option<DVFSignerConfig>,
+    /// Project configurations by project name
+    #[serde(default)]
+    pub projects: BTreeMap<String, DVFProjectConfig>,
     #[serde(skip_serializing)]
     pub active_chain_id: Option<u64>,
     #[serde(default, skip_serializing)]
     active_chain: Option<NamedChain>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DVFProjectConfig {
+    /// Path to the root folder of the source code project (required)
+    pub project_path: PathBuf,
+    /// Project's development environment
+    #[serde(default = "default_environment")]
+    pub environment: Environment,
+    /// Folder containing the project artifacts
+    #[serde(default = "default_artifacts_path")]
+    pub artifacts_path: String,
+    /// Folder containing build-info files
+    pub build_cache_path: Option<String>,
+    /// Library specifiers in the form Path:Name:Address
+    #[serde(default)]
+    pub libraries: Vec<String>,
+    /// Optional implementation project configuration for proxy contracts
+    pub implementation_config: Option<Box<DVFImplementationConfig>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DVFImplementationConfig {
+    /// Path to the root folder of the implementation project
+    pub project_path: PathBuf,
+    /// Implementation project's development environment
+    #[serde(default = "default_environment")]
+    pub environment: Environment,
+    /// Folder containing the implementation project artifacts
+    #[serde(default = "default_artifacts_path")]
+    pub artifacts_path: String,
+    /// Folder containing the implementation contract's build-info files
+    pub build_cache_path: Option<String>,
 }
 
 fn default_max_blocks() -> u64 {
@@ -130,6 +167,14 @@ fn default_max_blocks() -> u64 {
 
 fn default_web3_timeout() -> u64 {
     700
+}
+
+fn default_environment() -> Environment {
+    Environment::Foundry
+}
+
+fn default_artifacts_path() -> String {
+    "artifacts".to_string()
 }
 
 impl DVFConfig {
@@ -207,6 +252,7 @@ impl DVFConfig {
                     secret_key: env::var("SIGNER_SECRET_KEY")?,
                 }),
             }),
+            projects: BTreeMap::new(),
             active_chain_id: None,
             active_chain: None,
         })
@@ -921,6 +967,201 @@ impl DVFConfig {
                 println!("{}", "The provided address could not be parsed.".yellow());
             }
         }
+        /*
+        // Project configurations
+        let mut projects: BTreeMap<String, DVFProjectConfig> = BTreeMap::new();
+        println!();
+        println!("{}", "STEP 8".green());
+        println!("You can now configure projects for your DVF development.");
+        println!("Projects allow you to pre-configure development environments, artifact paths,");
+        println!("and other settings used by the 'init' command for specific contracts.");
+        println!();
+
+        loop {
+            println!(
+                "Would you like to add a project configuration? Hit {} to continue without adding projects.",
+                "<Enter>".green()
+            );
+            print!("> ");
+
+            let mut input = String::new();
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            io::stdin().read_line(&mut input).unwrap();
+
+            if input.trim().is_empty() {
+                break;
+            }
+
+            if input.trim().eq_ignore_ascii_case("y") {
+                // Project name
+                let mut project_name = String::new();
+                loop {
+                    println!("Please enter a name for this project:");
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    if sscanf!(&input, "{}", project_name).is_ok() && !project_name.is_empty() {
+                        break;
+                    } else {
+                        println!("{}", "Project name cannot be empty.".yellow());
+                    }
+                }
+
+                // Project path
+                let mut project_path = PathBuf::new();
+                loop {
+                    println!("Please enter the path to the root folder of the source code project:");
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    let mut path_str = String::new();
+                    if sscanf!(&input, "{}", path_str).is_ok() {
+                        if let Ok(path) = replace_tilde(path_str.trim()) {
+                            if path.exists() {
+                                project_path = path;
+                                break;
+                            } else {
+                                println!("{}", "The provided path does not exist.".yellow());
+                            }
+                        } else {
+                            println!("{}", "The provided path could not be parsed.".yellow());
+                        }
+                    } else {
+                        println!("{}", "The provided path could not be parsed.".yellow());
+                    }
+                }
+
+                // Development environment
+                let mut environment = Environment::Foundry;
+                loop {
+                    println!("Please select the development environment:");
+                    println!("1. Foundry");
+                    println!("2. Hardhat");
+                    println!("Hit {} to use default (Foundry)", "<Enter>".green());
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    if input.trim().is_empty() {
+                        break;
+                    }
+
+                    let mut choice: u64 = 0;
+                    if sscanf!(&input, "{}", choice).is_ok() {
+                        environment = match choice {
+                            1 => Environment::Foundry,
+                            2 => Environment::Hardhat,
+                            _ => {
+                                println!("{}", "Please enter a valid choice.".yellow());
+                                continue;
+                            }
+                        };
+                        break;
+                    } else {
+                        println!("{}", "The provided number could not be parsed.".yellow());
+                    }
+                }
+
+                // Artifacts path
+                let mut artifacts_path = String::from("artifacts");
+                loop {
+                    println!("Please enter the folder containing the project artifacts:");
+                    println!(
+                        "Hit {} to use default value: {}",
+                        "<Enter>".green(),
+                        artifacts_path.green()
+                    );
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    if input.trim().is_empty() {
+                        break;
+                    }
+
+                    let mut path_str = String::new();
+                    if sscanf!(&input, "{}", path_str).is_ok() && !path_str.is_empty() {
+                        artifacts_path = path_str;
+                        break;
+                    } else {
+                        println!("{}", "The provided path could not be parsed.".yellow());
+                    }
+                }
+
+                // Build cache path (optional)
+                let mut build_cache_path: Option<String> = None;
+                loop {
+                    println!("Please enter the folder containing build-info files:");
+                    println!("Hit {} to skip this configuration", "<Enter>".green());
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    if input.trim().is_empty() {
+                        break;
+                    }
+
+                    let mut path_str = String::new();
+                    if sscanf!(&input, "{}", path_str).is_ok() && !path_str.is_empty() {
+                        build_cache_path = Some(path_str);
+                        break;
+                    } else {
+                        println!("{}", "The provided path could not be parsed.".yellow());
+                    }
+                }
+
+                // Libraries (optional)
+                let mut libraries: Vec<String> = vec![];
+                loop {
+                    println!(
+                        "Please enter library specifiers in the form Path:Name:Address, or hit {} to finish:",
+                        "<Enter>".green()
+                    );
+                    print!("> ");
+
+                    let mut input = String::new();
+                    let _ = std::io::Write::flush(&mut std::io::stdout());
+                    io::stdin().read_line(&mut input).unwrap();
+
+                    if input.trim().is_empty() {
+                        break;
+                    }
+
+                    let mut library = String::new();
+                    if sscanf!(&input, "{}", library).is_ok() && !library.is_empty() {
+                        libraries.push(library);
+                    } else {
+                        println!("{}", "The provided library specifier could not be parsed.".yellow());
+                    }
+                }
+
+                // Create project config
+                let project_config = DVFProjectConfig {
+                    project_path,
+                    environment,
+                    artifacts_path,
+                    build_cache_path,
+                    libraries,
+                    implementation_config: None, // For now, we'll add implementation config in a future update
+                };
+
+                projects.insert(project_name, project_config);
+                println!("{}", "Project configuration added successfully!".green());
+            }
+        }
+        */
 
         Ok(DVFConfig {
             rpc_urls,
@@ -933,6 +1174,8 @@ impl DVFConfig {
             max_blocks_per_event_query,
             web3_timeout,
             signer,
+            //projects,
+            projects: BTreeMap::new(),
             active_chain_id: None,
             active_chain: None,
         })
@@ -1180,6 +1423,26 @@ impl DVFConfig {
             "Could not find a suitable RPC URL for chainId {}",
             chain_id
         )))
+    }
+
+    /// Get a project configuration by name
+    pub fn get_project(&self, project_name: &str) -> Option<&DVFProjectConfig> {
+        self.projects.get(project_name)
+    }
+
+    /// Add or update a project configuration
+    pub fn set_project(&mut self, project_name: String, config: DVFProjectConfig) {
+        self.projects.insert(project_name, config);
+    }
+
+    /// Remove a project configuration
+    pub fn remove_project(&mut self, project_name: &str) -> Option<DVFProjectConfig> {
+        self.projects.remove(project_name)
+    }
+
+    /// List all project names
+    pub fn list_projects(&self) -> Vec<&String> {
+        self.projects.keys().collect()
     }
 }
 

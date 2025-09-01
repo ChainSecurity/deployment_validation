@@ -7,6 +7,7 @@ use alloy::json_abi::Constructor;
 use alloy::primitives::U256;
 use clap::ValueEnum;
 use semver::Version;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::Value;
 use std::path::Path;
@@ -1713,7 +1714,7 @@ impl ProjectInfo {
     }
 }
 
-#[derive(ValueEnum, Copy, Clone, Eq, PartialEq)]
+#[derive(ValueEnum, Copy, Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Environment {
     Foundry,
     Hardhat,
