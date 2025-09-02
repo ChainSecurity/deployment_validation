@@ -230,7 +230,7 @@ fn forge_inspect_helper(
         .arg(temp_path.as_os_str())
         .arg("--cache-path")
         .arg(temp_cache_path.as_os_str())
-        .arg(contract)
+        .arg(contract_name)
         .arg(field)
         .output()?;
 
