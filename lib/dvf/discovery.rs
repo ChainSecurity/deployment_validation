@@ -142,12 +142,12 @@ pub fn discover_storage_and_events(
         let fi_impl_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             &imp_path,
             implementation_name,
-            if params.implementation_env == Environment::Hardhat { tmp_project_info.absolute_path.clone() } else { None },
+            if params.implementation_env == Some(&Environment::Hardhat) { tmp_project_info.absolute_path.clone() } else { None },
         );
         let fi_impl_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
             &imp_path,
             implementation_name,
-            if params.implementation_env == Environment::Hardhat { tmp_project_info.absolute_path.clone() } else { None },
+            if params.implementation_env == Some(&Environment::Hardhat) { tmp_project_info.absolute_path.clone() } else { None },
         );
         contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
