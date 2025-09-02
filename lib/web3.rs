@@ -5,6 +5,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
+use alloy_rpc_types_trace::parity::CallType;
 use colored::Colorize;
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
@@ -2314,4 +2315,85 @@ pub fn get_eth_transaction_block_number(
     let receipt = u64::from_str_radix(block_number_hex.trim_start_matches("0x"), 16)
         .map_err(|_| ValidationError::from("Failed to parse block number from hex"))?;
     Ok(receipt)
+}
+
+pub fn get_all_addresses(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<(Vec<Address>, Vec<Address>), ValidationError> {
+    let mut call_addresses: Vec<Address> = vec![];
+    let mut create_addresses: Vec<Address> = vec![];
+
+    // Try to get transaction trace using get_tx_trace first
+    match get_tx_trace(config, tx_id) {
+        Ok(traces) => {
+            debug!("Using parity trace for {}", tx_id);
+            for trace in &traces {
+                match &trace.action {
+                    // we only care for contracts whose state can change during the call, so no staticcall, delegatecall etc.
+                    Action::Call(call) if call.call_type == CallType::Call => {
+                        call_addresses.push(call.to);
+                    }
+                    Action::Create(_create) => {
+                        // For create actions, we need to check the result
+                        if let Some(TraceOutput::Create(create_res)) = &trace.result {
+                            create_addresses.push(create_res.address);
+                        }
+                    }
+                    _ => {
+                        // do nothing
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            debug!("Parity trace failed with {:?}, trying geth debug trace.", e);
+            // Fallback to geth debug call trace
+            let call_frame = get_eth_debug_call_trace(config, tx_id)?;
+            extract_all_addresses_from_call_frame(
+                &call_frame,
+                &mut call_addresses,
+                &mut create_addresses,
+            )?;
+        }
+    }
+
+    // Remove duplicates while preserving order
+    call_addresses.sort();
+    call_addresses.dedup();
+    create_addresses.sort();
+    create_addresses.dedup();
+
+    debug!("All addresses for {} are: {:?}", tx_id, call_addresses);
+    debug!(
+        "All create addresses for {} are: {:?}",
+        tx_id, create_addresses
+    );
+    Ok((call_addresses, create_addresses))
+}
+
+// Extract all addresses from a CallFrame (geth debug trace)u
+fn extract_all_addresses_from_call_frame(
+    call_frame: &CallFrame,
+    call_addresses: &mut Vec<Address>,
+    create_addresses: &mut Vec<Address>,
+) -> Result<(), ValidationError> {
+    // Add the 'to' address if it exists and the call didn't fail
+    // we only care for contracts whose state can change during the call, so no staticcall, delegatecall etc.
+    if call_frame.error.is_none() {
+        if let Some(addr) = call_frame.to {
+            if call_frame.typ == "CALL" {
+                call_addresses.push(addr);
+            } else if call_frame.typ == "CREATE" {
+                create_addresses.push(addr);
+            }
+        }
+    }
+
+    // Recursively process all sub-calls
+    for call in &call_frame.calls {
+        extract_all_addresses_from_call_frame(call, call_addresses, create_addresses)?;
+    }
+
+    Ok(())
 }

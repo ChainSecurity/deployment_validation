@@ -23,6 +23,7 @@ use serde_json::Value;
 use tempfile::{tempdir, NamedTempFile};
 use tracing::debug;
 
+use crate::bytecode_verification::parse_json::Environment;
 use crate::dvf::abstract_wallet::AbstractWallet;
 use crate::dvf::parse::ValidationError;
 use crate::web3;
@@ -30,7 +31,6 @@ use colored::Colorize;
 use dotenv::dotenv;
 use scanf::sscanf;
 use std::env;
-use crate::bytecode_verification::parse_json::Environment;
 
 pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
 const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
@@ -119,9 +119,8 @@ pub struct DVFConfig {
     #[serde(default = "default_web3_timeout")]
     pub web3_timeout: u64,
     pub signer: Option<DVFSignerConfig>,
-    /// Project configurations by project name
     #[serde(default)]
-    pub projects: BTreeMap<String, DVFProjectConfig>,
+    pub projects: Vec<DVFProjectConfig>,
     #[serde(skip_serializing)]
     pub active_chain_id: Option<u64>,
     #[serde(default, skip_serializing)]
@@ -132,6 +131,8 @@ pub struct DVFConfig {
 pub struct DVFProjectConfig {
     /// Path to the root folder of the source code project (required)
     pub project_path: PathBuf,
+    /// Path to the output DVF file
+    pub output_path: PathBuf,
     /// Project's development environment
     #[serde(default = "default_environment")]
     pub environment: Environment,
@@ -142,7 +143,18 @@ pub struct DVFProjectConfig {
     pub build_cache_path: Option<String>,
     /// Library specifiers in the form Path:Name:Address
     #[serde(default)]
-    pub libraries: Vec<String>,
+    pub libraries: Option<Vec<String>>,
+    /// Address of the contract
+    pub address: Option<Address>,
+    /// Chain ID where the contract is deployed
+    pub chain_id: Option<u64>,
+    /// Name of the contract
+    pub contract_name: String,
+    /// Deployment transaction hash
+    pub deployment_tx: Option<String>,
+    /// Treat this contract as a factory, which changes bytecode verification
+    #[serde(default)]
+    pub factory: bool,
     /// Optional implementation project configuration for proxy contracts
     pub implementation_config: Option<Box<DVFImplementationConfig>>,
 }
@@ -159,6 +171,8 @@ pub struct DVFImplementationConfig {
     pub artifacts_path: String,
     /// Folder containing the implementation contract's build-info files
     pub build_cache_path: Option<String>,
+    /// Name of the implementation contract
+    pub contract_name: String,
 }
 
 fn default_max_blocks() -> u64 {
@@ -252,7 +266,7 @@ impl DVFConfig {
                     secret_key: env::var("SIGNER_SECRET_KEY")?,
                 }),
             }),
-            projects: BTreeMap::new(),
+            projects: Vec::new(),
             active_chain_id: None,
             active_chain: None,
         })
@@ -1150,10 +1164,16 @@ impl DVFConfig {
                 // Create project config
                 let project_config = DVFProjectConfig {
                     project_path,
+                    output_path,
                     environment,
                     artifacts_path,
                     build_cache_path,
                     libraries,
+                    address: None,
+                    chain_id: None,
+                    event_topics: None,
+                    contract_name: None,
+                    factory: false,
                     implementation_config: None, // For now, we'll add implementation config in a future update
                 };
 
@@ -1175,7 +1195,7 @@ impl DVFConfig {
             web3_timeout,
             signer,
             //projects,
-            projects: BTreeMap::new(),
+            projects: Vec::new(),
             active_chain_id: None,
             active_chain: None,
         })
@@ -1425,24 +1445,16 @@ impl DVFConfig {
         )))
     }
 
-    /// Get a project configuration by name
-    pub fn get_project(&self, project_name: &str) -> Option<&DVFProjectConfig> {
-        self.projects.get(project_name)
-    }
-
-    /// Add or update a project configuration
-    pub fn set_project(&mut self, project_name: String, config: DVFProjectConfig) {
-        self.projects.insert(project_name, config);
-    }
-
-    /// Remove a project configuration
-    pub fn remove_project(&mut self, project_name: &str) -> Option<DVFProjectConfig> {
-        self.projects.remove(project_name)
-    }
-
-    /// List all project names
-    pub fn list_projects(&self) -> Vec<&String> {
-        self.projects.keys().collect()
+    /// Get a project configuration by address and chain_id
+    pub fn get_project_config(
+        &self,
+        address: &Address,
+        chain_id: u64,
+    ) -> Option<&DVFProjectConfig> {
+        self.projects.iter().find(|project| {
+            project.address.as_ref() == Some(address)
+                && project.chain_id.as_ref() == Some(&chain_id)
+        })
     }
 }
 

@@ -403,6 +403,44 @@ impl CompleteDVF {
         Ok(filled)
     }
 
+    pub fn new(
+        contract_name: &str,
+        address: &Address,
+        chain_id: u64,
+    ) -> Result<Self, ValidationError> {
+        let dumped = CompleteDVF {
+            version: CURRENT_VERSION,
+            id: None,
+            contract_name: contract_name.to_string(),
+            address: *address,
+            chain_id,
+            codehash: String::new(),
+            deployment_tx: String::new(),
+            deployment_block_num: 0,
+            init_block_num: 0,
+            insecure: Some(false),
+            immutables: vec![],
+            constructor_args: vec![],
+            critical_storage_variables: vec![],
+            critical_events: vec![],
+            expiry_in_epoch_seconds: None,
+            references: None,
+            unvalidated_metadata: Some(Unvalidated {
+                author_name: Some(String::from("Author")),
+                description: Some(String::from("System Description")),
+                hardfork: Some(vec![String::from("paris"), String::from("shanghai")]),
+                audit_report: Some(String::from("https://example.org/report.pdf")),
+                source_url: Some(String::from("https://github.com/source/code")),
+                security_contact: Some(String::from("security@example.org")),
+                implementation_name: None,
+                implementation_address: None, // currently no source for this
+            }),
+            signature: None,
+        };
+        dumped.check_version()?;
+        Ok(dumped)
+    }
+
     pub fn from_cli(matches: &ArgMatches) -> Result<Self, ValidationError> {
         let immutables: Vec<DVFImmutableEntry> = vec![];
         let critical_storage_variables: Vec<DVFStorageEntry> = vec![];

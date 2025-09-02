@@ -13,10 +13,11 @@ use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
 use dvf_libs::dvf::discovery::{
     create_discovery_params_for_init, create_discovery_params_for_update,
-    discover_storage_and_events, DiscoveryResult,
+    discover_storage_and_events, DiscoveryParams, DiscoveryResult,
 };
 use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
+// use dvf_libs::state::forge_inspect::{StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
 use dvf_libs::utils::progress::{print_progress, ProgressMode};
 use dvf_libs::utils::read_write_file::get_project_paths;
@@ -734,6 +735,22 @@ fn main() {
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
+        .subcommand(
+            Command::new("inspect-tx")
+                .about("Inspect a transaction and load project configuration from config file")
+                .arg(
+                    arg!(--txhash <TXHASH>)
+                        .help("Transaction hash to inspect (32 byte hex)")
+                        .required(true)
+                        .value_parser(is_valid_32_byte_hex),
+                )
+                .arg(
+                    arg!(--chainid <CHAINID>)
+                        .help("Chain ID where the transaction is located")
+                        .value_parser(value_parser!(u64))
+                        .default_value("1"),
+                ),
+        )
         .get_matches();
 
     match matches.get_count("verbose") {
@@ -981,7 +998,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 init_block_num,
                 project,
                 artifacts,
-                env,
+                &env,
                 build_cache,
                 libraries.clone(),
                 zerovalue,
@@ -994,77 +1011,21 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             dumped.critical_storage_variables = critical_storage_variables;
             dumped.critical_events = critical_events;
 
-            let mut pc = 1;
-            println!();
-            println!("DVF Initialization complete. Please follow these steps:");
-
-            if project_info.compiler_version < FIRST_STORAGE_LAYOUT {
-                println!(
-                    "{}. Warning. You are using an old compiler without storage layout. There will be no storage decoding.", pc
-                );
-                pc += 1;
-            } else if proxy_warning && sub_m.get_one::<String>("implementation").is_none() {
-                println!(
-                    "{}. Warning. Some storage slots could not be decoded. This might happen because this is a proxy contract. In that case, use --implementation to decode more.", pc
-                );
-                pc += 1;
-            }
-
-            println!("{pc}. Validate that the results in the table below are as expected.");
-            pc += 1;
-            verify_bytecode::print_generation_summary(
-                &project.to_string_lossy().to_string(),
-                &dumped.contract_name,
-                &dumped.address,
-                compare_status,
+            finalize_init_and_print(
+                project.to_string_lossy().to_string(),
+                &mut dumped,
+                output_path,
                 &project_info,
+                proxy_warning,
+                sub_m,
+                &storage_var_table,
+                &all_events,
+                &event_table,
+                init_block_num,
+                compare_status,
                 &rpc_code,
                 &pretty_printer,
-            );
-            if !dumped.critical_storage_variables.is_empty() {
-                println!(
-                    "{}. Select critical storage variables by deleting the others from {}.",
-                    pc,
-                    output_path.display()
-                );
-                pc += 1;
-
-                if storage_var_table.is_empty() {
-                    println!("    No values were decoded, this could be because it is a proxy contract or because of an old compiler version.");
-                } else {
-                    println!("    Below you see decoded values for non-zero storage variables:");
-                    storage_var_table.printstd();
-                }
-            }
-
-            if !all_events.is_empty() {
-                println!(
-                    "{}. Select critical events by deleting the others from {}",
-                    pc,
-                    output_path.display()
-                );
-                pc += 1;
-
-                if event_table.is_empty() {
-                    println!("   No events occurred up until block {}.", init_block_num);
-                } else {
-                    println!("   Event occurrences up to block {}:", init_block_num);
-                    event_table.printstd();
-                }
-            }
-
-            println!(
-                "{}. Decide whether you want to signal that the contract is insecure, if so set the insecure flag to true.", pc
-            );
-            pc += 1;
-
-            println!(
-                "{}. Decide if this validation should have an expiry date. Also you can fill in additional, unvalidated metadata.", pc
-            );
-
-            dumped.generate_id()?;
-            dumped.write_to_file(output_path)?;
-            println!("Wrote DVF to {}!", output_path.display());
+            )?;
             exit(0);
         }
         Some(("id", sub_m)) => {
@@ -1641,8 +1602,465 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Bytecode check succeeded!");
             exit(0);
         }
+        Some(("inspect-tx", sub_m)) => {
+            let tx_hash = sub_m.get_one::<String>("txhash").unwrap();
+            let chain_id = *sub_m.get_one::<u64>("chainid").unwrap();
+
+            config.set_chain_id(chain_id)?;
+
+            let mut pc = 1_u64;
+            let progress_mode = ProgressMode::InspectTx;
+
+            print_progress("Inspecting transaction.", &mut pc, &progress_mode);
+            println!("Chain ID: {}", chain_id);
+
+            let (call_addresses, create_addresses) = web3::get_all_addresses(&config, tx_hash)?;
+            let block_num = web3::get_eth_transaction_block_number(&config, tx_hash)?;
+            println!("The transaction called the following contracts:");
+            for address in &call_addresses {
+                println!("- {}", address);
+            }
+            println!("The transaction created the following contracts:");
+            for address in &create_addresses {
+                println!("- {}", address);
+            }
+
+            let registry = registry::Registry::from_config(&config)?;
+            let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+
+            print_progress("Checking called contracts.", &mut pc, &progress_mode);
+            for address in &call_addresses {
+                println!("Checking contract: {}", address);
+                inspect_called_contract(
+                    &config,
+                    chain_id,
+                    address,
+                    block_num,
+                    tx_hash,
+                    sub_m,
+                    &pretty_printer,
+                    &mut pc,
+                    &progress_mode,
+                )?;
+            }
+
+            print_progress("Checking created contracts.", &mut pc, &progress_mode);
+            for address in &create_addresses {
+                println!("Checking contract: {}", address);
+                inspect_called_contract(
+                    &config,
+                    chain_id,
+                    address,
+                    block_num,
+                    tx_hash,
+                    sub_m,
+                    &pretty_printer,
+                    &mut pc,
+                    &progress_mode,
+                )?;
+            }
+
+            /*
+            // Iterate over all projects
+            for (i, project_config) in config.projects.iter().enumerate() {
+                println!("\n--- Project {}: {} ---", i + 1, project_config.contract_name);
+
+                println!("Project Path: {}", project_config.project_path.display());
+                println!("Environment: {:?}", project_config.environment);
+                println!("Artifacts Path: {}", project_config.artifacts_path);
+
+                if let Some(ref build_cache) = project_config.build_cache_path {
+                    println!("Build Cache: {}", build_cache);
+                }
+
+                if project_config.libraries.is_some() {
+                    println!("Libraries: {}", project_config.libraries.as_ref().unwrap().join(", "));
+                }
+
+                if let Some(ref address) = project_config.address {
+                    println!("Contract Address: {}", address);
+                }
+
+                if let Some(chain_id) = project_config.chain_id {
+                    println!("Chain ID: {}", chain_id);
+                }
+
+                if project_config.factory {
+                    println!("Factory Contract: Yes");
+                }
+
+                if let Some(ref event_topics) = project_config.event_topics {
+                    println!("Event Topics: {:?}", event_topics);
+                }
+
+                // Check if implementation config exists
+                if let Some(ref impl_config) = project_config.implementation_config {
+                    println!("Implementation Project:");
+                    println!("  Path: {}", impl_config.project_path.display());
+                    println!("  Environment: {:?}", impl_config.environment);
+                    println!("  Artifacts Path: {}", impl_config.artifacts_path);
+                    if let Some(ref build_cache) = impl_config.build_cache_path {
+                        println!("  Build Cache: {}", build_cache);
+                    }
+                    println!("  Contract Name: {}", impl_config.contract_name);
+                }
+            }
+
+            println!("\nNote: This command shows all available project configurations.");
+            println!("To perform detailed transaction analysis, consider using the 'init' command");
+            println!("with a specific project's contract address and name.");
+
+            */
+
+            exit(0);
+        }
         _ => Err(ValidationError::Error(
             "Please specify a command.".to_string(),
         )),
     }
+}
+
+fn wrap_by_length(s: &str, max_len: usize, delimiter: &str) -> String {
+    if max_len == 0 {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len() + s.len() / max_len);
+    let mut count = 0;
+    for ch in s.chars() {
+        if count == max_len {
+            out.push_str(delimiter);
+            count = 0;
+        }
+        out.push(ch);
+        count += 1;
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finalize_init_and_print(
+    project_dir: String,
+    dumped: &mut parse::CompleteDVF,
+    output_path: &Path,
+    project_info: &ProjectInfo,
+    proxy_warning: bool,
+    sub_m: &ArgMatches,
+    storage_var_table: &Table,
+    all_events: &[alloy::json_abi::Event],
+    event_table: &Table,
+    init_block_num: u64,
+    compare_status: CompareBytecode,
+    rpc_code: &String,
+    pretty_printer: &PrettyPrinter,
+) -> Result<(), ValidationError> {
+    let mut pc = 1;
+    println!();
+    println!("DVF Initialization complete. Please follow these steps:");
+
+    if project_info.compiler_version < FIRST_STORAGE_LAYOUT {
+        println!(
+            "{}. Warning. You are using an old compiler without storage layout. There will be no storage decoding.", pc
+        );
+        pc += 1;
+    } else if proxy_warning && sub_m.get_one::<String>("implementation").is_none() {
+        println!(
+            "{}. Warning. Some storage slots could not be decoded. This might happen because this is a proxy contract. In that case, use --implementation to decode more.", pc
+        );
+        pc += 1;
+    }
+
+    println!("{pc}. Validate that the results in the table below are as expected.");
+    pc += 1;
+    verify_bytecode::print_generation_summary(
+        &project_dir,
+        &dumped.contract_name,
+        &dumped.address,
+        compare_status,
+        project_info,
+        rpc_code,
+        pretty_printer,
+    );
+    if !dumped.critical_storage_variables.is_empty() {
+        println!(
+            "{}. Select critical storage variables by deleting the others from {}.",
+            pc,
+            output_path.display()
+        );
+        pc += 1;
+
+        if storage_var_table.is_empty() {
+            println!("    No values were decoded, this could be because it is a proxy contract or because of an old compiler version.");
+        } else {
+            println!("    Below you see decoded values for non-zero storage variables:");
+            storage_var_table.printstd();
+        }
+    }
+
+    if !all_events.is_empty() {
+        println!(
+            "{}. Select critical events by deleting the others from {}",
+            pc,
+            output_path.display()
+        );
+        pc += 1;
+
+        if event_table.is_empty() {
+            println!("   No events occurred up until block {}.", init_block_num);
+        } else {
+            println!("   Event occurrences up to block {}:", init_block_num);
+            event_table.printstd();
+        }
+    }
+
+    println!(
+        "{}. Decide whether you want to signal that the contract is insecure, if so set the insecure flag to true.", pc
+    );
+    pc += 1;
+
+    println!(
+        "{}. Decide if this validation should have an expiry date. Also you can fill in additional, unvalidated metadata.", pc
+    );
+
+    dumped.generate_id()?;
+    dumped.write_to_file(output_path)?;
+    println!("Wrote DVF to {}!", output_path.display());
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn inspect_called_contract(
+    config: &DVFConfig,
+    chain_id: u64,
+    address: &Address,
+    block_num: u64,
+    tx_hash: &String,
+    sub_m: &ArgMatches,
+    pretty_printer: &PrettyPrinter,
+    pc: &mut u64,
+    progress_mode: &ProgressMode,
+) -> Result<(), ValidationError> {
+    let project_config = config.get_project_config(address, chain_id);
+    if let Some(project_config) = project_config {
+        println!(
+            "Project configuration found for contract: {} ({})",
+            address, project_config.contract_name
+        );
+        let mut pc_sub = 1_u64;
+        let progress_mode_sub = ProgressMode::InspectTxSub;
+        let mut dumped =
+            parse::CompleteDVF::new(project_config.contract_name.as_str(), address, chain_id)?;
+
+        let (deployment_block_num, deployment_tx) =
+            if let Some(depl_tx) = project_config.deployment_tx.as_ref() {
+                let block_num = web3::get_eth_transaction_block_number(config, depl_tx.as_str())?;
+                (block_num, depl_tx.clone())
+            } else {
+                web3::get_deployment(config, &dumped.address)?
+            };
+        dumped.deployment_block_num = deployment_block_num;
+        dumped.deployment_tx = deployment_tx;
+        dumped.init_block_num = block_num;
+
+        print_progress("Getting code hash.", &mut pc_sub, &progress_mode_sub);
+        let rpc_code_hash = web3::get_eth_codehash(config, &dumped.address, deployment_block_num)?;
+        dumped.codehash = rpc_code_hash;
+
+        print_progress(
+            "Fetching on-chain bytecode.",
+            &mut pc_sub,
+            &progress_mode_sub,
+        );
+        let rpc_code = web3::get_eth_code(config, &dumped.address, deployment_block_num)?;
+
+        print_progress("Fetching init code.", &mut pc_sub, &progress_mode_sub);
+        let init_code = web3::get_init_code(config, &dumped.deployment_tx, &dumped.address)?;
+
+        debug!("Fetching forge output");
+        let compile_output = match project_config.build_cache_path {
+            None => "Compiling local code.",
+            Some(_) => "Loading build cache.",
+        };
+        print_progress(compile_output, pc, progress_mode);
+        let mut project_info = ProjectInfo::new(
+            &project_config.contract_name,
+            Path::new(&project_config.project_path),
+            project_config.environment,
+            Path::new(&project_config.artifacts_path),
+            project_config.build_cache_path.as_ref(),
+            project_config.libraries.clone(),
+        )?;
+
+        print_progress("Comparing bytecode.", &mut pc_sub, &progress_mode_sub);
+        let compare_status =
+            CompareBytecode::compare(&mut project_info, project_config.factory, &rpc_code);
+
+        if !compare_status.matched {
+            return Err(ValidationError::from(
+                "Generation Failed. Bytecode mismatch.",
+            ));
+        }
+
+        print_progress("Comparing initcode.", &mut pc_sub, &progress_mode_sub);
+        let compare_init =
+            CompareInitCode::compare(&mut project_info, &init_code, project_config.factory);
+        if !compare_init.matched {
+            return Err(ValidationError::from(
+                "Initcode mismatch. Consider setting the factory flag in the project configuration if this is a factory contract.",
+            ));
+        }
+        // immutable values are set in CompareBytecode::compare so this has to be after the call
+        dumped.copy_immutables(&project_info, pretty_printer);
+
+        debug!("Copying parsed constructor arguments to dvf file");
+        dumped.copy_constructor_args(&project_info, pretty_printer);
+
+        let DiscoveryResult {
+            critical_storage_variables,
+            critical_events,
+            storage_var_table,
+            event_table,
+            all_events,
+            proxy_warning,
+        } = discover_storage_and_events(DiscoveryParams {
+            config,
+            contract_name: &project_config.contract_name,
+            address,
+            start_block_num: block_num,
+            end_block_num: block_num,
+            project: Some(PathBuf::from(&project_config.project_path)).as_ref(),
+            artifacts: &project_config.artifacts_path,
+            env: project_config.environment,
+            build_cache: project_config.build_cache_path.as_ref(),
+            libraries: project_config.libraries.clone(),
+            implementation_name: project_config
+                .implementation_config
+                .as_ref()
+                .map(|impl_config| impl_config.contract_name.as_str()),
+            implementation_project: project_config
+                .implementation_config
+                .as_ref()
+                .map(|impl_config| PathBuf::from(&impl_config.project_path))
+                .as_ref(),
+            implementation_env: project_config
+                .implementation_config
+                .as_ref()
+                .map(|impl_config| impl_config.environment)
+                .as_ref(),
+            implementation_artifacts: project_config
+                .implementation_config
+                .as_ref()
+                .map(|impl_config| impl_config.artifacts_path.as_str()),
+            implementation_build_cache: project_config
+                .implementation_config
+                .as_ref()
+                .and_then(|impl_config| impl_config.build_cache_path.as_ref()),
+            zerovalue: false,
+            event_topics: None,
+            pc: &mut pc_sub,
+            progress_mode: &progress_mode_sub,
+            use_storage_range: false,
+            tx_hashes: Some(vec![tx_hash.clone()]),
+        })?;
+
+        dumped.critical_storage_variables = critical_storage_variables;
+        dumped.critical_events = critical_events;
+
+        finalize_init_and_print(
+            project_config.project_path.to_string_lossy().to_string(),
+            &mut dumped,
+            &project_config.output_path,
+            &project_info,
+            proxy_warning,
+            sub_m,
+            &storage_var_table,
+            &all_events,
+            &event_table,
+            block_num,
+            compare_status,
+            &rpc_code,
+            pretty_printer,
+        )?;
+    } else {
+        println!(
+            "No project configuration found for contract {}. Skipping bytecode check and storage decoding.",
+            address
+        );
+
+        let mut pc_sub = 1_u64;
+        let progress_mode_sub = ProgressMode::InspectTxSubNoconf;
+
+        let tx_hashes = vec![tx_hash.clone()];
+
+        print_progress("Getting storage snapshot.", &mut pc_sub, &progress_mode_sub);
+        let snapshot =
+            web3::StorageSnapshot::from_api(config, address, block_num, &tx_hashes, false)?;
+
+        print_progress("Parsing storage snapshot.", &mut pc_sub, &progress_mode_sub);
+        let mut storage_var_table = Table::new();
+        storage_var_table.set_titles(row!["Slot", "Offset", "Value"]);
+        let unused = snapshot.get_unused_nonzero_storage_slots();
+        for unused_part in unused {
+            let slot_hex = format!("0x{:x}", unused_part.slot);
+            let value_hex = format!("0x{}", hex::encode(&unused_part.value));
+            storage_var_table.add_row(row![
+                slot_hex,
+                unused_part.offset,
+                wrap_by_length(&value_hex, 66, "\n"),
+            ]);
+        }
+
+        print_progress("Obtaining past events.", &mut pc_sub, &progress_mode_sub);
+        let seen_events = web3::get_eth_events(config, address, block_num, block_num, &vec![])?;
+
+        let mut event_table = Table::new();
+        let mut critical_events: Vec<parse::DVFEventEntry> = vec![];
+        let all_topics_0: HashSet<B256> =
+            seen_events.iter().map(|e| *e.topic0().unwrap()).collect();
+        for unused_topic in all_topics_0 {
+            let mut table_head = false;
+            // Collect Occurrences
+            let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
+            for seen_event in &seen_events {
+                let log_inner = &seen_event.inner;
+                if seen_event.topic0() == Some(&unused_topic) {
+                    // Add Event Name to table
+                    if !table_head {
+                        event_table.add_row(row![unused_topic]);
+                        table_head = true;
+                    }
+                    // Add Event Occurrence to table
+                    let msg = format!("{}", seen_event.inner.data.data);
+                    event_table.add_row(row![format!("- {}", wrap_by_length(&msg, 64, "\n  "))]);
+                    let occurrence = parse::DVFEventOccurrence {
+                        topics: log_inner.data.topics().to_vec(),
+                        data: log_inner.data.data.clone(),
+                    };
+                    occurrences.push(occurrence);
+                }
+            }
+            let event_entry = parse::DVFEventEntry {
+                sig: String::from("Unknown Signature"),
+                topic0: unused_topic,
+                occurrences,
+            };
+            critical_events.push(event_entry);
+        }
+
+        if !storage_var_table.is_empty() {
+            println!("Storage changes of {} in transaction {}:", address, tx_hash);
+            storage_var_table.printstd();
+            if !event_table.is_empty() {
+                println!();
+            }
+        }
+        if !event_table.is_empty() {
+            println!(
+                "Event occurrences of {} in transaction {}:",
+                address, tx_hash
+            );
+            event_table.printstd();
+        }
+    }
+
+    Ok(())
 }

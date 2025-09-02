@@ -34,14 +34,15 @@ pub struct DiscoveryParams<'a> {
     pub libraries: Option<Vec<String>>,
     pub implementation_name: Option<&'a str>,
     pub implementation_project: Option<&'a PathBuf>,
-    pub implementation_env: Environment,
-    pub implementation_artifacts: &'a str,
+    pub implementation_env: Option<&'a Environment>,
+    pub implementation_artifacts: Option<&'a str>,
     pub implementation_build_cache: Option<&'a String>,
     pub zerovalue: bool,
     pub event_topics: Option<Vec<B256>>,
     pub pc: &'a mut u64,
     pub progress_mode: &'a ProgressMode,
     pub use_storage_range: bool,
+    pub tx_hashes: Option<Vec<String>>,
 }
 
 pub struct DiscoveryResult {
@@ -112,7 +113,8 @@ pub fn discover_storage_and_events(
         let imp_path: PathBuf;
         let imp_artifacts_path: PathBuf;
         if let Some(imp_project) = params.implementation_project {
-            imp_artifacts_path = get_project_paths(imp_project, params.implementation_artifacts);
+            imp_artifacts_path =
+                get_project_paths(imp_project, params.implementation_artifacts.unwrap());
             imp_path = imp_project.clone();
         } else if let Some(project_path) = params.project {
             imp_path = project_path.clone();
@@ -126,7 +128,7 @@ pub fn discover_storage_and_events(
         let tmp_project_info = ProjectInfo::new(
             &implementation_name.to_string(),
             &imp_path,
-            params.implementation_env,
+            *params.implementation_env.unwrap(),
             &imp_artifacts_path,
             params.implementation_build_cache,
             params.libraries.clone(),
@@ -153,38 +155,19 @@ pub fn discover_storage_and_events(
         types.extend(tmp_project_info.types.clone());
         imp_project_info = Some(tmp_project_info);
     }
-
-    // Get transaction hashes based on event topics
-    let mut seen_events: Vec<Log> = vec![];
-    let tx_hashes: Vec<String> = if let Some(event_topics) = &params.event_topics {
-        print_progress(
-            "Obtaining past events and transactions.",
-            params.pc,
-            params.progress_mode,
-        );
-        seen_events = web3::get_eth_events(
+    let (tx_hashes, mut seen_events) = if params.tx_hashes.is_none() {
+        // Get transaction hashes based on event topics
+        get_tx_hashes(
             params.config,
             params.address,
             params.start_block_num,
             params.end_block_num,
-            event_topics,
-        )?;
-        seen_events
-            .iter()
-            .filter_map(|e| e.transaction_hash.map(|h| format!("{h:#x}")))
-            .collect()
-    } else {
-        print_progress(
-            "Obtaining past transactions.",
+            params.event_topics.clone(),
             params.pc,
             params.progress_mode,
-        );
-        web3::get_all_txs_for_contract(
-            params.config,
-            params.address,
-            params.start_block_num,
-            params.end_block_num,
         )?
+    } else {
+        (params.tx_hashes.unwrap(), vec![])
     };
 
     print_progress("Getting storage snapshot.", params.pc, params.progress_mode);
@@ -408,6 +391,36 @@ pub fn discover_storage_and_events(
     })
 }
 
+pub fn get_tx_hashes(
+    config: &DVFConfig,
+    address: &Address,
+    start_block_num: u64,
+    end_block_num: u64,
+    event_topics: Option<Vec<B256>>,
+    pc: &mut u64,
+    progress_mode: &ProgressMode,
+) -> Result<(Vec<String>, Vec<Log>), ValidationError> {
+    let mut seen_events: Vec<Log> = vec![];
+    let tx_hashes: Vec<String> = if let Some(event_topics) = &event_topics {
+        print_progress("Obtaining past events and transactions.", pc, progress_mode);
+        seen_events = web3::get_eth_events(
+            config,
+            address,
+            start_block_num,
+            end_block_num,
+            event_topics,
+        )?;
+        seen_events
+            .iter()
+            .filter_map(|e| e.transaction_hash.map(|h| format!("{h:#x}")))
+            .collect()
+    } else {
+        print_progress("Obtaining past transactions.", pc, progress_mode);
+        web3::get_all_txs_for_contract(config, address, start_block_num, end_block_num)?
+    };
+    Ok((tx_hashes, seen_events))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn create_discovery_params_for_init<'a>(
     config: &'a DVFConfig,
@@ -416,7 +429,7 @@ pub fn create_discovery_params_for_init<'a>(
     init_block_num: u64,
     project: &'a PathBuf,
     artifacts: &'a str,
-    env: Environment,
+    env: &'a Environment,
     build_cache: Option<&'a String>,
     libraries: Option<Vec<String>>,
     zerovalue: bool,
@@ -433,21 +446,25 @@ pub fn create_discovery_params_for_init<'a>(
         end_block_num: init_block_num,
         project: Some(project),
         artifacts,
-        env,
+        env: *env,
         build_cache,
         libraries,
         implementation_name: sub_m
             .get_one::<String>("implementation")
             .map(|s| s.as_str()),
         implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
-        implementation_env: env,
-        implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+        implementation_env: Some(env),
+        implementation_artifacts: sub_m
+            .get_one::<String>("implementationartifacts")
+            .as_ref()
+            .map(|s| s.as_str()),
         implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
         zerovalue,
         event_topics,
         pc,
         progress_mode,
         use_storage_range: true,
+        tx_hashes: None,
     }
 }
 
@@ -481,13 +498,17 @@ pub fn create_discovery_params_for_update<'a>(
             .get_one::<String>("implementation")
             .map(|s| s.as_str()),
         implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
-        implementation_env: *sub_m.get_one::<Environment>("implementationenv").unwrap(),
-        implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+        implementation_env: sub_m.get_one::<Environment>("implementationenv"),
+        implementation_artifacts: sub_m
+            .get_one::<String>("implementationartifacts")
+            .as_ref()
+            .map(|s| s.as_str()),
         implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
         zerovalue,
         event_topics: None, // Update mode doesn't filter by event topics
         pc,
         progress_mode,
         use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
+        tx_hashes: None,
     }
 }
