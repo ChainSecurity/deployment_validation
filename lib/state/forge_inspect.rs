@@ -214,6 +214,10 @@ fn forge_inspect_helper(
     // forge inspect.
     // TODO: If a future version of solidity should ever change the storage
     // layout based on configuration, we might have to revise this.
+    let mut contract = contract_name.to_string();
+    if let Some(path) = contract_path {
+        contract = format!("{}:{}", path, contract_name);
+    }
     let forge_inspect = Command::new("forge")
         .env("RUST_LOG", "error") // prevents `forge inspect` from contaminating the JSON with logs
         .current_dir(project_path)
@@ -226,7 +230,7 @@ fn forge_inspect_helper(
         .arg(temp_path.as_os_str())
         .arg("--cache-path")
         .arg(temp_cache_path.as_os_str())
-        .arg(contract_name)
+        .arg(contract)
         .arg(field)
         .output()?;
 
