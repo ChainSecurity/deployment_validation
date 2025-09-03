@@ -2340,6 +2340,9 @@ pub fn get_all_addresses(
                             create_addresses.push(create_res.address);
                         }
                     }
+                    Action::Selfdestruct(selfdestruct) => {
+                        call_addresses.push(selfdestruct.address);
+                    }
                     _ => {
                         // do nothing
                     }
@@ -2358,7 +2361,6 @@ pub fn get_all_addresses(
         }
     }
 
-    // Remove duplicates while preserving order
     call_addresses.sort();
     call_addresses.dedup();
     create_addresses.sort();
@@ -2384,8 +2386,10 @@ fn extract_all_addresses_from_call_frame(
         if let Some(addr) = call_frame.to {
             if call_frame.typ == "CALL" {
                 call_addresses.push(addr);
-            } else if call_frame.typ == "CREATE" {
+            } else if call_frame.typ == "CREATE" || call_frame.typ == "CREATE2" {
                 create_addresses.push(addr);
+            } else if call_frame.typ == "SELFDESTRUCT" {
+                call_addresses.push(addr);
             }
         }
     }
