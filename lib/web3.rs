@@ -2364,7 +2364,7 @@ pub fn get_all_addresses(
     create_addresses.sort();
     create_addresses.dedup();
 
-    debug!("All addresses for {} are: {:?}", tx_id, call_addresses);
+    debug!("All call addresses for {} are: {:?}", tx_id, call_addresses);
     debug!(
         "All create addresses for {} are: {:?}",
         tx_id, create_addresses
