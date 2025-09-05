@@ -592,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn test_e2e_proxy() {
+    fn test_e2e_proxy_simple() {
         let port = 8548u16;
         let config_file = match DVFConfig::test_config_file(Some(port)) {
             Ok(config) => config,

@@ -80,12 +80,20 @@ pub fn discover_storage_and_events(
         let fi_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             project_path,
             params.contract_name,
-            project_info.absolute_path.clone(),
+            if params.env == Environment::Hardhat {
+                project_info.absolute_path.clone()
+            } else {
+                None
+            },
         );
         let fi_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
             project_path,
             params.contract_name,
-            project_info.absolute_path.clone(),
+            if params.env == Environment::Hardhat {
+                project_info.absolute_path.clone()
+            } else {
+                None
+            },
         );
         let mut contract_state = ContractState::new_with_address(params.address, &pretty_printer);
         contract_state.add_forge_inspect(&fi_layout, &fi_ir);
@@ -141,12 +149,20 @@ pub fn discover_storage_and_events(
         let fi_impl_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             &imp_path,
             implementation_name,
-            tmp_project_info.absolute_path.clone(),
+            if params.implementation_env == Environment::Hardhat {
+                tmp_project_info.absolute_path.clone()
+            } else {
+                None
+            },
         );
         let fi_impl_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
             &imp_path,
             implementation_name,
-            tmp_project_info.absolute_path.clone(),
+            if params.implementation_env == Environment::Hardhat {
+                tmp_project_info.absolute_path.clone()
+            } else {
+                None
+            },
         );
         contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
