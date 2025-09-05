@@ -20,7 +20,7 @@ use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::state::contract_state::ContractState;
 use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
-use dvf_libs::web3;
+use dvf_libs::web3::{self, stop_anvil_instance};
 use indicatif::ProgressBar;
 use prettytable::{row, Table};
 use scanf::sscanf;
@@ -1017,18 +1017,26 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 }
                 seen_transactions.insert(tx_hash);
                 info!("Getting trace for {}", tx_hash);
-                let mut found_trace = true;
-                if let Ok(trace) = web3::get_eth_debug_trace(&config, tx_hash) {
-                    if contract_state.record_traces(&config, vec![trace]).is_err() {
-                        found_trace = false;
-                        missing_traces = true;
+                match web3::get_eth_debug_trace_sim(&config, tx_hash) {
+                    Ok((trace, anvil_config, anvil_instance)) => {
+                        let record_traces_config = match &anvil_config {
+                            Some(c) => c,
+                            None => &config,
+                        };
+                        if let Err(err) =
+                            contract_state.record_traces(record_traces_config, vec![trace])
+                        {
+                            missing_traces = true;
+                            info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                        }
+                        if let Some(anvil_instance) = anvil_instance {
+                            stop_anvil_instance(anvil_instance);
+                        }
                     }
-                } else {
-                    found_trace = false;
-                    missing_traces = true;
-                }
-                if !found_trace {
-                    info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config.");
+                    Err(err) => {
+                        missing_traces = true;
+                        info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                    }
                 }
             }
 
