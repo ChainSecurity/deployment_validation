@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use alloy::json_abi::Constructor;
+use alloy::primitives::U256;
 use clap::ValueEnum;
 use semver::Version;
 use serde_json;
@@ -24,7 +25,6 @@ use colored::Colorize;
 use std::str::FromStr;
 
 use alloy::json_abi::Event;
-use alloy::primitives::U256;
 use foundry_compilers::artifacts::Error as CompilerError;
 use foundry_compilers::artifacts::{
     BytecodeHash, BytecodeObject, Contract as ContractArt, ContractDefinition, ContractKind,
@@ -73,18 +73,36 @@ impl ProjectInfo {
     }
 
     // build it
-    fn forge_build(project: &Path, build_info_path: &Path) -> Result<(), ValidationError> {
+    fn forge_build(
+        project: &Path,
+        build_info_path: &Path,
+        libraries: Option<Vec<String>>,
+    ) -> Result<(), ValidationError> {
         info!(
             "Starting <forge build>. If you had previous builds, it is recommended to <forge clean>."
         );
-        let build = Command::new("forge")
+
+        let mut command = Command::new("forge");
+        command
             .current_dir(project)
             .arg("build")
             .arg("--build-info")
             .arg("--build-info-path")
-            .arg(build_info_path.to_str().unwrap())
-            .output()
-            .expect("Could not build project");
+            .arg(build_info_path.to_str().unwrap());
+
+        if let Some(libs) = libraries {
+            for lib in libs {
+                command.arg("--libraries").arg(lib);
+            }
+        }
+
+        let program = command.get_program();
+        let args: Vec<_> = command.get_args().collect();
+
+        info!("Command: {:?}", program);
+        info!("Args: {:?}", args);
+
+        let build = command.output().expect("Could not build project");
 
         if !build.status.success() {
             println!(
@@ -1375,6 +1393,7 @@ impl ProjectInfo {
         project: &Path,
         env: Environment,
         artifacts_path: &Path,
+        libraries: Option<Vec<String>>,
     ) -> Result<PathBuf, ValidationError> {
         let build_info_path: PathBuf;
         let build_info_dir: TempDir;
@@ -1385,7 +1404,7 @@ impl ProjectInfo {
                 build_info_dir = Builder::new().prefix("dvf_bi").tempdir().unwrap();
                 // Persist for now
                 build_info_path = build_info_dir.keep();
-                Self::forge_build(project, &build_info_path)?;
+                Self::forge_build(project, &build_info_path, libraries)?;
             }
             Environment::Hardhat => {
                 assert!(Self::check_hardhat(project));
@@ -1403,10 +1422,11 @@ impl ProjectInfo {
         env: Environment,
         artifacts_path: &Path,
         build_cache: Option<&String>,
+        libraries: Option<Vec<String>>,
     ) -> Result<Self, ValidationError> {
         let build_info_path: PathBuf = match build_cache {
             Some(s) => PathBuf::from(s),
-            None => Self::compile(project, env, artifacts_path)?,
+            None => Self::compile(project, env, artifacts_path, libraries)?,
         };
 
         let command = match env {

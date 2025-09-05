@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::io::Error;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
@@ -125,12 +126,12 @@ pub struct TypeDescription {
 }
 
 #[derive(Deserialize, Debug, Default)]
-pub struct ForgeInspect {
+pub struct ForgeInspectLayoutStorage {
     pub storage: Vec<StateVariable>,
     pub types: HashMap<String, TypeDescription>,
 }
 
-impl ForgeInspect {
+impl ForgeInspectLayoutStorage {
     pub fn default_values() -> Self {
         let storage: Vec<StateVariable> = vec![];
         let mut types: HashMap<String, TypeDescription> = HashMap::new();
@@ -146,7 +147,7 @@ impl ForgeInspect {
         };
         types.insert(String::from("t_uint256"), uint256);
 
-        ForgeInspect { storage, types }
+        ForgeInspectLayoutStorage { storage, types }
     }
 
     pub fn generate_and_parse_layout(
@@ -154,56 +155,95 @@ impl ForgeInspect {
         contract_name: &str,
         contract_path: Option<String>,
     ) -> Self {
-        // Create a temporary directory
-        let temp_dir = TempDir::new().unwrap();
-        // Get the path of the temporary directory
-        let temp_path = temp_dir.path();
-
-        // get temp path for cache dir so that this does not overwrite hardhat configs
-        let temp_cache_dir = TempDir::new().unwrap();
-        let temp_cache_path = temp_cache_dir.path();
-
-        info!("Running forge inspect. This might take a while.");
-        // hardhat doesn't offer a simple solutipon to get the storage layout
-        // but if we pass the full path of a contract, we can still use
-        // forge inspect.
-        // TODO: If a future version of solidity should ever change the storage
-        // layout based on configuration, we might have to revise this.
-        let mut contract = contract_name.to_string();
-        if let Some(path) = contract_path {
-            contract = format!("{}:{}", path, contract_name);
-        }
-        let forge_inspect = Command::new("forge")
-            .env("RUST_LOG", "error") // prevents `forge inspect` from contaminating the JSON with logs
-            .current_dir(project_path)
-            .arg("inspect")
-            .arg("--force")
-            .arg("--json")
-            .arg("--root") // required because forge will use Git root (not necessarily project root) by default
-            .arg(".")
-            .arg("--out")
-            .arg(temp_path.as_os_str())
-            .arg("--cache-path")
-            .arg(temp_cache_path.as_os_str())
-            .arg(contract)
-            .arg("storage-layout")
-            .output()
-            .expect("Could not create storage layout");
-
-        assert!(
-            forge_inspect.status.success(),
-            "Failed to run forge inspect:\n{}",
-            String::from_utf8_lossy(&forge_inspect.stderr)
-        );
-
-        let layout = String::from_utf8(forge_inspect.stdout).unwrap();
-        debug!("{}", layout);
-        debug!("Parsed forge inspect output.");
-
-        serde_json::from_str::<ForgeInspect>(&layout).unwrap()
+        // @note a failed forge inspect causes a panic here.
+        let layout = forge_inspect_helper(
+            project_path,
+            contract_name,
+            contract_path,
+            String::from("storageLayout"),
+        )
+        .unwrap();
+        serde_json::from_str::<ForgeInspectLayoutStorage>(&layout).unwrap()
     }
 
     pub fn get_size_for_type(&self, var_type: &String) -> usize {
         self.types[var_type].number_of_bytes
     }
+}
+
+pub struct ForgeInspectIrOptimized {
+    pub ir: Result<String, Error>,
+}
+
+impl ForgeInspectIrOptimized {
+    pub fn generate_and_parse_ir_optimized(
+        project_path: &Path,
+        contract_name: &str,
+        contract_path: Option<String>,
+    ) -> Self {
+        // @note a failed forge inspect does NOT panic because IR is not available for all contracts
+        let ir_output = forge_inspect_helper(
+            project_path,
+            contract_name,
+            contract_path,
+            String::from("irOptimized"),
+        );
+
+        Self { ir: ir_output }
+    }
+}
+
+fn forge_inspect_helper(
+    project_path: &Path,
+    contract_name: &str,
+    contract_path: Option<String>,
+    field: String,
+) -> Result<String, Error> {
+    // Create a temporary directory
+    let temp_dir = TempDir::new().unwrap();
+    // Get the path of the temporary directory
+    let temp_path = temp_dir.path();
+
+    // get temp path for cache dir so that this does not overwrite hardhat configs
+    let temp_cache_dir = TempDir::new().unwrap();
+    let temp_cache_path = temp_cache_dir.path();
+
+    info!("Running forge inspect. This might take a while.");
+    // hardhat doesn't offer a simple solutipon to get the storage layout
+    // but if we pass the full path of a contract, we can still use
+    // forge inspect.
+    // TODO: If a future version of solidity should ever change the storage
+    // layout based on configuration, we might have to revise this.
+    let mut contract = contract_name.to_string();
+    if let Some(path) = contract_path {
+        contract = format!("{}:{}", path, contract_name);
+    }
+    let forge_inspect = Command::new("forge")
+        .env("RUST_LOG", "error") // prevents `forge inspect` from contaminating the JSON with logs
+        .current_dir(project_path)
+        .arg("inspect")
+        .arg("--force")
+        .arg("--json")
+        .arg("--root") // required because forge will use Git root (not necessarily project root) by default
+        .arg(".")
+        .arg("--out")
+        .arg(temp_path.as_os_str())
+        .arg("--cache-path")
+        .arg(temp_cache_path.as_os_str())
+        .arg(contract)
+        .arg(field)
+        .output()?;
+
+    if !forge_inspect.status.success() {
+        return Err(Error::other(format!(
+            "Failed to run forge inspect: {}",
+            String::from_utf8_lossy(&forge_inspect.stderr)
+        )));
+    }
+
+    let output = String::from_utf8(forge_inspect.stdout).unwrap();
+    debug!("{}", output);
+    debug!("Parsed forge inspect output.");
+
+    Ok(output)
 }

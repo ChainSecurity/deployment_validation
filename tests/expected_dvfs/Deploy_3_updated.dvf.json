@@ -17,6 +17,7 @@
       "var_name": "x",
       "var_type": "t_uint256",
       "value": "0x00000000000000000000000000000000000000000000000000000000000001c8",
+      "value_hint": "456",
       "comparison_operator": "Equal"
     },
     {
@@ -25,6 +26,7 @@
       "var_name": "S.A",
       "var_type": "t_uint256",
       "value": "0x0000000000000000000000000000000000000000000000000000000000000040",
+      "value_hint": "64",
       "comparison_operator": "Equal"
     },
     {
