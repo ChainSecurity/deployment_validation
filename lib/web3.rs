@@ -20,6 +20,7 @@ use crate::dvf::parse::ValidationError;
 
 use alloy::primitives::{Address, Bytes, B256, U256};
 use alloy::rpc::types::{Block, EIP1186AccountProofResponse, Log, Transaction, TransactionReceipt};
+use alloy_node_bindings::{Anvil, AnvilInstance};
 use alloy_rpc_types_trace::geth::{CallFrame, DefaultFrame, DiffMode, StructLog};
 use alloy_rpc_types_trace::parity::{
     Action, LocalizedTransactionTrace, TraceOutput, TransactionTrace,
@@ -254,6 +255,46 @@ pub fn get_eth_debug_call_trace(
     Ok(trace)
 }
 
+/// Helper function to get transaction receipt and create TraceWithAddress
+fn create_trace_with_address(
+    config: &DVFConfig,
+    tx_id: &str,
+    trace: DefaultFrame,
+) -> Result<TraceWithAddress, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionReceipt",
+        "params": [tx_id],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let receipt: TransactionReceipt = serde_json::from_value(result)?;
+
+    let tx_id = tx_id.to_string();
+    if let Some(address) = receipt.to {
+        Ok(TraceWithAddress {
+            trace,
+            address,
+            tx_id,
+        })
+    } else if let Some(address) = receipt.contract_address {
+        Ok(TraceWithAddress {
+            trace,
+            address,
+            tx_id,
+        })
+    } else {
+        println!(
+            "[DEBUG] create_trace_with_address: No address found in receipt: {:?}",
+            receipt
+        );
+        Err(ValidationError::from(format!(
+            "Found no address for tx {}",
+            tx_id
+        )))
+    }
+}
+
 pub fn get_eth_debug_trace(
     config: &DVFConfig,
     tx_id: &str,
@@ -269,35 +310,139 @@ pub fn get_eth_debug_trace(
     // println!("Sending to {:?}", config.get_rpc_url()?);
     // Parse the response as a JSON list
     let trace: DefaultFrame = serde_json::from_value(result)?;
+    create_trace_with_address(config, tx_id, trace)
+}
 
+/// after this call, stop_anvil_instance(anvil_instance); required if the anvil instance is some
+pub fn get_eth_debug_trace_sim(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<(TraceWithAddress, Option<DVFConfig>, Option<AnvilInstance>), ValidationError> {
+    debug!("Obtaining debug trace.");
+
+    // Try the first call to send_blocking_web3_post
     let request_body = json!({
         "jsonrpc": "2.0",
-        "method": "eth_getTransactionReceipt",
-        "params": [tx_id],
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
         "id": 1
     });
-    let result = send_blocking_web3_post(config, &request_body)?;
-    // Parse the response as a JSON list
-    let receipt: TransactionReceipt = serde_json::from_value(result)?;
 
-    let tx_id = tx_id.to_string();
-    if let Some(address) = receipt.to {
-        Ok(TraceWithAddress {
-            trace,
-            address,
-            tx_id,
-        })
-    } else if let Some(address) = receipt.contract_address {
-        return Ok(TraceWithAddress {
-            trace,
-            address,
-            tx_id,
-        });
-    } else {
-        return Err(ValidationError::from(format!(
-            "Found no address for tx {}",
-            tx_id
-        )));
+    match send_blocking_web3_post(config, &request_body) {
+        Ok(result) => {
+            // Parse the response as a JSON list
+            let trace: DefaultFrame = serde_json::from_value(result)?;
+            Ok((create_trace_with_address(config, tx_id, trace)?, None, None))
+        }
+        Err(_) => {
+            // First call failed, try fallback with anvil
+            info!("Initial debug_traceTransaction failed, trying fallback with anvil");
+
+            // Get transaction details
+            let (block_num, tx_index, tx_result) = get_transaction_details(config, tx_id)?;
+
+            // Get the RPC URL for the current chain
+            let rpc_url = config.get_rpc_url()?;
+
+            // Get the previous transaction in the same block
+            let (fork_transaction_hash, fork_block_number) =
+                match get_previous_transaction_in_block(config, block_num, tx_index)? {
+                    Some(prev_tx_hash) => (Some(prev_tx_hash), None),
+                    None => (None, Some(block_num - 1)), // Fallback to previous block if tx is first in block
+                };
+
+            // Start anvil with fork
+            let anvil_instance = start_anvil(
+                &rpc_url,
+                fork_transaction_hash.as_deref(),
+                fork_block_number,
+                get_eth_block_timestamp(config, block_num)?, // advance to the transaction's actual timestamp
+            )?;
+
+            // Create a new config with the anvil endpoint
+            let mut anvil_config = DVFConfig::default();
+            anvil_config
+                .rpc_urls
+                .insert(config.active_chain_id.unwrap(), anvil_instance.endpoint());
+            anvil_config.active_chain_id = config.active_chain_id;
+            anvil_config.web3_timeout = config.web3_timeout;
+
+            // Extract transaction data from the JSON response (already fetched in get_transaction_details)
+            let from = tx_result["from"].as_str().unwrap();
+            let to = tx_result["to"].as_str().unwrap_or("null");
+            let value = tx_result["value"].as_str().unwrap();
+            let data = tx_result["input"].as_str().unwrap();
+            let gas = tx_result["gas"].as_str().unwrap();
+            let gas_price = tx_result["gasPrice"].as_str().unwrap();
+
+            // impersonate so we can submit tx as "from"
+            let impersonate_body = json!({
+                "jsonrpc": "2.0",
+                "method": "anvil_impersonateAccount",
+                "params": [from],
+                "id": 1
+            });
+
+            // ignore error as this does not return any result
+            let _ = send_blocking_web3_post(&anvil_config, &impersonate_body);
+
+            // submit transaction to anvil
+            let send_tx_body = json!({
+                "jsonrpc": "2.0",
+                "method": "eth_sendTransaction",
+                "params": [
+                    {
+                        "from": from,
+                        "to": if to == "null" { serde_json::Value::Null } else { json!(to) },
+                        "value": value,
+                        "input": data,
+                        "gas": gas,
+                        "gasPrice": gas_price
+                    }
+                ],
+                "id": 1
+            });
+
+            let tx_result = match send_blocking_web3_post(&anvil_config, &send_tx_body) {
+                Ok(result) => result,
+                Err(e) => {
+                    // Stop the anvil instance before returning the error
+                    stop_anvil_instance(anvil_instance);
+                    return Err(e);
+                }
+            };
+
+            // set the timestamp for the next block to the timestamp of the block where the transaction originated from
+            let ts_body = json!({
+                "jsonrpc": "2.0",
+                "method": "evm_setNextBlockTimestamp",
+                "params": [get_eth_block_timestamp(config, block_num)?],
+                "id": 1
+            });
+
+            let _ = send_blocking_web3_post(&anvil_config, &ts_body);
+
+            // mine the block, increasing the block number to the number of the block where the transaction originated from
+            let mine_body = json!({
+                "jsonrpc": "2.0",
+                "method": "evm_mine",
+                "params": [],
+                "id": 1
+            });
+
+            let _ = send_blocking_web3_post(&anvil_config, &mine_body);
+
+            let result = match get_eth_debug_trace(&anvil_config, tx_result.as_str().unwrap()) {
+                Ok(result) => result,
+                Err(e) => {
+                    // Stop the anvil instance before returning the error
+                    stop_anvil_instance(anvil_instance);
+                    return Err(e);
+                }
+            };
+
+            Ok((result, Some(anvil_config), Some(anvil_instance)))
+        }
     }
 }
 
@@ -508,7 +653,7 @@ fn send_blocking_blockscout_get(
     request: &str,
 ) -> Result<serde_json::Value, ValidationError> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(config.web3_timeout))
+        .timeout(Duration::from_millis(config.web3_timeout))
         .build()
         .unwrap();
 
@@ -547,7 +692,7 @@ fn send_blocking_web3_post(
     request_body: &serde_json::Value,
 ) -> Result<serde_json::Value, ValidationError> {
     let client = Client::builder()
-        .timeout(Duration::from_secs(config.web3_timeout))
+        .timeout(Duration::from_millis(config.web3_timeout))
         .build()
         .unwrap();
 
@@ -1160,7 +1305,7 @@ pub fn get_eth_chain_id(config: &DVFConfig) -> Result<u64, ValidationError> {
     Ok(chain_id)
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Web3Event {
     pub topics: Vec<String>,
     pub data: String,
@@ -2292,26 +2437,158 @@ mod tests {
     // }
 }
 
-pub fn get_eth_transaction_block_number(
+/// Get transaction details including block number, transaction index, and full transaction data
+pub fn get_transaction_details(
     config: &DVFConfig,
     tx_hash: &str,
-) -> Result<u64, ValidationError> {
+) -> Result<(u64, u64, serde_json::Value), ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
-        "method": "eth_getTransactionReceipt",
+        "method": "eth_getTransactionByHash",
         "params": [tx_hash],
         "id": 1
     });
     let result = send_blocking_web3_post(config, &request_body)?;
 
-    // Extract the block number from the receipt
-    let block_number_hex = result
-        .get("blockNumber")
-        .and_then(|bn| bn.as_str())
-        .ok_or_else(|| ValidationError::from("Block number not found in transaction receipt"))?;
+    let tx: Transaction = serde_json::from_value(result.clone())?;
 
-    // Convert the hex block number to u64
-    let receipt = u64::from_str_radix(block_number_hex.trim_start_matches("0x"), 16)
-        .map_err(|_| ValidationError::from("Failed to parse block number from hex"))?;
-    Ok(receipt)
+    match (tx.block_number, tx.transaction_index) {
+        (Some(block_num), Some(tx_index)) => Ok((block_num, tx_index, result)),
+        _ => Err(ValidationError::from("Transaction not found or not mined")),
+    }
+}
+
+/// Get the previous transaction hash in the same block
+fn get_previous_transaction_in_block(
+    config: &DVFConfig,
+    block_num: u64,
+    current_tx_index: u64,
+) -> Result<Option<String>, ValidationError> {
+    if current_tx_index == 0 {
+        // This is the first transaction in the block
+        return Ok(None);
+    }
+
+    let block = get_eth_block_by_num(config, block_num, true)?;
+
+    if let Some(transactions) = block.transactions.as_transactions() {
+        if current_tx_index > 0 && current_tx_index <= transactions.len() as u64 {
+            let prev_tx = &transactions[(current_tx_index - 1) as usize];
+            // Get the transaction hash directly from the transaction data
+            let hash = format!("{:#x}", prev_tx.inner.hash());
+            return Ok(Some(hash));
+        }
+    }
+
+    Err(ValidationError::from(
+        "Could not find previous transaction in block",
+    ))
+}
+
+/// Start anvil with fork using Anvil::new() with retry logic
+fn start_anvil(
+    fork_url: &str,
+    fork_transaction_hash: Option<&str>,
+    fork_block_number: Option<u64>,
+    tx_block_time: u64,
+) -> Result<AnvilInstance, ValidationError> {
+    let mut anvil: Option<AnvilInstance> = None;
+
+    debug!("Starting Anvil with fork URL: {}", fork_url);
+
+    // Try to start anvil with retry logic, similar to start_local_client
+    for attempt in 0..10 {
+        let result = std::panic::catch_unwind(|| {
+            let mut anvil_builder = Anvil::new().fork(fork_url).arg("--steps-tracing");
+
+            // Set either fork transaction hash or fork block number
+            if let Some(tx_hash) = fork_transaction_hash {
+                anvil_builder = anvil_builder
+                    .arg("--fork-transaction-hash")
+                    .arg(tx_hash)
+                    .block_time(tx_block_time);
+            } else if let Some(block_num) = fork_block_number {
+                anvil_builder = anvil_builder
+                    .arg("--fork-block-number")
+                    .arg(block_num.to_string())
+                    .block_time(tx_block_time);
+            }
+
+            anvil_builder.spawn()
+        });
+
+        match result {
+            Ok(instance) => {
+                debug!("Anvil spawned successfully on attempt {}", attempt + 1);
+                anvil = Some(instance);
+                break;
+            }
+            Err(e) => {
+                debug!(
+                    "Anvil startup attempt {} failed: {:?}, retrying...",
+                    attempt + 1,
+                    e
+                );
+                // Wait for the other process to go away
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+        }
+    }
+
+    let anvil_instance =
+        anvil.ok_or_else(|| ValidationError::from("Failed to start anvil after 10 attempts"))?;
+
+    let endpoint = anvil_instance.endpoint();
+    debug!("Anvil endpoint: {}", endpoint);
+
+    // Wait for anvil to be ready by testing the connection
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    for attempt in 0..10 {
+        let test_request = json!({
+            "jsonrpc": "2.0",
+            "method": "eth_chainId",
+            "params": [],
+            "id": 1
+        });
+
+        debug!(
+            "Testing Anvil connection attempt {} to {}",
+            attempt + 1,
+            endpoint
+        );
+        match client.post(&endpoint).json(&test_request).send() {
+            Ok(response) => {
+                if response.status().is_success() {
+                    debug!("Anvil is ready after {} attempts", attempt + 1);
+                    return Ok(anvil_instance);
+                } else {
+                    debug!("Anvil responded with status: {}", response.status());
+                }
+            }
+            Err(e) => {
+                debug!(
+                    "Anvil connection attempt {} failed: {}, retrying...",
+                    attempt + 1,
+                    e
+                );
+            }
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+
+    Err(ValidationError::from(
+        "Anvil failed to become ready after 10 connection attempts",
+    ))
+}
+
+/// Stop an Anvil instance
+pub fn stop_anvil_instance(anvil_instance: AnvilInstance) {
+    // AnvilInstance implements Drop, so it will be automatically cleaned up
+    // when it goes out of scope, but we can also explicitly drop it
+    drop(anvil_instance);
 }

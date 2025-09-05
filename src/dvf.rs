@@ -870,8 +870,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             // Parse optional initblock or take deployment_block_num + 1
             let (deployment_block_num, deployment_tx) = if user_deployment_tx.is_some() {
-                let block_num =
-                    web3::get_eth_transaction_block_number(&config, user_deployment_tx.unwrap())?;
+                let (block_num, _, _) =
+                    web3::get_transaction_details(&config, user_deployment_tx.unwrap())?;
                 (block_num, user_deployment_tx.unwrap().clone())
             } else {
                 web3::get_deployment(&config, &dumped.address)?
