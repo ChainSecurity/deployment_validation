@@ -20,6 +20,7 @@ use crate::utils::pretty::PrettyPrinter;
 use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
 use crate::web3;
+use crate::web3::stop_anvil_instance;
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
@@ -205,22 +206,25 @@ pub fn discover_storage_and_events(
         }
         seen_transactions.insert(tx_hash);
 
-        let mut found_trace = true;
-        if let Ok(trace) = web3::get_eth_debug_trace(params.config, tx_hash) {
-            if contract_state
-                .record_traces(params.config, vec![trace])
-                .is_err()
-            {
-                found_trace = false;
-                missing_traces = true;
+        info!("Getting trace for {}", tx_hash);
+        match web3::get_eth_debug_trace_sim(params.config, tx_hash) {
+            Ok((trace, anvil_config, anvil_instance)) => {
+                let record_traces_config = match &anvil_config {
+                    Some(c) => c,
+                    None => params.config,
+                };
+                if let Err(err) = contract_state.record_traces(record_traces_config, vec![trace]) {
+                    missing_traces = true;
+                    info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                }
+                if let Some(anvil_instance) = anvil_instance {
+                    stop_anvil_instance(anvil_instance);
+                }
             }
-        } else {
-            found_trace = false;
-            missing_traces = true;
-        }
-
-        if !found_trace {
-            info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable.");
+            Err(err) => {
+                missing_traces = true;
+                info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+            }
         }
     }
 

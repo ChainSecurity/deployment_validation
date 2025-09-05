@@ -21,7 +21,7 @@ use dvf_libs::dvf::registry::{self, Registry};
 use dvf_libs::utils::pretty::PrettyPrinter;
 use dvf_libs::utils::progress::{print_progress, ProgressMode};
 use dvf_libs::utils::read_write_file::get_project_paths;
-use dvf_libs::web3;
+use dvf_libs::web3::{self, get_transaction_details};
 use indicatif::ProgressBar;
 use prettytable::{row, Table};
 use scanf::sscanf;
@@ -887,8 +887,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             // Parse optional initblock or take deployment_block_num + 1
             let (deployment_block_num, deployment_tx) = if user_deployment_tx.is_some() {
-                let block_num =
-                    web3::get_eth_transaction_block_number(&config, user_deployment_tx.unwrap())?;
+                let (block_num, _, _) =
+                    web3::get_transaction_details(&config, user_deployment_tx.unwrap())?;
                 (block_num, user_deployment_tx.unwrap().clone())
             } else {
                 web3::get_deployment(&config, &dumped.address)?
@@ -1615,7 +1615,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             println!("Chain ID: {}", chain_id);
 
             let (call_addresses, create_addresses) = web3::get_all_addresses(&config, tx_hash)?;
-            let block_num = web3::get_eth_transaction_block_number(&config, tx_hash)?;
+            let (block_num, _, _) = get_transaction_details(&config, tx_hash)?;
             println!("The transaction called the following contracts:");
             for address in &call_addresses {
                 println!("- {}", address);
@@ -1659,58 +1659,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &progress_mode,
                 )?;
             }
-
-            /*
-            // Iterate over all projects
-            for (i, project_config) in config.projects.iter().enumerate() {
-                println!("\n--- Project {}: {} ---", i + 1, project_config.contract_name);
-
-                println!("Project Path: {}", project_config.project_path.display());
-                println!("Environment: {:?}", project_config.environment);
-                println!("Artifacts Path: {}", project_config.artifacts_path);
-
-                if let Some(ref build_cache) = project_config.build_cache_path {
-                    println!("Build Cache: {}", build_cache);
-                }
-
-                if project_config.libraries.is_some() {
-                    println!("Libraries: {}", project_config.libraries.as_ref().unwrap().join(", "));
-                }
-
-                if let Some(ref address) = project_config.address {
-                    println!("Contract Address: {}", address);
-                }
-
-                if let Some(chain_id) = project_config.chain_id {
-                    println!("Chain ID: {}", chain_id);
-                }
-
-                if project_config.factory {
-                    println!("Factory Contract: Yes");
-                }
-
-                if let Some(ref event_topics) = project_config.event_topics {
-                    println!("Event Topics: {:?}", event_topics);
-                }
-
-                // Check if implementation config exists
-                if let Some(ref impl_config) = project_config.implementation_config {
-                    println!("Implementation Project:");
-                    println!("  Path: {}", impl_config.project_path.display());
-                    println!("  Environment: {:?}", impl_config.environment);
-                    println!("  Artifacts Path: {}", impl_config.artifacts_path);
-                    if let Some(ref build_cache) = impl_config.build_cache_path {
-                        println!("  Build Cache: {}", build_cache);
-                    }
-                    println!("  Contract Name: {}", impl_config.contract_name);
-                }
-            }
-
-            println!("\nNote: This command shows all available project configurations.");
-            println!("To perform detailed transaction analysis, consider using the 'init' command");
-            println!("with a specific project's contract address and name.");
-
-            */
 
             exit(0);
         }
@@ -1852,7 +1800,7 @@ fn inspect_called_contract(
 
         let (deployment_block_num, deployment_tx) =
             if let Some(depl_tx) = project_config.deployment_tx.as_ref() {
-                let block_num = web3::get_eth_transaction_block_number(config, depl_tx.as_str())?;
+                let (block_num, _, _) = get_transaction_details(config,depl_tx.as_str())?;
                 (block_num, depl_tx.clone())
             } else {
                 web3::get_deployment(config, &dumped.address)?
