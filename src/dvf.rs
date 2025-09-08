@@ -1698,7 +1698,7 @@ fn finalize_init_and_print(
     event_table: &Table,
     init_block_num: u64,
     compare_status: CompareBytecode,
-    rpc_code: &String,
+    rpc_code: &str,
     pretty_printer: &PrettyPrinter,
 ) -> Result<(), ValidationError> {
     let mut pc = 1;
@@ -1800,7 +1800,7 @@ fn inspect_called_contract(
 
         let (deployment_block_num, deployment_tx) =
             if let Some(depl_tx) = project_config.deployment_tx.as_ref() {
-                let (block_num, _, _) = get_transaction_details(config,depl_tx.as_str())?;
+                let (block_num, _, _) = get_transaction_details(config, depl_tx.as_str())?;
                 (block_num, depl_tx.clone())
             } else {
                 web3::get_deployment(config, &dumped.address)?
