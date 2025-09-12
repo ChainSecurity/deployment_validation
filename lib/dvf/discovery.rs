@@ -50,6 +50,7 @@ pub struct DiscoveryResult {
     pub critical_storage_variables: Vec<parse::DVFStorageEntry>,
     pub critical_events: Vec<parse::DVFEventEntry>,
     pub storage_var_table: Table,
+    pub unused_storage_var_table: Table,
     pub event_table: Table,
     pub all_events: Vec<Event>,
     pub proxy_warning: bool,
@@ -243,6 +244,19 @@ pub fn discover_storage_and_events(
             params.zerovalue,
         )?;
 
+    let mut unused_storage_var_table = Table::new();
+    let unused = snapshot.get_unused_nonzero_storage_slots();
+    unused_storage_var_table.set_titles(row!["Slot", "Offset", "Value"]);
+    for unused_part in unused {
+        let slot_hex = format!("0x{:x}", unused_part.slot);
+        let value_hex = format!("0x{}", hex::encode(&unused_part.value));
+        unused_storage_var_table.add_row(row![
+            slot_hex,
+            unused_part.offset,
+            wrap_by_length(&value_hex, 66, "\n"),
+        ]);
+    }
+
     let proxy_warning = critical_storage_variables
         .iter()
         .any(|var| var.var_name == "unknown")
@@ -405,10 +419,28 @@ pub fn discover_storage_and_events(
         critical_storage_variables,
         critical_events,
         storage_var_table,
+        unused_storage_var_table,
         event_table,
         all_events,
         proxy_warning,
     })
+}
+
+pub fn wrap_by_length(s: &str, max_len: usize, delimiter: &str) -> String {
+    if max_len == 0 {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len() + s.len() / max_len);
+    let mut count = 0;
+    for ch in s.chars() {
+        if count == max_len {
+            out.push_str(delimiter);
+            count = 0;
+        }
+        out.push(ch);
+        count += 1;
+    }
+    out
 }
 
 pub fn get_tx_hashes(

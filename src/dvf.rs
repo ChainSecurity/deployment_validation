@@ -12,8 +12,7 @@ use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
 use dvf_libs::dvf::discovery::{
-    create_discovery_params_for_init, create_discovery_params_for_update,
-    discover_storage_and_events, DiscoveryParams, DiscoveryResult,
+    create_discovery_params_for_init, create_discovery_params_for_update, discover_storage_and_events, wrap_by_length, DiscoveryParams, DiscoveryResult
 };
 use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
@@ -988,6 +987,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 critical_storage_variables,
                 critical_events,
                 storage_var_table,
+                unused_storage_var_table: _,
                 event_table,
                 all_events,
                 proxy_warning,
@@ -1011,20 +1011,23 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             dumped.critical_storage_variables = critical_storage_variables;
             dumped.critical_events = critical_events;
 
+            let unused_storage_var_table = Table::new();
+
             finalize_init_and_print(
                 project.to_string_lossy().to_string(),
                 &mut dumped,
                 output_path,
                 &project_info,
                 proxy_warning,
-                sub_m,
                 &storage_var_table,
+                &unused_storage_var_table,
                 &all_events,
                 &event_table,
                 init_block_num,
                 compare_status,
                 &rpc_code,
                 &pretty_printer,
+                sub_m.get_one::<String>("implementation").is_some()
             )?;
             exit(0);
         }
@@ -1637,7 +1640,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     address,
                     block_num,
                     tx_hash,
-                    sub_m,
                     &pretty_printer,
                     &mut pc,
                     &progress_mode,
@@ -1653,7 +1655,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     address,
                     block_num,
                     tx_hash,
-                    sub_m,
                     &pretty_printer,
                     &mut pc,
                     &progress_mode,
@@ -1668,23 +1669,6 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
     }
 }
 
-fn wrap_by_length(s: &str, max_len: usize, delimiter: &str) -> String {
-    if max_len == 0 {
-        return s.to_string();
-    }
-    let mut out = String::with_capacity(s.len() + s.len() / max_len);
-    let mut count = 0;
-    for ch in s.chars() {
-        if count == max_len {
-            out.push_str(delimiter);
-            count = 0;
-        }
-        out.push(ch);
-        count += 1;
-    }
-    out
-}
-
 #[allow(clippy::too_many_arguments)]
 fn finalize_init_and_print(
     project_dir: String,
@@ -1692,14 +1676,15 @@ fn finalize_init_and_print(
     output_path: &Path,
     project_info: &ProjectInfo,
     proxy_warning: bool,
-    sub_m: &ArgMatches,
     storage_var_table: &Table,
+    unused_storage_var_table: &Table,
     all_events: &[alloy::json_abi::Event],
     event_table: &Table,
     init_block_num: u64,
     compare_status: CompareBytecode,
     rpc_code: &str,
     pretty_printer: &PrettyPrinter,
+    implementation_used: bool
 ) -> Result<(), ValidationError> {
     let mut pc = 1;
     println!();
@@ -1710,7 +1695,7 @@ fn finalize_init_and_print(
             "{}. Warning. You are using an old compiler without storage layout. There will be no storage decoding.", pc
         );
         pc += 1;
-    } else if proxy_warning && sub_m.get_one::<String>("implementation").is_none() {
+    } else if proxy_warning && !implementation_used {
         println!(
             "{}. Warning. Some storage slots could not be decoded. This might happen because this is a proxy contract. In that case, use --implementation to decode more.", pc
         );
@@ -1742,6 +1727,12 @@ fn finalize_init_and_print(
             println!("    Below you see decoded values for non-zero storage variables:");
             storage_var_table.printstd();
         }
+    }
+
+    if !unused_storage_var_table.is_empty() {
+        println!("Unknown storage changes:");
+        unused_storage_var_table.printstd();
+        println!();
     }
 
     if !all_events.is_empty() {
@@ -1782,7 +1773,6 @@ fn inspect_called_contract(
     address: &Address,
     block_num: u64,
     tx_hash: &String,
-    sub_m: &ArgMatches,
     pretty_printer: &PrettyPrinter,
     pc: &mut u64,
     progress_mode: &ProgressMode,
@@ -1866,6 +1856,7 @@ fn inspect_called_contract(
             critical_storage_variables,
             critical_events,
             storage_var_table,
+            unused_storage_var_table,
             event_table,
             all_events,
             proxy_warning,
@@ -1919,14 +1910,15 @@ fn inspect_called_contract(
             &project_config.output_path,
             &project_info,
             proxy_warning,
-            sub_m,
             &storage_var_table,
+            &unused_storage_var_table,
             &all_events,
             &event_table,
             block_num,
             compare_status,
             &rpc_code,
             pretty_printer,
+            project_config.implementation_config.is_some()
         )?;
     } else {
         println!(
