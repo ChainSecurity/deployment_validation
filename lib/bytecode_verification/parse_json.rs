@@ -323,21 +323,38 @@ impl ProjectInfo {
                 },
             );
             // add base type
-            types.insert(
-                base_identifier.clone(),
-                TypeDescription {
-                    encoding: String::from("inplace"),
-                    label: type_name["baseType"]["typeDescriptions"]["typeString"]
-                        .as_str()
-                        .unwrap()
-                        .to_string(),
-                    number_of_bytes: type_defs.get_number_of_bytes(&base_identifier),
-                    base: None,
-                    key: None,
-                    value: None,
-                    members: None,
-                },
-            );
+            if base_identifier.starts_with("t_struct") {
+                let struct_slots: Vec<(u64, U256, Option<String>)> = vec![(
+                    type_name["baseType"]["referencedDeclaration"].as_u64().unwrap(),
+                    U256::from(0),
+                    None
+                )];
+                // we only need the types, so we use a dummy storage vector
+                let mut storage: Vec<StateVariable> = vec![];
+                for source in sources.values() {
+                    if let Some(ast) = source.ast.clone() {
+                        for node in &ast.nodes {
+                            Self::find_storage_struct_data(sources, node, type_defs, &struct_slots, types, &mut storage);
+                        }
+                    }
+                }
+            } else {
+                types.insert(
+                    base_identifier.clone(),
+                    TypeDescription {
+                        encoding: String::from("inplace"),
+                        label: type_name["baseType"]["typeDescriptions"]["typeString"]
+                            .as_str()
+                            .unwrap()
+                            .to_string(),
+                        number_of_bytes: type_defs.get_number_of_bytes(&base_identifier),
+                        base: None,
+                        key: None,
+                        value: None,
+                        members: None,
+                    },
+                );
+            }
         } else if type_name["nodeType"] == "UserDefinedTypeName" {
             // go deeper to extract inner structs
             let identifier = type_name["typeDescriptions"]["typeIdentifier"]
