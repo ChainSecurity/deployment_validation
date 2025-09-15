@@ -325,16 +325,25 @@ impl ProjectInfo {
             // add base type
             if base_identifier.starts_with("t_struct") {
                 let struct_slots: Vec<(u64, U256, Option<String>)> = vec![(
-                    type_name["baseType"]["referencedDeclaration"].as_u64().unwrap(),
+                    type_name["baseType"]["referencedDeclaration"]
+                        .as_u64()
+                        .unwrap(),
                     U256::from(0),
-                    None
+                    None,
                 )];
                 // we only need the types, so we use a dummy storage vector
                 let mut storage: Vec<StateVariable> = vec![];
                 for source in sources.values() {
                     if let Some(ast) = source.ast.clone() {
                         for node in &ast.nodes {
-                            Self::find_storage_struct_data(sources, node, type_defs, &struct_slots, types, &mut storage);
+                            Self::find_storage_struct_data(
+                                sources,
+                                node,
+                                type_defs,
+                                &struct_slots,
+                                types,
+                                &mut storage,
+                            );
                         }
                     }
                 }

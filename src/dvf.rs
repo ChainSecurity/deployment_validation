@@ -12,7 +12,8 @@ use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
 use dvf_libs::dvf::discovery::{
-    create_discovery_params_for_init, create_discovery_params_for_update, discover_storage_and_events, wrap_by_length, DiscoveryParams, DiscoveryResult
+    create_discovery_params_for_init, create_discovery_params_for_update,
+    discover_storage_and_events, wrap_by_length, DiscoveryParams, DiscoveryResult,
 };
 use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
@@ -1027,7 +1028,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 compare_status,
                 &rpc_code,
                 &pretty_printer,
-                sub_m.get_one::<String>("implementation").is_some()
+                sub_m.get_one::<String>("implementation").is_some(),
             )?;
             exit(0);
         }
@@ -1684,7 +1685,7 @@ fn finalize_init_and_print(
     compare_status: CompareBytecode,
     rpc_code: &str,
     pretty_printer: &PrettyPrinter,
-    implementation_used: bool
+    implementation_used: bool,
 ) -> Result<(), ValidationError> {
     let mut pc = 1;
     println!();
@@ -1918,7 +1919,7 @@ fn inspect_called_contract(
             compare_status,
             &rpc_code,
             pretty_printer,
-            project_config.implementation_config.is_some()
+            project_config.implementation_config.is_some(),
         )?;
     } else {
         println!(
