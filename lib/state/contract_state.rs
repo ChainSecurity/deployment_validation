@@ -403,6 +403,8 @@ impl<'a> ContractState<'a> {
         pi_storage: &Vec<StateVariable>,
         pi_types: &HashMap<String, TypeDescription>,
         zerovalue: bool,
+        config: &DVFConfig,
+        block_num: u64,
     ) -> Result<Vec<parse::DVFStorageEntry>, ValidationError> {
         let default_values = &ForgeInspectLayoutStorage::default_values();
         // Add default types as we might need them
@@ -421,6 +423,8 @@ impl<'a> ContractState<'a> {
                 snapshot,
                 table,
                 zerovalue,
+                config,
+                block_num
             )?);
         }
 
@@ -435,8 +439,14 @@ impl<'a> ContractState<'a> {
             //     continue;
             // }
 
-            let new_critical_storage_variables =
-                self.get_critical_variable(state_variable, snapshot, table, zerovalue)?;
+            let new_critical_storage_variables = self.get_critical_variable(
+                state_variable,
+                snapshot,
+                table,
+                zerovalue,
+                config,
+                block_num,
+            )?;
             let mut has_nonzero = false;
             for crit_var in &new_critical_storage_variables {
                 if !crit_var.is_zero() {
@@ -499,13 +509,23 @@ impl<'a> ContractState<'a> {
         &self,
         var: &StateVariable,
         snapshot: &StorageSnapshot,
+        config: &DVFConfig,
+        block_num: u64,
     ) -> Result<usize, ValidationError> {
         assert!(Self::is_any_array(&var.var_type));
         assert!(var.offset == 0);
         let var_type = &self.types[&var.var_type];
         if var_type.encoding == "dynamic_array" {
-            // Get slot
-            let slot_val: [u8; 32] = snapshot.get_full_slot(&var.slot);
+            // On partial storage reads, array lengths might not be retrieved. In that case, they have to be fetched from the RPC.
+            let slot_val: [u8; 32] = match snapshot.get(&var.slot) {
+                Some(val) => *val,
+                None => crate::web3::get_eth_storage_at(
+                    config,
+                    &self.address,
+                    &var.slot,
+                    block_num
+                )?,
+            };
             // Assume that array size is in last 8 bytes
             let arr_size: [u8; 8] = slot_val[24..]
                 .try_into()
@@ -535,6 +555,8 @@ impl<'a> ContractState<'a> {
         snapshot: &mut StorageSnapshot,
         table: &mut Table,
         zerovalue: bool,
+        config: &DVFConfig,
+        block_num: u64,
     ) -> Result<Vec<DVFStorageEntry>, ValidationError> {
         if Self::is_basic_type(&state_variable.var_type)
             || Self::is_user_defined_type(&state_variable.var_type)
@@ -592,6 +614,8 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
+                    config,
+                    block_num,
                 )?);
             }
             return Ok(critical_storage_variables);
@@ -599,7 +623,7 @@ impl<'a> ContractState<'a> {
 
         if Self::is_any_array(&state_variable.var_type) {
             let mut critical_storage_variables = Vec::<DVFStorageEntry>::new();
-            let num: usize = self.get_array_length(state_variable, snapshot)?;
+            let num: usize = self.get_array_length(state_variable, snapshot, config, block_num)?;
             let base_num_bytes: usize = self.get_base_num_bytes(&state_variable.var_type);
             let mut current_offset = state_variable.offset;
             // Add length field
@@ -616,6 +640,8 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
+                    config,
+                    block_num,
                 )?);
             }
             let mut current_slot = match self.is_dynamic_array(&state_variable.var_type) {
@@ -631,7 +657,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_base_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, config, block_num)?);
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
                     current_slot = current_slot
@@ -700,7 +726,7 @@ impl<'a> ContractState<'a> {
                     var_type: self.get_value_type(&state_variable.var_type),
                 };
                 critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue)?);
+                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, config, block_num)?);
             }
             return Ok(critical_storage_variables);
         }
@@ -765,6 +791,8 @@ impl<'a> ContractState<'a> {
                     snapshot,
                     table,
                     zerovalue,
+                    config,
+                    block_num,
                 )?);
                 let mut string_length = U256::from_be_slice(&snapshot.get_slot(
                     &length_var.slot,

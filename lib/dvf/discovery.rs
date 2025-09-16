@@ -242,6 +242,8 @@ pub fn discover_storage_and_events(
             &storage_layout,
             &types,
             params.zerovalue,
+            params.config,
+            params.end_block_num,
         )?;
 
     let mut unused_storage_var_table = Table::new();

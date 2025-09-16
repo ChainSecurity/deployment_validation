@@ -387,6 +387,16 @@ pub fn get_eth_debug_trace_sim(
             // ignore error as this does not return any result
             let _ = send_blocking_web3_post(&anvil_config, &impersonate_body);
 
+            // add 100 eth to account (required in case deployment happened on a virtual testnet using admin rpc)
+            let balance_body = json!({
+                "jsonrpc": "2.0",
+                "method": "anvil_setBalance",
+                "params": [from, "0x56bc75e2d63100000"],
+                "id": 1
+            });
+
+            let _ = send_blocking_web3_post(&anvil_config, &balance_body);
+
             // submit transaction to anvil
             let send_tx_body = json!({
                 "jsonrpc": "2.0",
@@ -407,9 +417,28 @@ pub fn get_eth_debug_trace_sim(
             let tx_result = match send_blocking_web3_post(&anvil_config, &send_tx_body) {
                 Ok(result) => result,
                 Err(e) => {
-                    // Stop the anvil instance before returning the error
-                    stop_anvil_instance(anvil_instance);
-                    return Err(e);
+                    // gas can be set to 0 on virtual testnets so try one more time without these params
+                    let send_tx_body_wo_gas = json!({
+                        "jsonrpc": "2.0",
+                        "method": "eth_sendTransaction",
+                        "params": [
+                            {
+                                "from": from,
+                                "to": if to == "null" { serde_json::Value::Null } else { json!(to) },
+                                "value": value,
+                                "input": data,
+                            }
+                        ],
+                        "id": 1
+                    });
+                    match send_blocking_web3_post(&anvil_config, &send_tx_body_wo_gas) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            // Stop the anvil instance before returning the error
+                            stop_anvil_instance(anvil_instance);
+                            return Err(e);
+                        }
+                    }
                 }
             };
 
@@ -1579,7 +1608,7 @@ impl StorageSnapshot {
         // println!("Unused {:?}", unused_parts);
         Ok(StorageSnapshot {
             snapshot,
-            unused_parts,
+            unused_parts
         })
     }
 
@@ -1945,6 +1974,10 @@ impl StorageSnapshot {
             Some(val) => *val,
             None => [0u8; 32],
         }
+    }
+
+    pub fn get(&self, slot: &U256) -> Option<&[u8; 32]> {
+        self.snapshot.get(slot)
     }
 
     // Get Storage entry
