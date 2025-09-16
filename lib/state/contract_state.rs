@@ -396,6 +396,7 @@ impl<'a> ContractState<'a> {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn get_critical_storage_variables(
         &mut self,
         snapshot: &mut StorageSnapshot,
@@ -424,7 +425,7 @@ impl<'a> ContractState<'a> {
                 table,
                 zerovalue,
                 config,
-                block_num
+                block_num,
             )?);
         }
 
@@ -519,12 +520,9 @@ impl<'a> ContractState<'a> {
             // On partial storage reads, array lengths might not be retrieved. In that case, they have to be fetched from the RPC.
             let slot_val: [u8; 32] = match snapshot.get(&var.slot) {
                 Some(val) => *val,
-                None => crate::web3::get_eth_storage_at(
-                    config,
-                    &self.address,
-                    &var.slot,
-                    block_num
-                )?,
+                None => {
+                    crate::web3::get_eth_storage_at(config, &self.address, &var.slot, block_num)?
+                }
             };
             // Assume that array size is in last 8 bytes
             let arr_size: [u8; 8] = slot_val[24..]
@@ -656,8 +654,11 @@ impl<'a> ContractState<'a> {
                     slot: current_slot,
                     var_type: self.get_base_type(&state_variable.var_type),
                 };
-                critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, config, block_num)?);
+                critical_storage_variables.extend(
+                    self.get_critical_variable(
+                        &base, snapshot, table, zerovalue, config, block_num,
+                    )?,
+                );
                 // Check if we need to skip multiple slots
                 if base_num_bytes > 32 {
                     current_slot = current_slot
@@ -725,8 +726,11 @@ impl<'a> ContractState<'a> {
                     slot: *target_slot,
                     var_type: self.get_value_type(&state_variable.var_type),
                 };
-                critical_storage_variables
-                    .extend(self.get_critical_variable(&base, snapshot, table, zerovalue, config, block_num)?);
+                critical_storage_variables.extend(
+                    self.get_critical_variable(
+                        &base, snapshot, table, zerovalue, config, block_num,
+                    )?,
+                );
             }
             return Ok(critical_storage_variables);
         }

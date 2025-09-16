@@ -416,7 +416,7 @@ pub fn get_eth_debug_trace_sim(
 
             let tx_result = match send_blocking_web3_post(&anvil_config, &send_tx_body) {
                 Ok(result) => result,
-                Err(e) => {
+                Err(_) => {
                     // gas can be set to 0 on virtual testnets so try one more time without these params
                     let send_tx_body_wo_gas = json!({
                         "jsonrpc": "2.0",
@@ -1608,7 +1608,7 @@ impl StorageSnapshot {
         // println!("Unused {:?}", unused_parts);
         Ok(StorageSnapshot {
             snapshot,
-            unused_parts
+            unused_parts,
         })
     }
 
