@@ -1649,7 +1649,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &mut pc,
                     &progress_mode,
                     Some(vec![cached_trace.clone()]),
-                    cached_anvil_config.as_ref()
+                    cached_anvil_config.as_ref(),
                 )?;
             }
 

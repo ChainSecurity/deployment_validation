@@ -21,8 +21,8 @@ use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
 use crate::web3;
 use crate::web3::stop_anvil_instance;
-use alloy_node_bindings::AnvilInstance;
 use crate::web3::TraceWithAddress;
+use alloy_node_bindings::AnvilInstance;
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
@@ -216,7 +216,11 @@ pub fn discover_storage_and_events(
         // Use cached trace if provided (inspect-tx), otherwise fetch
         let fetched = if let Some(ref cached) = params.cached_traces {
             debug!("Using cached trace at index {} of {}", index, cached.len());
-            Ok((cached[index].clone(), None::<DVFConfig>, None::<AnvilInstance>))
+            Ok((
+                cached[index].clone(),
+                None::<DVFConfig>,
+                None::<AnvilInstance>,
+            ))
         } else {
             web3::get_eth_debug_trace_sim(params.config, tx_hash)
         };
@@ -535,7 +539,7 @@ pub fn create_discovery_params_for_init<'a>(
         use_storage_range: true,
         tx_hashes: None,
         cached_traces: None,
-        cached_anvil_config: None
+        cached_anvil_config: None,
     }
 }
 
@@ -582,6 +586,6 @@ pub fn create_discovery_params_for_update<'a>(
         use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
         tx_hashes: None,
         cached_traces: None,
-        cached_anvil_config: None
+        cached_anvil_config: None,
     }
 }
