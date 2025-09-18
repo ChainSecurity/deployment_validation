@@ -1632,6 +1632,10 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let registry = registry::Registry::from_config(&config)?;
             let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
 
+            // Fetch and cache debug trace once; keep anvil alive until end
+            let (cached_trace, cached_anvil_config, cached_anvil_instance) =
+                web3::get_eth_debug_trace_sim(&config, tx_hash)?;
+
             print_progress("Checking called contracts.", &mut pc, &progress_mode);
             for address in &call_addresses {
                 println!("Checking contract: {}", address);
@@ -1644,6 +1648,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &pretty_printer,
                     &mut pc,
                     &progress_mode,
+                    Some(vec![cached_trace.clone()]),
+                    cached_anvil_config.as_ref()
                 )?;
             }
 
@@ -1659,7 +1665,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     &pretty_printer,
                     &mut pc,
                     &progress_mode,
+                    Some(vec![cached_trace.clone()]),
+                    cached_anvil_config.as_ref(),
                 )?;
+            }
+
+            // After all inspections, stop cached anvil instance if present
+            if let Some(anvil_instance) = cached_anvil_instance {
+                web3::stop_anvil_instance(anvil_instance);
             }
 
             exit(0);
@@ -1777,6 +1790,8 @@ fn inspect_called_contract(
     pretty_printer: &PrettyPrinter,
     pc: &mut u64,
     progress_mode: &ProgressMode,
+    cached_traces: Option<Vec<web3::TraceWithAddress>>,
+    cached_anvil_config: Option<&DVFConfig>,
 ) -> Result<(), ValidationError> {
     let project_config = config.get_project_config(address, chain_id);
     if let Some(project_config) = project_config {
@@ -1900,6 +1915,8 @@ fn inspect_called_contract(
             progress_mode: &progress_mode_sub,
             use_storage_range: false,
             tx_hashes: Some(vec![tx_hash.clone()]),
+            cached_traces,
+            cached_anvil_config,
         })?;
 
         dumped.critical_storage_variables = critical_storage_variables;

@@ -21,6 +21,8 @@ use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
 use crate::web3;
 use crate::web3::stop_anvil_instance;
+use alloy_node_bindings::AnvilInstance;
+use crate::web3::TraceWithAddress;
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
@@ -44,6 +46,9 @@ pub struct DiscoveryParams<'a> {
     pub progress_mode: &'a ProgressMode,
     pub use_storage_range: bool,
     pub tx_hashes: Option<Vec<String>>,
+    // Optional cache (used by inspect-tx): reuse an already computed trace and config
+    pub cached_traces: Option<Vec<TraceWithAddress>>,
+    pub cached_anvil_config: Option<&'a DVFConfig>,
 }
 
 pub struct DiscoveryResult {
@@ -201,25 +206,35 @@ pub fn discover_storage_and_events(
     let mut seen_transactions = HashSet::new();
     let mut missing_traces = false;
 
-    for tx_hash in &tx_hashes {
+    for (index, tx_hash) in tx_hashes.iter().enumerate() {
         if seen_transactions.contains(tx_hash) {
             continue;
         }
         seen_transactions.insert(tx_hash);
 
         info!("Getting trace for {}", tx_hash);
-        match web3::get_eth_debug_trace_sim(params.config, tx_hash) {
+        // Use cached trace if provided (inspect-tx), otherwise fetch
+        let fetched = if let Some(ref cached) = params.cached_traces {
+            debug!("Using cached trace at index {} of {}", index, cached.len());
+            Ok((cached[index].clone(), None::<DVFConfig>, None::<AnvilInstance>))
+        } else {
+            web3::get_eth_debug_trace_sim(params.config, tx_hash)
+        };
+        match fetched {
             Ok((trace, anvil_config, anvil_instance)) => {
-                let record_traces_config = match &anvil_config {
-                    Some(c) => c,
-                    None => params.config,
+                let record_traces_config: &DVFConfig = if params.cached_traces.is_some() {
+                    params.cached_anvil_config.unwrap_or(params.config)
+                } else {
+                    anvil_config.as_ref().unwrap_or(params.config)
                 };
                 if let Err(err) = contract_state.record_traces(record_traces_config, vec![trace]) {
                     missing_traces = true;
                     info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
                 }
-                if let Some(anvil_instance) = anvil_instance {
-                    stop_anvil_instance(anvil_instance);
+                if params.cached_traces.is_none() {
+                    if let Some(anvil_instance) = anvil_instance {
+                        stop_anvil_instance(anvil_instance);
+                    }
                 }
             }
             Err(err) => {
@@ -519,6 +534,8 @@ pub fn create_discovery_params_for_init<'a>(
         progress_mode,
         use_storage_range: true,
         tx_hashes: None,
+        cached_traces: None,
+        cached_anvil_config: None
     }
 }
 
@@ -564,5 +581,7 @@ pub fn create_discovery_params_for_update<'a>(
         progress_mode,
         use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
         tx_hashes: None,
+        cached_traces: None,
+        cached_anvil_config: None
     }
 }
