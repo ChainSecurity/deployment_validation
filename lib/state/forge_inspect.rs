@@ -224,6 +224,7 @@ fn forge_inspect_helper(
         .arg("inspect")
         .arg("--force")
         .arg("--json")
+        .arg("--via-ir")
         .arg("--root") // required because forge will use Git root (not necessarily project root) by default
         .arg(".")
         .arg("--out")
