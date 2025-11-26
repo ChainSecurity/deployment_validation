@@ -17,7 +17,7 @@ use crate::dvf::config::DVFConfig;
 use crate::dvf::registry::Registry;
 use crate::state::contract_state::ContractState;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum AddressType {
     Token,
     Contract,
@@ -26,7 +26,7 @@ pub enum AddressType {
     Eoa,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ResolvedAddress {
     pub address_type: AddressType,
     pub name: String,
