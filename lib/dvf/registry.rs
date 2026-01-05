@@ -217,16 +217,30 @@ mod tests {
     fn load_known_addresses_and_collect() {
         let dir = tempdir().unwrap();
         let known_path = dir.path().join("known.json");
-        let json = r#"
-        {
-            "1": {
-                "0x1111111111111111111111111111111111111111": {
-                    "name": "TestContract",
+
+        let address = "0x1111111111111111111111111111111111111111";
+        let address2 = "0x1111111111111111111111111111111111111110";
+        let name = "TestContract";
+        let name2 = "TestContract2";
+
+        let json = format!(
+            r#"
+        {{
+            "1": {{
+                "{address}": {{
+                    "name": "{name}",
                     "address_type": "Contract"
-                }
-            }
-        }
-        "#;
+                }}
+            }},
+            "2": {{
+                "{address2}": {{
+                    "name": "{name2}",
+                    "address_type": "Contract"
+                }}
+            }}
+        }}
+        "#
+        );
         fs::write(&known_path, json).unwrap();
 
         let known = Registry::load_known_addresses_from_file(&known_path).unwrap();
@@ -237,8 +251,13 @@ mod tests {
         let registry = Registry::from_config_with_known(&config, Some(known)).unwrap();
 
         let resolved = registry.collect_name_resolution(1);
-        let addr = Address::from_str("0x1111111111111111111111111111111111111111").unwrap();
-        assert_eq!(resolved.get(&addr).unwrap().name, "TestContract");
+        let addr = Address::from_str(address).unwrap();
+        assert_eq!(resolved.get(&addr).unwrap().name, name);
+
+        let resolved2 = registry.collect_name_resolution(2);
+        let addr2 = Address::from_str(address2).unwrap();
+        assert_eq!(resolved2.get(&addr2).unwrap().name, name2);
+
         assert!(registry.collect_name_resolution(137).is_empty());
     }
 }
