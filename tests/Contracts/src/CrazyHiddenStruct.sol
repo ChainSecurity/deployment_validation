@@ -39,8 +39,10 @@ contract CrazyHiddenStruct {
     bytes32 private constant StorageLocation2 = 0x852cbd6b186221cbf354c68826ab57cef1512cf2f5d959ca4501e155cbea7ae8;
     bytes32 private constant StorageLocation3 = 0x9482765040f1c978ae595e69b3ad0e4697ca0d1e0581a09be85cfb4a8462e752;
     bytes32 private constant StorageLocation4 = 0xe82aa111a62567be9a414850f7168d2e6c9f9d61a82b90598df0a59035cd53a6;
-    bytes32 private constant DirectStorageLocation1 = 0xbfbceebbfa6e5996c6a04ac6db0e347528756a4f073935304cc6139dcc2fb653;
-    bytes32 private constant DirectStorageLocation2 = 0x42d0407cb447148fd182bf527909ab1ba2fbaefe3f25cbe9851153586910b294;
+    bytes32 private constant DirectStorageLocation1 =
+        0xbfbceebbfa6e5996c6a04ac6db0e347528756a4f073935304cc6139dcc2fb653;
+    bytes32 private constant DirectStorageLocation2 =
+        0x42d0407cb447148fd182bf527909ab1ba2fbaefe3f25cbe9851153586910b294;
     bytes32 private constant KeccakStorageLocation1 = keccak256("keccak1");
     bytes32 private constant KeccakStorageLocation2 = bytes32(uint256(keccak256("keccak2")) - 1);
 

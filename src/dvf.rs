@@ -485,6 +485,11 @@ fn main() {
                     arg!(<OUTPUT>)
                         .help("Path of the generated DVF file")
                         .required(true),
+                )
+                .arg(
+                    arg!(--knownaddressesfile <PATH>)
+                        .help("Optional JSON file with known addresses to include in name resolution")
+                        .value_parser(is_valid_path),
                 ),
         )
         .subcommand(
@@ -865,7 +870,12 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let mut dumped = parse::CompleteDVF::from_cli(sub_m)?;
             config.set_chain_id(dumped.chain_id)?;
 
-            let registry = registry::Registry::from_config(&config)?;
+            let known_addresses = sub_m
+                .get_one::<PathBuf>("knownaddressesfile")
+                .map(|path| registry::Registry::load_known_addresses_from_file(path))
+                .transpose()?;
+
+            let registry = registry::Registry::from_config_with_known(&config, known_addresses)?;
             let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
 
             // Parse optional initblock or take deployment_block_num + 1
