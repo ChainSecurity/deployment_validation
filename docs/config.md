@@ -1,7 +1,7 @@
 # Configuration File
 
 The configuration file is a JSON file that stores information used to generate dvf files; this includes parameters like RPC URLs, API keys, and trusted signers.
-When running the `dvf` command, the default configuration file is expected at `$HOME/.dvf_config.json`. Otherwise, its path can be specified using the `-c` option.
+When running the `dvf` command, the default configuration file is expected at `$HOME/.dv_config.json`. Otherwise, its path can be specified using the `-c` option.
 
 | Field | Description |
 | --- | --- |

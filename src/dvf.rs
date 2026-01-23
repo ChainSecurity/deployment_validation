@@ -4,22 +4,22 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
 
-use alloy::json_abi::Event;
 use alloy::primitives::{Address, B256};
-use alloy_dyn_abi::EventExt;
-use alloy_rpc_types::Log;
 use clap::{arg, value_parser, ArgMatches, Command};
 use colored::Colorize;
-use console::style;
 use dvf_libs::bytecode_verification::compare_bytecodes::{CompareBytecode, CompareInitCode};
 use dvf_libs::bytecode_verification::parse_json::{Environment, ProjectInfo};
 use dvf_libs::bytecode_verification::verify_bytecode;
 use dvf_libs::dvf::config::{replace_tilde, DVFConfig};
+use dvf_libs::dvf::discovery::{
+    create_discovery_params_for_init, create_discovery_params_for_update,
+    discover_storage_and_events, DiscoveryResult,
+};
 use dvf_libs::dvf::parse::{self, DVFStorageEntry, ValidationError, CURRENT_VERSION_STRING};
 use dvf_libs::dvf::registry::{self, Registry};
-use dvf_libs::state::contract_state::ContractState;
-use dvf_libs::state::forge_inspect::{self, StateVariable, TypeDescription};
 use dvf_libs::utils::pretty::PrettyPrinter;
+use dvf_libs::utils::progress::{print_progress, ProgressMode};
+use dvf_libs::utils::read_write_file::get_project_paths;
 use dvf_libs::web3;
 use indicatif::ProgressBar;
 use prettytable::{row, Table};
@@ -183,6 +183,7 @@ fn validate_dvf(
                 &pretty_printer,
                 storage_variable,
                 &current_val[start_index..end_index],
+                true,
             );
             if continue_on_mismatch {
                 mismatch_found = true;
@@ -471,6 +472,12 @@ fn main() {
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files"))
                 .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
+                )
+                .arg(
                     arg!(--implementationbuildcache <PATH>)
                         .help("Folder containing the implementation contract's build-info files"),
                 )
@@ -541,6 +548,72 @@ fn main() {
                         .value_parser(is_valid_blocknum),
                 )
                 .arg(
+                    arg!(--discover)
+                    .help(
+                        "Also discover new storage variables and events"
+                    ).action(clap::ArgAction::SetTrue)
+                )
+                .arg(
+                    arg!(--project <PATH>)
+                        .help("Path to the root folder of the source code project (optional, improves storage layout discovery)")
+                        .value_parser(is_valid_path)
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--artifacts <PATH>)
+                        .help("Relative path to the compilation artifacts")
+                        .default_value("artifacts")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--buildcache <PATH>)
+                        .help("Build cache, if you have a very large project")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--libraries <LIBRARIES>)
+                        .help("Library linking information (address mapping)")
+                        .value_parser(value_parser!(String))
+                        .action(clap::ArgAction::Append)
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--env <ENV>)
+                        .help("The compile environment")
+                        .value_parser(value_parser!(Environment))
+                        .default_value("foundry")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--implementation <NAME>)
+                        .help("Optional name of the implementation contract")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--implementationproject <PATH>)
+                        .help("Path to the root folder of the implementation project")
+                        .value_parser(is_valid_path)
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--implementationenv <ENV>)
+                        .help("Implementation project's development environment")
+                        .value_parser(value_parser!(Environment))
+                        .default_value("foundry")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--implementationartifacts <PATH>)
+                        .help("Folder containing the implementation project artifacts")
+                        .default_value("artifacts")
+                        .requires("discover"),
+                )
+                .arg(
+                    arg!(--implementationbuildcache <PATH>)
+                        .help("Folder containing the implementation contract's build-info files")
+                        .requires("discover"),
+                )
+                .arg(
                     arg!(--zerovalue)
                         .help(
                             "Write initialized storage slots that have been reset to 0 to the DVF",
@@ -571,6 +644,12 @@ fn main() {
                     arg!(--artifacts <PATH>)
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
+                )
+                .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
                 ),
         )
         .subcommand(
@@ -619,6 +698,12 @@ fn main() {
                     arg!(--artifacts <PATH>)
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
+                )
+               .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
                 )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
@@ -690,16 +775,6 @@ fn main() {
     };
 }
 
-enum ProgressMode {
-    Init,
-    InitProxy,
-    Update,
-    Validation,
-    BytecodeCheck,
-    GenerateBuildCache,
-    ListEvents,
-}
-
 fn updated_filename(original_path: &Path) -> PathBuf {
     // Extract the directory and name
     let parent = original_path.parent().unwrap_or_else(|| Path::new(""));
@@ -719,24 +794,11 @@ fn updated_filename(original_path: &Path) -> PathBuf {
     updated_path
 }
 
-fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
-    let total = match pm {
-        ProgressMode::InitProxy => 14,
-        ProgressMode::Init => 12,
-        ProgressMode::Update => 4,
-        ProgressMode::Validation => 5,
-        ProgressMode::BytecodeCheck => 3,
-        ProgressMode::GenerateBuildCache => 1,
-        ProgressMode::ListEvents => 1,
-    };
-    println!("{} {}", style(format!("[{i:2}/{total:2}]")).bold().dim(), s);
-    *i += 1;
-}
-
 fn get_mismatch_msg(
     pretty_printer: &PrettyPrinter,
     storage_variable: &DVFStorageEntry,
     current_value_slice: &[u8],
+    display_mismatch: bool,
 ) -> String {
     let var_type = storage_variable.var_type.clone().unwrap_or_default();
     let dec_current_value_slice = pretty_printer.pretty_value_short_from_bytes(
@@ -747,8 +809,15 @@ fn get_mismatch_msg(
     let dec_old_value =
         pretty_printer.pretty_value_short_from_bytes(&var_type, &storage_variable.value, true);
 
+    let msg = if display_mismatch {
+        "Value mismatch"
+    } else {
+        "Updated value"
+    };
+
     format!(
-        "Value mismatch for {} (slot {:#x}, offset {}).\nNew value: 0x{} Decoded: {}\nOperator:  {}\nOld value: 0x{} Decoded: {}",
+        "{} for {} (slot {:#x}, offset {}).\nNew value: 0x{} Decoded: {}\nOperator:  {}\nOld value: 0x{} Decoded: {}",
+        msg,
         storage_variable.var_name,
         storage_variable.slot,
         storage_variable.offset,
@@ -758,17 +827,6 @@ fn get_mismatch_msg(
         hex::encode(&storage_variable.value),
         dec_old_value
     )
-}
-
-fn get_project_paths(project: &Path, artifacts: &str) -> PathBuf {
-    // no way to access other clap arguments during argument parsing so we have to verify
-    // artifacts paths here
-    let build_info_dir = "build-info";
-    let mut artifacts_path = project.to_path_buf();
-    artifacts_path.push(artifacts);
-    artifacts_path.push(build_info_dir);
-
-    artifacts_path
 }
 
 fn process(matches: ArgMatches) -> Result<(), ValidationError> {
@@ -783,27 +841,15 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let build_cache = sub_m.get_one::<String>("buildcache");
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
             let event_topics = sub_m
                 .get_many::<Vec<B256>>("eventtopics")
                 .map(|v| v.flat_map(|x| x.clone()).collect::<Vec<_>>());
+
             let zerovalue = sub_m.get_flag("zerovalue");
             let user_deployment_tx = sub_m.get_one::<String>("deployment");
-
-            let mut imp_env = *sub_m.get_one::<Environment>("implementationenv").unwrap();
-            let imp_project = sub_m.get_one::<PathBuf>("implementationproject");
-            let mut imp_build_cache = sub_m.get_one::<String>("implementationbuildcache");
-            let imp_artifacts = sub_m.get_one::<String>("implementationartifacts").unwrap();
-            let imp_path: PathBuf;
-            let imp_artifacts_path: PathBuf;
-            if let Some(imp_project) = imp_project {
-                imp_artifacts_path = get_project_paths(imp_project, imp_artifacts);
-                imp_path = imp_project.clone();
-            } else {
-                imp_path = project.clone();
-                imp_artifacts_path = artifacts_path.clone();
-                imp_build_cache = build_cache;
-                imp_env = env
-            }
 
             let user_output_path = Path::new(sub_m.get_one::<String>("OUTPUT").unwrap());
             // This is just a file name so we will place it in the configured folder
@@ -824,8 +870,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             // Parse optional initblock or take deployment_block_num + 1
             let (deployment_block_num, deployment_tx) = if user_deployment_tx.is_some() {
-                let block_num =
-                    web3::get_eth_transaction_block_number(&config, user_deployment_tx.unwrap())?;
+                let (block_num, _, _) =
+                    web3::get_transaction_details(&config, user_deployment_tx.unwrap())?;
                 (block_num, user_deployment_tx.unwrap().clone())
             } else {
                 web3::get_deployment(&config, &dumped.address)?
@@ -869,6 +915,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                 env,
                 &artifacts_path,
                 build_cache,
+                libraries.clone(),
             )?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
@@ -920,269 +967,34 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             debug!("Copying parsed constructor arguments to dvf file");
             dumped.copy_constructor_args(&project_info, &pretty_printer);
 
-            let mut seen_events: Vec<Log> = vec![];
-            let tx_hashes: Vec<String> = if let Some(event_topics) = event_topics.clone() {
-                print_progress(
-                    "Obtaining past events and transactions.",
-                    &mut pc,
-                    &progress_mode,
-                );
-                seen_events = web3::get_eth_events(
-                    &config,
-                    &dumped.address,
-                    deployment_block_num,
-                    init_block_num,
-                    &event_topics,
-                )?;
-                seen_events
-                    .iter()
-                    .filter_map(|e| e.transaction_hash.map(|h| format!("{:#x}", h)))
-                    .collect()
-            } else {
-                print_progress("Obtaining past transactions.", &mut pc, &progress_mode);
-                web3::get_all_txs_for_contract(
-                    &config,
-                    &dumped.address,
-                    deployment_block_num,
-                    init_block_num,
-                )?
-            };
-
-            print_progress("Getting storage snapshot.", &mut pc, &progress_mode);
-            let mut snapshot = web3::StorageSnapshot::from_api(
+            let DiscoveryResult {
+                critical_storage_variables,
+                critical_events,
+                storage_var_table,
+                event_table,
+                all_events,
+                proxy_warning,
+            } = discover_storage_and_events(create_discovery_params_for_init(
                 &config,
-                &dumped.address,
+                &dumped,
+                deployment_block_num,
                 init_block_num,
-                &tx_hashes,
-            )?;
-
-            if init_block_num < deployment_block_num {
-                return Err(ValidationError::Error(format!(
-                    "Deployment Block {} is bigger than snapshot block {}.",
-                    deployment_block_num, init_block_num
-                )));
-            }
-
-            print_progress("Obtaining storage layout.", &mut pc, &progress_mode);
-            // Fetch storage layout
-            let layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
                 project,
-                &dumped.contract_name,
-                project_info.absolute_path.clone(),
-            );
-            let mut contract_state =
-                ContractState::new_with_address(&dumped.address, &pretty_printer);
-            contract_state.add_forge_inspect(&layout);
-
-            // Proxy Mode
-            let mut storage: Vec<StateVariable> = project_info.storage.clone();
-            let mut types: HashMap<String, TypeDescription> = project_info.types.clone();
-            let mut imp_project_info: Option<ProjectInfo> = None;
-            if let Some(implementation_name) = sub_m.get_one::<String>("implementation") {
-                print_progress(
-                    "Obtaining ABI of implementation contract.",
-                    &mut pc,
-                    &progress_mode,
-                );
-                let tmp_project_info = ProjectInfo::new(
-                    &implementation_name.to_string(),
-                    &imp_path,
-                    imp_env,
-                    &imp_artifacts_path,
-                    imp_build_cache,
-                )?;
-
-                print_progress(
-                    "Obtaining storage layout of implementation contract.",
-                    &mut pc,
-                    &progress_mode,
-                );
-                let implementation_layout = forge_inspect::ForgeInspect::generate_and_parse_layout(
-                    &imp_path,
-                    implementation_name,
-                    tmp_project_info.absolute_path.clone(),
-                );
-                contract_state.add_forge_inspect(&implementation_layout);
-
-                // Extend storage with implementation storage variables, ensuring unique slots
-                for storage_var in &tmp_project_info.storage {
-                    if !storage
-                        .iter()
-                        .any(|existing| existing.slot == storage_var.slot)
-                    {
-                        storage.push(storage_var.clone());
-                    }
-                }
-                types.extend(tmp_project_info.types.clone());
-                imp_project_info = Some(tmp_project_info);
-            }
-            print_progress("Getting relevant traces.", &mut pc, &progress_mode);
-            let mut seen_transactions = HashSet::new();
-            let mut missing_traces = false;
-            for tx_hash in &tx_hashes {
-                if seen_transactions.contains(tx_hash) {
-                    continue;
-                }
-                seen_transactions.insert(tx_hash);
-                info!("Getting trace for {}", tx_hash);
-                let mut found_trace = true;
-                if let Ok(trace) = web3::get_eth_debug_trace(&config, tx_hash) {
-                    if contract_state.record_traces(&config, vec![trace]).is_err() {
-                        found_trace = false;
-                        missing_traces = true;
-                    }
-                } else {
-                    found_trace = false;
-                    missing_traces = true;
-                }
-                if !found_trace {
-                    info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config.");
-                }
-            }
-
-            if missing_traces {
-                println!("{}", "Warning. At least one transaction trace could not be obtained. This might result in \"unknown\" storage slots due to undecoded mapping keys.".yellow())
-            }
-
-            print_progress("Parsing storage snapshot.", &mut pc, &progress_mode);
-            let mut storage_var_table = Table::new();
-            let critical_storage_variables: Vec<parse::DVFStorageEntry> = contract_state
-                .get_critical_storage_variables(
-                    &mut snapshot,
-                    &mut storage_var_table,
-                    &storage,
-                    &types,
-                    zerovalue,
-                )?;
-
-            let mut proxy_warning = critical_storage_variables
-                .iter()
-                .any(|var| var.var_name == "unknown");
+                artifacts,
+                env,
+                build_cache,
+                libraries.clone(),
+                zerovalue,
+                event_topics,
+                sub_m,
+                &mut pc,
+                &progress_mode,
+            ))?;
 
             dumped.critical_storage_variables = critical_storage_variables;
-
-            let mut critical_events: Vec<parse::DVFEventEntry> = vec![];
-
-            if event_topics.is_none() {
-                print_progress("Obtaining past events.", &mut pc, &progress_mode);
-                seen_events = web3::get_eth_events(
-                    &config,
-                    &dumped.address,
-                    deployment_block_num,
-                    init_block_num,
-                    &vec![],
-                )?;
-            }
-
-            let mut covered_events = 0;
-            let mut event_table = Table::new();
-
-            print_progress("Decoding events.", &mut pc, &progress_mode);
-
-            // Collect all Event Types, making sure to avoid duplications
-            // Event does not implement PartialEq
-            let all_events = match &imp_project_info {
-                None => project_info.events.clone(),
-                Some(imp_project) => {
-                    let mut set_of_sigs: HashSet<B256> = HashSet::new();
-                    let mut res: Vec<Event> = vec![];
-                    for eventlist in [&project_info.events, &imp_project.events] {
-                        for event in eventlist {
-                            let sig = event.selector();
-                            if set_of_sigs.contains(&sig) {
-                                info!(
-                                    "Warning. Event {} omitted, as it is already known.",
-                                    PrettyPrinter::event_to_string(event)
-                                );
-                                continue;
-                            }
-                            set_of_sigs.insert(sig);
-                            debug!(
-                                "Adding event {} to list.",
-                                PrettyPrinter::event_to_string(event)
-                            );
-
-                            res.push(event.clone());
-                        }
-                    }
-                    res
-                }
-            };
-            for abi_event in &all_events {
-                let sig = PrettyPrinter::event_to_string(abi_event);
-                debug!("Found the following event: {}", sig);
-                let topic0 = abi_event.selector();
-                debug!("Topic0: {:?}", topic0);
-                let mut table_head = false;
-
-                // Collect Occurrences
-                let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
-                for seen_event in &seen_events {
-                    if seen_event.topic0() == Some(&topic0) {
-                        let log_inner = &seen_event.inner;
-                        let decoded_event = abi_event.decode_log(log_inner)?;
-                        let pretty_event =
-                            pretty_printer.pretty_event_params(abi_event, &decoded_event, true);
-
-                        // Add Event Name to table
-                        if !table_head {
-                            event_table.add_row(row![sig]);
-                            table_head = true;
-                        }
-                        // Add Event Occurrence to table
-                        event_table.add_row(row![format!("- {}", pretty_event)]);
-
-                        let occurrence = parse::DVFEventOccurrence {
-                            topics: log_inner.data.topics().to_vec(),
-                            data: log_inner.data.data.clone(),
-                        };
-                        occurrences.push(occurrence);
-                        covered_events += 1;
-                    }
-                }
-
-                let event_entry = parse::DVFEventEntry {
-                    sig: sig.clone(),
-                    topic0,
-                    occurrences,
-                };
-                critical_events.push(event_entry);
-            }
-            if covered_events != seen_events.len() {
-                proxy_warning = true;
-                println!(
-                    "Warning! Saw {} events, but able to decode {}.",
-                    seen_events.len(),
-                    covered_events
-                );
-                let used_topics_0: HashSet<B256> =
-                    all_events.iter().map(|e| e.selector()).collect();
-                let all_topics_0: HashSet<B256> =
-                    seen_events.iter().map(|e| *e.topic0().unwrap()).collect();
-                for unused_topic in all_topics_0.difference(&used_topics_0) {
-                    // Collect Occurrences
-                    let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
-                    for seen_event in &seen_events {
-                        let log_inner = &seen_event.inner;
-                        if seen_event.topic0() == Some(unused_topic) {
-                            let occurrence = parse::DVFEventOccurrence {
-                                topics: log_inner.data.topics().to_vec(),
-                                data: log_inner.data.data.clone(),
-                            };
-                            occurrences.push(occurrence);
-                        }
-                    }
-                    let event_entry = parse::DVFEventEntry {
-                        sig: String::from("Unknown Signature"),
-                        topic0: *unused_topic,
-                        occurrences,
-                    };
-                    critical_events.push(event_entry);
-                }
-            }
             dumped.critical_events = critical_events;
 
-            pc = 1;
+            let mut pc = 1;
             println!();
             println!("DVF Initialization complete. Please follow these steps:");
 
@@ -1191,9 +1003,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     "{}. Warning. You are using an old compiler without storage layout. There will be no storage decoding.", pc
                 );
                 pc += 1;
-            } else if proxy_warning && imp_project_info.is_none() {
+            } else if proxy_warning && sub_m.get_one::<String>("implementation").is_none() {
                 println!(
-                    "{}. Warning. Not everything could be decoded. This could be because this is a proxy contract. In that case use --implementation to decode more.", pc
+                    "{}. Warning. Some storage slots could not be decoded. This might happen because this is a proxy contract. In that case, use --implementation to decode more.", pc
                 );
                 pc += 1;
             }
@@ -1373,7 +1185,16 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
 
             println!("input path {}", input_path.display());
             let mut pc = 1_u64;
-            let progress_mode = ProgressMode::Update;
+
+            let discover = sub_m.get_flag("discover");
+            println!("running discover mode? {}", discover);
+
+            let progress_mode = if discover {
+                ProgressMode::UpdateFull
+            } else {
+                ProgressMode::Update
+            };
+
             print_progress("Loading file.", &mut pc, &progress_mode);
 
             let filled = parse::CompleteDVF::from_path(&input_path)?;
@@ -1408,91 +1229,212 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             }
 
             print_progress("Checking Storage Variables.", &mut pc, &progress_mode);
-            // Validate Storage slots
-            for storage_variable in updated.critical_storage_variables.iter_mut() {
-                let current_val = web3::get_eth_storage_at(
-                    &config,
-                    &filled.address,
-                    &storage_variable.slot,
-                    validation_block_num,
-                )?;
-                let size: usize = storage_variable.value.len();
-                let start_index: usize = 32 - (storage_variable.offset + size);
-                let end_index: usize = 32 - storage_variable.offset;
-                if current_val[start_index..end_index] != storage_variable.value {
-                    let registry = registry::Registry::from_config(&config)?;
-                    let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
-                    println!(
-                        "{}",
-                        get_mismatch_msg(
-                            &pretty_printer,
-                            storage_variable,
-                            &current_val[start_index..end_index]
-                        )
-                    );
-                    storage_variable.value = current_val[start_index..end_index].to_vec();
-                    storage_variable.value_hint = None;
+
+            if discover {
+                let discovery_result =
+                    discover_storage_and_events(create_discovery_params_for_update(
+                        &config,
+                        &updated,
+                        validation_block_num,
+                        sub_m.get_one::<PathBuf>("project"),
+                        sub_m.get_one::<String>("artifacts").unwrap(),
+                        *sub_m.get_one::<Environment>("env").unwrap(),
+                        sub_m.get_one::<String>("buildcache"),
+                        sub_m
+                            .get_many::<String>("libraries")
+                            .map(|vals| vals.cloned().collect()),
+                        zerovalue,
+                        sub_m,
+                        &mut pc,
+                        &progress_mode,
+                    ))?;
+
+                updated.init_block_num = validation_block_num;
+
+                // Update existing storage variables and add new ones
+                let current_storage_map: HashMap<String, &parse::DVFStorageEntry> =
+                    discovery_result
+                        .critical_storage_variables
+                        .iter()
+                        .map(|var| (format!("{:#x}", var.slot), var))
+                        .collect();
+
+                // Check for changes in existing storage variables
+                for storage_variable in updated.critical_storage_variables.iter_mut() {
+                    let slot_key = format!("{:#x}", storage_variable.slot);
+                    if let Some(current_var) = current_storage_map.get(&slot_key) {
+                        if current_var.value != storage_variable.value {
+                            let registry = registry::Registry::from_config(&config)?;
+                            let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+                            println!(
+                                "{}",
+                                get_mismatch_msg(
+                                    &pretty_printer,
+                                    storage_variable,
+                                    &current_var.value,
+                                    false
+                                )
+                            );
+                            storage_variable.value = current_var.value.clone();
+                            storage_variable.value_hint = current_var.value_hint.clone();
+                        }
+                    }
                 }
-            }
-            if !zerovalue {
-                // Remove storage variables with value 0
-                updated
+
+                // Add new storage variables
+                let existing_slots: HashSet<_> = updated
                     .critical_storage_variables
-                    .retain(|var| !var.is_zero());
-            }
+                    .iter()
+                    .map(|var| var.slot)
+                    .collect();
 
-            print_progress("Checking Events.", &mut pc, &progress_mode);
-            // Validate events
-            for critical_event in updated.critical_events.iter_mut() {
-                let seen_events = web3::get_eth_events(
-                    &config,
-                    &filled.address,
-                    filled.deployment_block_num,
-                    validation_block_num,
-                    &vec![critical_event.topic0],
-                )?;
-                let mut replace_events = false;
-                if seen_events.len() != critical_event.occurrences.len() {
-                    println!(
-                        "Old DVF had {} occurrences of event {}, but new should have {}.",
-                        critical_event.occurrences.len(),
-                        critical_event.sig,
-                        seen_events.len()
-                    );
-                    replace_events = true;
+                for new_var in discovery_result.critical_storage_variables {
+                    if !existing_slots.contains(&new_var.slot) {
+                        println!(
+                            "Found new storage variable: {} at slot {}",
+                            new_var.var_name, new_var.slot
+                        );
+                        updated.critical_storage_variables.push(new_var);
+                    }
                 }
 
-                let num_shared = std::cmp::min(seen_events.len(), critical_event.occurrences.len());
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..num_shared {
-                    let log_innner = &seen_events[i].inner;
-                    if log_innner.topics() != critical_event.occurrences[i].topics {
+                // Update events similarly
+                let current_events_map: HashMap<B256, &parse::DVFEventEntry> = discovery_result
+                    .critical_events
+                    .iter()
+                    .map(|event| (event.topic0, event))
+                    .collect();
+
+                // Check for changes in existing events
+                for critical_event in updated.critical_events.iter_mut() {
+                    if let Some(current_event) = current_events_map.get(&critical_event.topic0) {
+                        if current_event.occurrences.len() != critical_event.occurrences.len() {
+                            println!(
+                                "Event {} occurrence count changed from {} to {}",
+                                critical_event.sig,
+                                critical_event.occurrences.len(),
+                                current_event.occurrences.len()
+                            );
+                            critical_event.occurrences = current_event.occurrences.clone();
+                        }
+                    }
+                }
+
+                // Add new events
+                let existing_topics: HashSet<_> = updated
+                    .critical_events
+                    .iter()
+                    .map(|event| event.topic0)
+                    .collect();
+
+                for new_event in discovery_result.critical_events {
+                    if !existing_topics.contains(&new_event.topic0) {
                         println!(
-                            "Mismatching topics for event occurrence {} of {}.",
-                            i, critical_event.sig
+                            "Found new event: {} with {} occurrences",
+                            new_event.sig,
+                            new_event.occurrences.len()
+                        );
+                        updated.critical_events.push(new_event);
+                    }
+                }
+            } else {
+                // Fallback: manual storage checking without project info (original approach)
+                for storage_variable in updated.critical_storage_variables.iter_mut() {
+                    let current_val = web3::get_eth_storage_at(
+                        &config,
+                        &filled.address,
+                        &storage_variable.slot,
+                        validation_block_num,
+                    )?;
+                    let size: usize = storage_variable.value.len();
+                    let start_index: usize = 32 - (storage_variable.offset + size);
+                    let end_index: usize = 32 - storage_variable.offset;
+                    if current_val[start_index..end_index] != storage_variable.value {
+                        let registry = registry::Registry::from_config(&config)?;
+                        let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
+                        println!(
+                            "{}",
+                            get_mismatch_msg(
+                                &pretty_printer,
+                                storage_variable,
+                                &current_val[start_index..end_index],
+                                false
+                            )
+                        );
+                        storage_variable.value = current_val[start_index..end_index].to_vec();
+
+                        if let Some(var_type) = &storage_variable.var_type {
+                            storage_variable.value_hint =
+                                Some(pretty_printer.pretty_value_short_from_bytes(
+                                    var_type,
+                                    &storage_variable.value,
+                                    false,
+                                ));
+                        } else {
+                            storage_variable.value_hint = None;
+                        }
+                    }
+                }
+                if !zerovalue {
+                    // Remove storage variables with value 0
+                    updated
+                        .critical_storage_variables
+                        .retain(|var| !var.is_zero());
+                }
+                print_progress("Checking Events.", &mut pc, &progress_mode);
+                // Validate events
+                for critical_event in updated.critical_events.iter_mut() {
+                    let seen_events = web3::get_eth_events(
+                        &config,
+                        &filled.address,
+                        filled.deployment_block_num,
+                        validation_block_num,
+                        &vec![critical_event.topic0],
+                    )?;
+                    let mut replace_events = false;
+                    if seen_events.len() != critical_event.occurrences.len() {
+                        println!(
+                            "Old DVF had {} occurrences of event {}, but new should have {}.",
+                            critical_event.occurrences.len(),
+                            critical_event.sig,
+                            seen_events.len()
                         );
                         replace_events = true;
                     }
-                    if log_innner.data.data != critical_event.occurrences[i].data {
-                        println!(
-                            "Mismatching data for event occurrence {} of {}.",
-                            i, critical_event.sig
-                        );
-                        replace_events = true;
+
+                    let num_shared =
+                        std::cmp::min(seen_events.len(), critical_event.occurrences.len());
+                    #[allow(clippy::needless_range_loop)]
+                    for i in 0..num_shared {
+                        let log_innner = &seen_events[i].inner;
+                        if log_innner.topics() != critical_event.occurrences[i].topics {
+                            println!(
+                                "Mismatching topics for event occurrence {} of {}.",
+                                i, critical_event.sig
+                            );
+                            replace_events = true;
+                        }
+                        if log_innner.data.data != critical_event.occurrences[i].data {
+                            println!(
+                                "Mismatching data for event occurrence {} of {}.",
+                                i, critical_event.sig
+                            );
+                            replace_events = true;
+                        }
                     }
-                }
-                if replace_events {
-                    // Collect Occurrences
-                    let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
-                    for seen_event in &seen_events {
-                        let log_inner = &seen_event.inner;
-                        let occurrence = parse::DVFEventOccurrence {
-                            topics: log_inner.data.topics().to_vec(),
-                            data: log_inner.data.data.clone(),
-                        };
-                        occurrences.push(occurrence);
+                    if replace_events {
+                        // Collect Occurrences
+                        let mut occurrences: Vec<parse::DVFEventOccurrence> = vec![];
+                        for seen_event in &seen_events {
+                            let log_inner = &seen_event.inner;
+                            let occurrence = parse::DVFEventOccurrence {
+                                topics: log_inner.data.topics().to_vec(),
+                                data: log_inner.data.data.clone(),
+                            };
+                            occurrences.push(occurrence);
+                        }
+                        critical_event.occurrences = occurrences;
                     }
-                    critical_event.occurrences = occurrences;
                 }
             }
             updated.clear_id();
@@ -1507,13 +1449,16 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     break;
                 }
             }
+            updated.generate_id()?;
             updated.write_to_file(&output_path)?;
             println!("Wrote the updated file to file: {}", output_path.display());
             println!(
                 "{}: Arrays are not properly supported in the update mode.",
                 "Warning".yellow()
             );
-            println!("Note that 'update' will just update existing storage variables and events. If new critical variables or events were introduced, they need to be added manually.");
+            if discover {
+                println!("Note: For better storage variable naming and value hints, consider using --project and / or -- implementationproject to provide the source code path.");
+            }
             Ok(())
         }
         Some(("generate-config", _sub_m)) => {
@@ -1572,6 +1517,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let mut pc = 1_u64;
             let progress_mode: ProgressMode = ProgressMode::GenerateBuildCache;
@@ -1579,7 +1527,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let build_cache_path = ProjectInfo::compile(project, env, &artifacts_path)?;
+            let build_cache_path = ProjectInfo::compile(project, env, &artifacts_path, libraries)?;
 
             println!("Build Cache: {}", build_cache_path.display());
             exit(0);
@@ -1591,6 +1539,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
             let address = sub_m.get_one::<Address>("address").unwrap();
@@ -1615,8 +1566,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             // Bytecode and Immutable check
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
 
-            let mut project_info =
-                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
+            let mut project_info = ProjectInfo::new(
+                &contract_name,
+                project,
+                env,
+                &artifacts_path,
+                build_cache,
+                libraries,
+            )?;
 
             print_progress("Comparing bytecode.", &mut pc, &progress_mode);
             let factory_mode = sub_m.get_flag("factory");
@@ -1655,6 +1612,9 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let project = sub_m.get_one::<PathBuf>("project").unwrap();
             let artifacts = sub_m.get_one::<String>("artifacts").unwrap();
             let artifacts_path = get_project_paths(project, artifacts);
+            let libraries = sub_m
+                .get_many::<String>("libraries")
+                .map(|vals| vals.cloned().collect());
 
             let contract_name = sub_m.get_one::<String>("contractname").unwrap().to_string();
             let build_cache = sub_m.get_one::<String>("buildcache");
@@ -1663,8 +1623,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             let progress_mode: ProgressMode = ProgressMode::ListEvents;
 
             print_progress("Compiling local bytecode.", &mut pc, &progress_mode);
-            let project_info =
-                ProjectInfo::new(&contract_name, project, env, &artifacts_path, build_cache)?;
+            let project_info = ProjectInfo::new(
+                &contract_name,
+                project,
+                env,
+                &artifacts_path,
+                build_cache,
+                libraries,
+            )?;
 
             let mut event_table = Table::new();
             for event in project_info.events {

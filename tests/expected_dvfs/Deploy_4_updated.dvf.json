@@ -17,6 +17,7 @@
       "var_name": "staticDynamic[0].length",
       "var_type": "t_uint256",
       "value": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "value_hint": "3",
       "comparison_operator": "Equal"
     },
     {

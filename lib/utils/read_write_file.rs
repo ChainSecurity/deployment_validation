@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn list_files(outputs_path: &Path, aux_files: &mut Vec<String>) {
     if outputs_path.is_dir() {
@@ -18,4 +18,12 @@ pub fn read_file(json_path: &Path) -> String {
     file.read_to_string(&mut data).expect("Could not read file");
 
     data
+}
+
+pub fn get_project_paths(project: &std::path::Path, artifacts: &str) -> PathBuf {
+    let build_info_dir = "build-info";
+    let mut artifacts_path = project.to_path_buf();
+    artifacts_path.push(artifacts);
+    artifacts_path.push(build_info_dir);
+    artifacts_path
 }
