@@ -276,7 +276,7 @@ pub fn discover_storage_and_events(
     // Event discovery logic
     if params.event_topics.is_none() {
         print_progress("Obtaining past events.", params.pc, params.progress_mode);
-        seen_events = web3::get_eth_events(
+        seen_events = web3::get_eth_events_paginated(
             params.config,
             params.address,
             params.start_block_num,
