@@ -197,53 +197,80 @@ fn validate_dvf(
     // Validate events
     print_progress("Validating Critical Events.", &mut pc, &progress_mode);
     let pb = ProgressBar::new(filled.critical_events.len().try_into().unwrap());
+    let start_block = filled.deployment_block_num;
+    let end_block = validation_block_num;
+
     for critical_event in &filled.critical_events {
-        let seen_events = web3::get_eth_events(
-            config,
-            &filled.address,
-            filled.deployment_block_num,
-            validation_block_num,
-            &vec![critical_event.topic0],
-        )?;
-        if seen_events.len() != critical_event.occurrences.len() {
+        let mut num_occurrences = 0;
+        let num_occurrences_expected = critical_event.occurrences.len();
+
+        let mut current_from = start_block;
+        while current_from <= end_block {
+            let current_to = std::cmp::min(
+                current_from + config.max_blocks_per_event_query - 1,
+                end_block,
+            );
+            let seen_events = web3::get_eth_events(
+                config,
+                &filled.address,
+                current_from,
+                current_to,
+                &vec![critical_event.topic0],
+            )?;
+
+            if num_occurrences + seen_events.len() > num_occurrences_expected {
+                return Err(ValidationError::Invalid(format!(
+                    "Found more occurrences of event {} than expected ({}).",
+                    critical_event.sig, num_occurrences_expected
+                )));
+            }
+
+            for event in seen_events {
+                let expected = &critical_event.occurrences[num_occurrences];
+                let log_inner = &event.inner;
+
+                if log_inner.topics() != expected.topics {
+                    let message = format!(
+                        "Mismatching topics for event occurrence {} of {}.",
+                        num_occurrences, critical_event.sig
+                    );
+                    if continue_on_mismatch {
+                        mismatch_found = true;
+                        println!("{}", message);
+                    } else {
+                        return Err(ValidationError::Invalid(message));
+                    }
+                }
+
+                if log_inner.data.data != expected.data {
+                    let message = format!(
+                        "Mismatching data for event occurrence {} of {}.",
+                        num_occurrences, critical_event.sig
+                    );
+                    if continue_on_mismatch {
+                        mismatch_found = true;
+                        println!("{}", message);
+                    } else {
+                        return Err(ValidationError::Invalid(message));
+                    }
+                }
+
+                num_occurrences += 1;
+            }
+
+            current_from = current_to + 1;
+        }
+
+        if num_occurrences < num_occurrences_expected {
             return Err(ValidationError::Invalid(format!(
-                "Found {} occurrences of event {}, but expected {}.",
-                seen_events.len(),
-                critical_event.sig,
-                critical_event.occurrences.len()
+                "Found less occurrences of event {} than expected ({}).",
+                critical_event.sig, num_occurrences_expected
             )));
         }
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..seen_events.len() {
-            let log_inner = &seen_events[i].inner;
-            if log_inner.topics() != critical_event.occurrences[i].topics {
-                let message = format!(
-                    "Mismatching topics for event occurrence {} of {}.",
-                    i, critical_event.sig
-                );
-                if continue_on_mismatch {
-                    mismatch_found = true;
-                    println!("{}", message);
-                } else {
-                    return Err(ValidationError::Invalid(message));
-                }
-            }
-            if log_inner.data.data != critical_event.occurrences[i].data {
-                let message = format!(
-                    "Mismatching data for event occurrence {} of {}.",
-                    i, critical_event.sig
-                );
-                if continue_on_mismatch {
-                    mismatch_found = true;
-                    println!("{}", message);
-                } else {
-                    return Err(ValidationError::Invalid(message));
-                }
-            }
-        }
         pb.inc(1);
     }
+
     pb.finish_and_clear();
 
     if mismatch_found {
@@ -281,7 +308,7 @@ fn validate_dvf(
                             registry,
                             seen_ids,
                             allow_untrusted,
-                            false,
+                            continue_on_mismatch,
                             Some(reference.contract_name.clone()),
                         ));
                     }
