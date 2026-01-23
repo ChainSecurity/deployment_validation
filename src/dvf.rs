@@ -199,7 +199,6 @@ fn validate_dvf(
     let pb = ProgressBar::new(filled.critical_events.len().try_into().unwrap());
     let start_block = filled.deployment_block_num;
     let end_block = validation_block_num;
-    println!("Max_block per event {}", config.max_blocks_per_event_query);
 
     for critical_event in &filled.critical_events {
         let mut num_occurrences = 0;
@@ -222,8 +221,7 @@ fn validate_dvf(
             if num_occurrences + seen_events.len() > num_occurrences_expected {
                 return Err(ValidationError::Invalid(format!(
                     "Found more occurrences of event {} than expected ({}).",
-                    critical_event.sig,
-                    num_occurrences_expected
+                    critical_event.sig, num_occurrences_expected
                 )));
             }
 
@@ -266,8 +264,7 @@ fn validate_dvf(
         if num_occurrences < num_occurrences_expected {
             return Err(ValidationError::Invalid(format!(
                 "Found less occurrences of event {} than expected ({}).",
-                critical_event.sig,
-                num_occurrences_expected
+                critical_event.sig, num_occurrences_expected
             )));
         }
 
