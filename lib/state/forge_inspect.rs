@@ -218,22 +218,45 @@ fn forge_inspect_helper(
     if let Some(path) = contract_path {
         contract = format!("{}:{}", path, contract_name);
     }
+
+    // First attempt w/o --via-ir
     let forge_inspect = Command::new("forge")
         .env("RUST_LOG", "error") // prevents `forge inspect` from contaminating the JSON with logs
         .current_dir(project_path)
         .arg("inspect")
         .arg("--force")
         .arg("--json")
-        .arg("--via-ir")
         .arg("--root") // required because forge will use Git root (not necessarily project root) by default
         .arg(".")
         .arg("--out")
         .arg(temp_path.as_os_str())
         .arg("--cache-path")
         .arg(temp_cache_path.as_os_str())
-        .arg(contract)
-        .arg(field)
+        .arg(&contract)
+        .arg(&field)
         .output()?;
+
+    let forge_inspect = if !forge_inspect.status.success() {
+        debug!("forge inspect without --via-ir failed, retrying with --via-ir");
+        Command::new("forge")
+            .env("RUST_LOG", "error")
+            .current_dir(project_path)
+            .arg("inspect")
+            .arg("--force")
+            .arg("--json")
+            .arg("--via-ir")
+            .arg("--root")
+            .arg(".")
+            .arg("--out")
+            .arg(temp_path.as_os_str())
+            .arg("--cache-path")
+            .arg(temp_cache_path.as_os_str())
+            .arg(&contract)
+            .arg(&field)
+            .output()?
+    } else {
+        forge_inspect
+    };
 
     if !forge_inspect.status.success() {
         return Err(Error::other(format!(
