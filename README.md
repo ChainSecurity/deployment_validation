@@ -76,13 +76,11 @@ To successfully create DVFs for on-chain smart contracts, you need access to the
 
 **Please note the following restrictions/requirements**:
 
-1. While Blockscout and Etherscan API keys are optional, at least one of them is required to determine the deployment transaction of a contract. If you provide neither, you are limited to local RPC nodes with less than 100 blocks.
-2. A Blockscout API key allows for faster execution.
+1. The Blockscout API is required to fetch the transaction hashes of a contract. This API can only be omitted if you fetch transactions based on events.
+2. The Etherscan API is optional but can be used instead of Blockscout to fetch the deployment transaction of a contract.
 3. Your RPC node **must** support either `debug_traceTransaction` or `trace_transaction`.
-4. Your RPC node **should** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` won't be able to decode mapping keys.
+4. For faster execution, your RPC node **may** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` will locally re-execute all transactions which might increase execution time.
 5. For faster execution, your RPC node **may** support `debug_storageRangeAt`.
-
-The RPC provider [QuickNode](https://www.quicknode.com/) supports all aforementioned requirements. A full list of supported RPC providers may be added here at a later point in time.
 
 To run `dv`, you can either [build from source](#building-from-source) it or use the pre-configured [Docker](#using-docker) image.
 
@@ -140,7 +138,7 @@ docker run --rm -v $PWD:/home/dv/shared -it ghcr.io/chainsecurity/deployment_val
 
 ## Configuration
 
-Before `dv` can be used for validation and/or DVF creation, a configuration file has to be created. `dv` searches for the file in `~/.dvf_config.json` by default.
+Before `dv` can be used for validation and/or DVF creation, a configuration file has to be created. `dv` searches for the file in `~/.dv_config.json` by default.
 If you want to store the file at a different location, the `--config` parameter has to be used any time you run `dv`:
 
 ```
@@ -308,9 +306,12 @@ dv validate --continue new.dvf.json
 
 ### Update DVF
 
-**Please note: The `update` command is currently only updating existing storage variables in a DVF and might not be suitable for fully updating a DVF to the current state of a smart contract. This behavior will be changed in future releases.**
+To update an existing DVF, you have two different options:
 
-To update the values of storage variables in a DVF to the state of the latest block and gather all events up to this block, run the following command:
+#. Update the values of existing storage variables in a DVF to the state of the latest block and gather all events up to this block.
+#. Update the DVF with all incoming changes starting from the init block and gather all events up to this block.
+
+For the first option, run the following command:
 
 ```
 dv update new.dvf.json
@@ -323,6 +324,22 @@ dv update --validationblock <B> new.dvf.json
 ```
 
 `<B>` must be greater than the deployment block of the contract and smaller than or equal to the current block of the smart contract's chain.
+
+For the second option, you can add the `--discover` flag:
+
+```
+dv update --discover new.dvf.json
+```
+
+When using the `--discover` flag, you can also specify all the flags related to implementation contracts (since these can change over time):
+
+```
+dv update --discover --implementation <IMPL_NAME> ... new.dvf.json
+```
+
+See [Proxies and Delegated calls](#proxies-and-delegated-calls) for more details.
+
+With the `--discover` flag, `dv` updates your DVF with all new storage slots starting from the init block until your chosen validation block. This can result in slots you previously discarded to reappear if the value of the slot changed after the init block.
 
 ### Check Bytecode
 
@@ -590,15 +607,13 @@ This section will be updated soon.
 - As detailed [above](#dvf-creation), many public RPCs are not or only partially supported for DVF creation.
 - Finding the deployment transaction of a contract currently requires either Blockscout or Etherscan API keys to collect all relevant information.
 - Contracts performing `delegatecall` to more than one other contract are currently not supported.
-- `dv update` currently only updates values of existing storage variables in the DVF and does not add newly added storage values.
 - Multiple contracts with the same name compiled with different compiler versions in one project are not supported.
-- Static mapping keys (e.g., `mapping[0]`) can currently not be decoded.
+- Multi-dimensional mappings with static keys (e.g., `mapping[1][2]`) can currently not be decoded.
 - Empty-string mapping keys can currently not be decoded correctly.
 - Big transaction traces (`debug_traceTransaction` with opcode logger) of multiple GB may cause a crash.
 - Proxy Contracts without events when changing the implementation cannot be accurately secured, as implementation changes could be missed.
-- Successfully running validation against an non-finalized block at height H does not guarantee, validity at height H.
+- Successfully running validation against a non-finalized block at height H does not guarantee validity at height H.
 - Missing optimizations can cause longer waiting times than necessary.
-- Celoscan.io is currently not supported.
 
 ## Supported Networks
 

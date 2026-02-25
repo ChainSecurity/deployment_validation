@@ -78,6 +78,7 @@ interface IERC20Upgradeable {
      */
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
+
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
 
 /**
@@ -101,6 +102,7 @@ interface IERC20MetadataUpgradeable is IERC20Upgradeable {
      */
     function decimals() external view returns (uint8);
 }
+
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
 // OpenZeppelin Contracts (last updated v4.9.0) (proxy/utils/Initializable.sol)
@@ -422,7 +424,8 @@ abstract contract Initializable {
     modifier initializer() {
         bool isTopLevelCall = !_initializing;
         require(
-            (isTopLevelCall && _initialized < 1) || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),
+            (isTopLevelCall && _initialized < 1)
+                || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),
             "Initializable: contract is already initialized"
         );
         _initialized = 1;
@@ -914,10 +917,26 @@ contract MyToken is Initializable, ERC20Upgradeable {
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    function initialize() public virtual initializer {
         __ERC20_init("MyToken", "MTK");
         _mint(msg.sender, 10 ** 19);
     }
 
-    function dummy() external {}
+    function dummy() external virtual {}
+}
+
+contract MyTokenV2 is MyToken {
+    event DummyEvent();
+
+    uint256 public dummyValue;
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    function initialize() public override reinitializer(2) {
+        __ERC20_init("MyTokenV2", "MTKV2");
+    }
+
+    function dummy() external override {
+        dummyValue = 42;
+        emit DummyEvent();
+    }
 }

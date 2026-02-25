@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use alloy::primitives::{keccak256, Address, B256, U256};
 use prettytable::Table;
+use regex::Regex;
 use tracing::{debug, info};
 
 use crate::dvf::config::DVFConfig;
@@ -12,7 +13,9 @@ use crate::dvf::parse;
 use crate::dvf::parse::DVFStorageEntry;
 use crate::dvf::parse::ValidationError;
 use crate::state::contract_state::parse::DVFStorageComparisonOperator;
-use crate::state::forge_inspect::{ForgeInspect, StateVariable, TypeDescription};
+use crate::state::forge_inspect::{
+    ForgeInspectIrOptimized, ForgeInspectLayoutStorage, StateVariable, TypeDescription,
+};
 use crate::utils::pretty::PrettyPrinter;
 use crate::web3::{get_internal_create_addresses, StorageSnapshot, TraceWithAddress};
 
@@ -97,13 +100,163 @@ impl<'a> ContractState<'a> {
         }
     }
 
-    pub fn add_forge_inspect(&mut self, fi: &ForgeInspect) {
-        for (var_type, type_desc) in fi.types.iter() {
+    // Utility to normalize all numeric values to hex
+    fn normalize_to_hex(val: &str) -> String {
+        if let Ok(num) = u128::from_str_radix(val.trim_start_matches("0x"), 16) {
+            // make sure all values are represented as hexadecimal strings of uint256
+            format!("0x{:064x}", num)
+        } else {
+            // fallback, maybe a variable reference
+            val.to_string()
+        }
+    }
+
+    /// Given the contract IR optimized output, extracts the mapping assigments with static keys
+    fn add_static_key_mapping_entries(&mut self, ir_string: &str) {
+        let lines: Vec<&str> = ir_string.lines().collect();
+        let mut last_key: Option<String> = None;
+        let mut last_slot: Option<String> = None;
+
+        // attempts to track variables
+        // variable_name -> variable_value
+        let mut variables: HashMap<String, String> = HashMap::new();
+
+        let re_let = Regex::new(r#"let\s+(\S+)\s*:=\s*([0-9a-fA-F]+)"#).unwrap();
+        let re_mstore = Regex::new(
+            r#"mstore\(\s*(?:/\*\*.*?\*/\s*)?([^\s,]+)\s*,\s*(?:/\*\*.*?\*/\s*)?([^\s\)]+)\s*\)"#,
+        )
+        .unwrap();
+        let re_sstore = Regex::new(
+            r#"sstore\(keccak256\([^\)]*\),\s*/\*\*.*?"(?:.*?)"\s*\*/\s*(0x[0-9a-fA-F]+)\)"#,
+        )
+        .unwrap();
+
+        for line in &lines {
+            let line = &line.trim_ascii_start();
+
+            if line.starts_with("///") {
+                continue;
+            }
+
+            // println!("Consider line: {:?}", line);
+
+            // Capture let _var := 0x...
+            if let Some(caps) = re_let.captures(line) {
+                let var_name = caps[1].to_string();
+                let raw_val = caps[2].to_string();
+                let value = Self::normalize_to_hex(&raw_val);
+                // println!("Captured let: {:?} val: {:?}", var_name, value);
+                variables.insert(var_name, value);
+            }
+
+            // Match mstore(dest, value)
+            if let Some(caps) = re_mstore.captures(line) {
+                let mut dest = caps[1].to_string();
+                let mut val = caps[2].to_string();
+                // println!("Captured mstore dest: {:?} val: {:?}", dest, val);
+
+                if let Some(resolved_dest) = variables.get(&dest).cloned() {
+                    dest = resolved_dest;
+                }
+
+                if let Some(resolved_val) = variables.get(&val).cloned() {
+                    val = resolved_val;
+                }
+
+                // dest = Self::normalize_to_hex(&dest);
+                val = Self::normalize_to_hex(&val);
+
+                // println!("Resolved mstore dest: {:?} val: {:?}", dest, val);
+
+                match dest.as_str() {
+                    "0x20" => last_slot = Some(val),
+                    _ => last_key = Some(val),
+                }
+            }
+
+            if let Some(_caps) = re_sstore.captures(line) {
+                if let (Some(last_key_), Some(last_slot_)) = (last_key.clone(), last_slot.clone()) {
+                    // println!(
+                    //     "Captured key string {:?} slot string {:?}",
+                    //     last_key_, last_slot_
+                    // );
+
+                    // Resolve from variable map if needed
+                    let resolved_last_key = variables.get(&last_key_).cloned().unwrap_or(last_key_);
+                    let resolved_last_slot =
+                        variables.get(&last_slot_).cloned().unwrap_or(last_slot_);
+
+                    // println!(
+                    //     "Resolved sstore last_key_: {:?} last_slot_: {:?}",
+                    //     resolved_last_key, resolved_last_slot
+                    // );
+
+                    match (
+                        hex::decode(resolved_last_key.trim_start_matches("0x")).ok(),
+                        hex::decode(resolved_last_slot.trim_start_matches("0x")).ok(),
+                    ) {
+                        (Some(key_bytes), Some(slot_bytes)) => {
+                            let mut padded_key = vec![0u8; 32];
+                            let mut padded_slot = vec![0u8; 32];
+
+                            padded_key[32 - key_bytes.len()..].copy_from_slice(&key_bytes);
+                            padded_slot[32 - slot_bytes.len()..].copy_from_slice(&slot_bytes);
+
+                            let mut keccak_input = vec![];
+                            keccak_input.extend_from_slice(&padded_key);
+                            keccak_input.extend_from_slice(&padded_slot);
+                            // println!("keccak input {:?}", keccak_input);
+
+                            let entry_slot = U256::from_be_bytes(keccak256(keccak_input).into());
+
+                            let mapping_slot = U256::from_str_radix(
+                                resolved_last_slot.trim_start_matches("0x"),
+                                16,
+                            )
+                            .unwrap();
+
+                            self.mapping_usages
+                                .entry(mapping_slot)
+                                .or_default()
+                                .insert((resolved_last_key, entry_slot));
+                        }
+                        _ => {
+                            println!(
+                                "Warning: could not decode key or slot in line: {}, key: {}, slot: {}",
+                                line, resolved_last_key, resolved_last_slot
+                            );
+                            // reset slot after unrecognised sstore
+                            last_slot = None;
+                            continue;
+                        }
+                    }
+
+                    // always reset key after an sstore
+                    last_key = None;
+                }
+            }
+        }
+    }
+
+    pub fn add_forge_inspect(
+        &mut self,
+        fi_layout: &ForgeInspectLayoutStorage,
+        fi_ir_optimized: &ForgeInspectIrOptimized,
+    ) {
+        for (var_type, type_desc) in fi_layout.types.iter() {
             self.add_type(var_type, type_desc);
         }
 
-        for sv in &fi.storage {
-            self.add_state_variable(sv);
+        for state_variable in &fi_layout.storage {
+            self.add_state_variable(state_variable);
+        }
+
+        // add static-key mapping entries to the tracked mapping variables (if the contract IR is available)
+        match &fi_ir_optimized.ir {
+            Ok(ir_string) => self.add_static_key_mapping_entries(ir_string),
+            Err(error) => {
+                info!("Warning: could not obtain IR for contract\n{error:?}");
+            }
         }
     }
 
@@ -186,6 +339,10 @@ impl<'a> ContractState<'a> {
                     if let Some(key_in) = key {
                         let target_slot = &stack[stack.len() - 1];
                         if !self.mapping_usages.contains_key(&index) {
+                            debug!(
+                                "Mapping usages do not contain index {:?}, entry slot {:?}",
+                                index, target_slot
+                            );
                             let mut usage_set = HashSet::new();
                             usage_set.insert((key_in, *target_slot));
                             self.mapping_usages.insert(index, usage_set);
@@ -196,6 +353,8 @@ impl<'a> ContractState<'a> {
                         }
                         key = None;
                     }
+
+                    // handle dynamic-type mapping keys
                     if log.op == "KECCAK256" || log.op == "SHA3" {
                         let length_in_bytes = stack[stack.len() - 2];
                         let sha3_input = format!(
@@ -245,7 +404,7 @@ impl<'a> ContractState<'a> {
         pi_types: &HashMap<String, TypeDescription>,
         zerovalue: bool,
     ) -> Result<Vec<parse::DVFStorageEntry>, ValidationError> {
-        let default_values = &ForgeInspect::default_values();
+        let default_values = &ForgeInspectLayoutStorage::default_values();
         // Add default types as we might need them
         let mut types = default_values.types.clone();
         types.extend(pi_types.to_owned());
@@ -255,18 +414,20 @@ impl<'a> ContractState<'a> {
 
         let mut critical_storage_variables = Vec::<parse::DVFStorageEntry>::new();
 
-        for state_variable in &self.state_variables {
+        // forge inspect state variables
+        for state_variable in self.state_variables.clone() {
             critical_storage_variables.extend(self.get_critical_variable(
-                state_variable,
+                &state_variable,
                 snapshot,
                 table,
                 zerovalue,
             )?);
         }
 
+        // extra storage variables extracted from AST parsing
         let mut storage = default_values.storage.clone();
         storage.extend(pi_storage.to_owned());
-        for sv in &storage {
+        for state_variable in &storage {
             // // Skip used slots, assume that the we won't have partial usage in case of structs
             // let min_size = cmp::min(self.get_number_of_bytes(&sv.var_type), 32 - sv.offset);
             // if !snapshot.check_if_set_and_unused(&sv.slot, sv.offset, min_size) {
@@ -275,7 +436,7 @@ impl<'a> ContractState<'a> {
             // }
 
             let new_critical_storage_variables =
-                self.get_critical_variable(sv, snapshot, table, zerovalue)?;
+                self.get_critical_variable(state_variable, snapshot, table, zerovalue)?;
             let mut has_nonzero = false;
             for crit_var in &new_critical_storage_variables {
                 if !crit_var.is_zero() {
@@ -487,6 +648,7 @@ impl<'a> ContractState<'a> {
             return Ok(critical_storage_variables);
         }
         if Self::is_mapping(&state_variable.var_type) {
+            // handle static and dynamic-type keys
             if !self.mapping_usages.contains_key(&state_variable.slot) {
                 debug!("No mapping keys for {}", state_variable.slot);
                 return Ok(vec![]);
@@ -506,7 +668,9 @@ impl<'a> ContractState<'a> {
                 // the last 32 bytes correspond to a slot
                 // we can still have false positives, so the --zerovalue option
                 // should be used with care
-                if self.has_inplace_encoding(&key_type) && sorted_key.len() > 64 {
+                if self.has_inplace_encoding(&key_type)
+                    && sorted_key.trim_start_matches("0x").len() > 64
+                {
                     continue;
                 }
 

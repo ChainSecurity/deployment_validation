@@ -129,7 +129,7 @@ fn default_max_blocks() -> u64 {
 }
 
 fn default_web3_timeout() -> u64 {
-    700
+    5000
 }
 
 impl DVFConfig {

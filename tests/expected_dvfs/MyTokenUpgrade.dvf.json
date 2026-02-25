@@ -1,0 +1,88 @@
+{
+  "version": "0.9.1",
+  "id": "0xea582136017acdbdec6da968a7c63c78c13e25b9d435e7fd72fb64a75ff786e6",
+  "contract_name": "MyToken",
+  "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+  "chain_id": 1337,
+  "deployment_block_num": 2,
+  "init_block_num": 3,
+  "deployment_tx": "0x42d8e1a6dc338ecb42716c59dce82a58e56c067dff2a20975f28e05970e89400",
+  "codehash": "0xa77e382f36db7714068fa97e6bc080fbc6b04a900a3199ab1aba56c9dea88f4d",
+  "insecure": false,
+  "immutables": [
+    {
+      "var_name": "router",
+      "value": "0x000000000000000000000000e592427a0aece92de3edee1f18e0157c05861564"
+    },
+    {
+      "var_name": "penalty",
+      "value": "0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc",
+      "value_hint": "-4"
+    }
+  ],
+  "constructor_args": [],
+  "critical_storage_variables": [
+    {
+      "slot": "0x0",
+      "offset": 0,
+      "var_name": "_initialized",
+      "var_type": "t_uint8",
+      "value": "0xff",
+      "value_hint": "255",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x36",
+      "offset": 0,
+      "var_name": "_name (length=0)",
+      "var_type": "t_string_storage",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "value_hint": "",
+      "comparison_operator": "Equal"
+    },
+    {
+      "slot": "0x37",
+      "offset": 0,
+      "var_name": "_symbol (length=0)",
+      "var_type": "t_string_storage",
+      "value": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "value_hint": "",
+      "comparison_operator": "Equal"
+    }
+  ],
+  "critical_events": [
+    {
+      "sig": "Approval(address,address,uint256)",
+      "topic0": "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925",
+      "occurrences": []
+    },
+    {
+      "sig": "Initialized(uint8)",
+      "topic0": "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498",
+      "occurrences": [
+        {
+          "topics": [
+            "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
+          ],
+          "data": "0x00000000000000000000000000000000000000000000000000000000000000ff"
+        }
+      ]
+    },
+    {
+      "sig": "Transfer(address,address,uint256)",
+      "topic0": "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+      "occurrences": []
+    }
+  ],
+  "unvalidated_metadata": {
+    "author_name": "Author",
+    "description": "System Description",
+    "hardfork": [
+      "paris",
+      "shanghai"
+    ],
+    "audit_report": "https://example.org/report.pdf",
+    "source_url": "https://github.com/source/code",
+    "security_contact": "security@example.org"
+  }
+}
