@@ -39,6 +39,7 @@ Once a DVF is published, any user can choose to trust the signer of that DVF and
    - [Etherscan Verified Contracts](#etherscan-verified-contracts)
    - [Initialization by event topics](#initialization-by-event-topics)
    - [Public libraries](#public-libraries)
+   - [Transaction inspection](#transaction-inspection)
 
 7. [Common Problems](#common-problems)
 8. [Getting Help](#getting-help)
@@ -573,6 +574,20 @@ dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --lib
 `<LIBRARIES>` can be a comma-separated list of libraries. Each item must have the following format: `<PATH>:<NAME>:<ADDRESS>`.
 
 `<PATH>` is the path to the library contract file, relative to your project root. `<NAME>` is the name of the library contract. `<ADDRESS>` is the public address of the already deployed library.
+
+### Transaction inspection
+
+For some use cases, it is not necessary to inspect all transactions of a single contract, but rather all contracts in a single transaction (e.g., execution of a government proposal). This can be achieved with the command `inspect-tx`:
+
+```
+dv inspect-tx --txhash <TX_HASH> --chainid <CHAIN_ID>
+```
+
+`<TX_HASH>` is the hash of the transaction that should be inspected, `<CHAIN_ID>` the ID of the chain the transaction has been executed on.
+
+The command will fetch all contracts that are touched during the transaction. For each of the contracts, raw state changes and emitted events are then fetched and displayed. 
+
+To see the decoded state changes and events (and to generate a DVF file), each contract can be configured in your `.dv_config.json` prior to (re-)running the command. For details, please refer to the [configuration specification](docs/config.md).
 
 ## Common Problems
 
