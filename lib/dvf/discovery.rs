@@ -166,7 +166,7 @@ pub fn discover_storage_and_events(
         );
         contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
-                        // Extend storage with implementation storage variables, ensuring unique slots
+        // Extend storage with implementation storage variables, ensuring unique slots
         for storage_var in &tmp_project_info.storage {
             if !storage_layout
                 .iter()
