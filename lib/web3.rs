@@ -5,6 +5,7 @@ use std::io::Read;
 use std::str::FromStr;
 use std::time::Duration;
 
+use alloy_rpc_types_trace::parity::CallType;
 use colored::Colorize;
 use indicatif::ProgressBar;
 use reqwest::blocking::get;
@@ -386,6 +387,16 @@ pub fn get_eth_debug_trace_sim(
             // ignore error as this does not return any result
             let _ = send_blocking_web3_post(&anvil_config, &impersonate_body);
 
+            // add 100 eth to account (required in case deployment happened on a virtual testnet using admin rpc)
+            let balance_body = json!({
+                "jsonrpc": "2.0",
+                "method": "anvil_setBalance",
+                "params": [from, "0x56bc75e2d63100000"],
+                "id": 1
+            });
+
+            let _ = send_blocking_web3_post(&anvil_config, &balance_body);
+
             // submit transaction to anvil
             let send_tx_body = json!({
                 "jsonrpc": "2.0",
@@ -405,10 +416,29 @@ pub fn get_eth_debug_trace_sim(
 
             let tx_result = match send_blocking_web3_post(&anvil_config, &send_tx_body) {
                 Ok(result) => result,
-                Err(e) => {
-                    // Stop the anvil instance before returning the error
-                    stop_anvil_instance(anvil_instance);
-                    return Err(e);
+                Err(_) => {
+                    // gas can be set to 0 on virtual testnets so try one more time without these params
+                    let send_tx_body_wo_gas = json!({
+                        "jsonrpc": "2.0",
+                        "method": "eth_sendTransaction",
+                        "params": [
+                            {
+                                "from": from,
+                                "to": if to == "null" { serde_json::Value::Null } else { json!(to) },
+                                "value": value,
+                                "input": data,
+                            }
+                        ],
+                        "id": 1
+                    });
+                    match send_blocking_web3_post(&anvil_config, &send_tx_body_wo_gas) {
+                        Ok(result) => result,
+                        Err(e) => {
+                            // Stop the anvil instance before returning the error
+                            stop_anvil_instance(anvil_instance);
+                            return Err(e);
+                        }
+                    }
                 }
             };
 
@@ -1973,6 +2003,10 @@ impl StorageSnapshot {
         }
     }
 
+    pub fn get(&self, slot: &U256) -> Option<&[u8; 32]> {
+        self.snapshot.get(slot)
+    }
+
     // Get Storage entry
     pub fn get_u8_from_slot(&self, slot: &U256, offset: usize) -> u8 {
         match self.snapshot.get(slot) {
@@ -2618,4 +2652,89 @@ pub fn stop_anvil_instance(anvil_instance: AnvilInstance) {
     // AnvilInstance implements Drop, so it will be automatically cleaned up
     // when it goes out of scope, but we can also explicitly drop it
     drop(anvil_instance);
+}
+
+pub fn get_all_addresses(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<(Vec<Address>, Vec<Address>), ValidationError> {
+    let mut call_addresses: Vec<Address> = vec![];
+    let mut create_addresses: Vec<Address> = vec![];
+
+    // Try to get transaction trace using get_tx_trace first
+    match get_tx_trace(config, tx_id) {
+        Ok(traces) => {
+            debug!("Using parity trace for {}", tx_id);
+            for trace in &traces {
+                match &trace.action {
+                    // we only care for contracts whose state can change during the call, so no staticcall, delegatecall etc.
+                    Action::Call(call) if call.call_type == CallType::Call => {
+                        call_addresses.push(call.to);
+                    }
+                    Action::Create(_create) => {
+                        // For create actions, we need to check the result
+                        if let Some(TraceOutput::Create(create_res)) = &trace.result {
+                            create_addresses.push(create_res.address);
+                        }
+                    }
+                    Action::Selfdestruct(selfdestruct) => {
+                        call_addresses.push(selfdestruct.address);
+                    }
+                    _ => {
+                        // do nothing
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            debug!("Parity trace failed with {:?}, trying geth debug trace.", e);
+            // Fallback to geth debug call trace
+            let call_frame = get_eth_debug_call_trace(config, tx_id)?;
+            extract_all_addresses_from_call_frame(
+                &call_frame,
+                &mut call_addresses,
+                &mut create_addresses,
+            )?;
+        }
+    }
+
+    call_addresses.sort();
+    call_addresses.dedup();
+    create_addresses.sort();
+    create_addresses.dedup();
+
+    debug!("All call addresses for {} are: {:?}", tx_id, call_addresses);
+    debug!(
+        "All create addresses for {} are: {:?}",
+        tx_id, create_addresses
+    );
+    Ok((call_addresses, create_addresses))
+}
+
+// Extract all addresses from a CallFrame (geth debug trace)u
+fn extract_all_addresses_from_call_frame(
+    call_frame: &CallFrame,
+    call_addresses: &mut Vec<Address>,
+    create_addresses: &mut Vec<Address>,
+) -> Result<(), ValidationError> {
+    // Add the 'to' address if it exists and the call didn't fail
+    // we only care for contracts whose state can change during the call, so no staticcall, delegatecall etc.
+    if call_frame.error.is_none() {
+        if let Some(addr) = call_frame.to {
+            if call_frame.typ == "CALL" {
+                call_addresses.push(addr);
+            } else if call_frame.typ == "CREATE" || call_frame.typ == "CREATE2" {
+                create_addresses.push(addr);
+            } else if call_frame.typ == "SELFDESTRUCT" {
+                call_addresses.push(addr);
+            }
+        }
+    }
+
+    // Recursively process all sub-calls
+    for call in &call_frame.calls {
+        extract_all_addresses_from_call_frame(call, call_addresses, create_addresses)?;
+    }
+
+    Ok(())
 }
