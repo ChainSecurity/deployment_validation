@@ -324,12 +324,14 @@ impl ProjectInfo {
             );
             // add base type
             if base_identifier.starts_with("t_struct") {
-                let struct_slots: Vec<(u64, U256, Option<String>)> = vec![(
-                    type_name["baseType"]["referencedDeclaration"]
-                        .as_u64()
-                        .unwrap(),
+                let struct_slots_vec: Vec<(U256, (u64, Option<String>))> = vec![(
                     U256::from(0),
-                    None,
+                    (
+                        type_name["baseType"]["referencedDeclaration"]
+                            .as_u64()
+                            .unwrap(),
+                        None,
+                    ),
                 )];
                 // we only need the types, so we use a dummy storage vector
                 let mut storage: Vec<StateVariable> = vec![];
@@ -340,7 +342,7 @@ impl ProjectInfo {
                                 sources,
                                 node,
                                 type_defs,
-                                &struct_slots,
+                                &struct_slots_vec,
                                 types,
                                 &mut storage,
                             );
