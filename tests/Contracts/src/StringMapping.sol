@@ -12,6 +12,7 @@ contract StringMapping {
         x["A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string"] = 42;
         y["abc"] = "a short string";
         y["a"] = "A veryveryveryveryveryveryveryveryveryveryveryveryveryveryveryveryvery long string.";
+        x[""] = 42;
         emit SomeE("EventData", 1000);
     }
 

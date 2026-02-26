@@ -366,7 +366,7 @@ impl<'a> ContractState<'a> {
                             )
                         );
                         // Look for mapping usages
-                        if length_in_bytes > U256::from(32_u64)
+                        if length_in_bytes >= U256::from(32_u64)
                             && length_in_bytes < U256::from(usize::MAX / 2)
                         {
                             let usize_str_length =
