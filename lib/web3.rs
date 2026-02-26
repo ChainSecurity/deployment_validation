@@ -2047,7 +2047,7 @@ impl StorageSnapshot {
         }
     }
 
-    // Collect all storage slots that have not previously been queried
+    // Collect all storage slots that have not been queried previously
     pub fn get_unused_nonzero_storage_slots(&self) -> Vec<UnusedStoragePart> {
         let mut unused_storage_parts: Vec<UnusedStoragePart> = vec![];
 

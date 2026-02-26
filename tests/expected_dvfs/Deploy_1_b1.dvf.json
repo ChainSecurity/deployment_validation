@@ -1,17 +1,26 @@
 {
   "version": "0.9.1",
-  "id": "0xddec5fab35250ee9bb557688e3df2c8ddca9c277e454546e5358aa48a1dfd25c",
+  "id": "0x62fabab8f05c6d0fd7dfe72a984b8a9260ca936be36a3a203e40d8143d4240f0",
   "contract_name": "StringMapping",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "chain_id": 1337,
+  "chain_id": 31337,
   "deployment_block_num": 2,
   "init_block_num": 2,
-  "deployment_tx": "0xbd44492ce35b11b438be83b11fef8e1f18f3dd1f847c791083f3659d2a66885c",
+  "deployment_tx": "0x7a0aa5e701e0c9d0e249bf3ae61a1723583ab168eec26b652e6d7331ea3980fb",
   "codehash": "0x2feab59f98325c0ad112156daca7c79dc9e9e17c16be3e374874788370b91e02",
   "insecure": false,
   "immutables": [],
   "constructor_args": [],
   "critical_storage_variables": [
+    {
+      "slot": "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+      "offset": 0,
+      "var_name": "x[]",
+      "var_type": "t_uint256",
+      "value": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "value_hint": "42",
+      "comparison_operator": "Equal"
+    },
     {
       "slot": "0x2fccf76901d0aa8dbb54cf0f8d3d8db6b27e630b57020bc913d21efd33831cbc",
       "offset": 0,
