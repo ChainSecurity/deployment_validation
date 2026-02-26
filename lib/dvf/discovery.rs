@@ -21,6 +21,8 @@ use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
 use crate::web3;
 use crate::web3::stop_anvil_instance;
+use crate::web3::TraceWithAddress;
+use alloy_node_bindings::AnvilInstance;
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
@@ -35,20 +37,25 @@ pub struct DiscoveryParams<'a> {
     pub libraries: Option<Vec<String>>,
     pub implementation_name: Option<&'a str>,
     pub implementation_project: Option<&'a PathBuf>,
-    pub implementation_env: Environment,
-    pub implementation_artifacts: &'a str,
+    pub implementation_env: Option<&'a Environment>,
+    pub implementation_artifacts: Option<&'a str>,
     pub implementation_build_cache: Option<&'a String>,
     pub zerovalue: bool,
     pub event_topics: Option<Vec<B256>>,
     pub pc: &'a mut u64,
     pub progress_mode: &'a ProgressMode,
     pub use_storage_range: bool,
+    pub tx_hashes: Option<Vec<String>>,
+    // Optional cache (used by inspect-tx): reuse an already computed trace and config
+    pub cached_traces: Option<Vec<TraceWithAddress>>,
+    pub cached_anvil_config: Option<&'a DVFConfig>,
 }
 
 pub struct DiscoveryResult {
     pub critical_storage_variables: Vec<parse::DVFStorageEntry>,
     pub critical_events: Vec<parse::DVFEventEntry>,
     pub storage_var_table: Table,
+    pub unused_storage_var_table: Table,
     pub event_table: Table,
     pub all_events: Vec<Event>,
     pub proxy_warning: bool,
@@ -121,7 +128,8 @@ pub fn discover_storage_and_events(
         let imp_path: PathBuf;
         let imp_artifacts_path: PathBuf;
         if let Some(imp_project) = params.implementation_project {
-            imp_artifacts_path = get_project_paths(imp_project, params.implementation_artifacts);
+            imp_artifacts_path =
+                get_project_paths(imp_project, params.implementation_artifacts.unwrap());
             imp_path = imp_project.clone();
         } else if let Some(project_path) = params.project {
             imp_path = project_path.clone();
@@ -135,7 +143,7 @@ pub fn discover_storage_and_events(
         let tmp_project_info = ProjectInfo::new(
             &implementation_name.to_string(),
             &imp_path,
-            params.implementation_env,
+            *params.implementation_env.unwrap(),
             &imp_artifacts_path,
             params.implementation_build_cache,
             params.libraries.clone(),
@@ -149,7 +157,7 @@ pub fn discover_storage_and_events(
         let fi_impl_layout = forge_inspect::ForgeInspectLayoutStorage::generate_and_parse_layout(
             &imp_path,
             implementation_name,
-            if params.implementation_env == Environment::Hardhat {
+            if params.implementation_env == Some(&Environment::Hardhat) {
                 tmp_project_info.absolute_path.clone()
             } else {
                 None
@@ -158,7 +166,7 @@ pub fn discover_storage_and_events(
         let fi_impl_ir = forge_inspect::ForgeInspectIrOptimized::generate_and_parse_ir_optimized(
             &imp_path,
             implementation_name,
-            if params.implementation_env == Environment::Hardhat {
+            if params.implementation_env == Some(&Environment::Hardhat) {
                 tmp_project_info.absolute_path.clone()
             } else {
                 None
@@ -178,38 +186,19 @@ pub fn discover_storage_and_events(
         types.extend(tmp_project_info.types.clone());
         imp_project_info = Some(tmp_project_info);
     }
-
-    // Get transaction hashes based on event topics
-    let mut seen_events: Vec<Log> = vec![];
-    let tx_hashes: Vec<String> = if let Some(event_topics) = &params.event_topics {
-        print_progress(
-            "Obtaining past events and transactions.",
-            params.pc,
-            params.progress_mode,
-        );
-        seen_events = web3::get_eth_events(
+    let (tx_hashes, mut seen_events) = if params.tx_hashes.is_none() {
+        // Get transaction hashes based on event topics
+        get_tx_hashes(
             params.config,
             params.address,
             params.start_block_num,
             params.end_block_num,
-            event_topics,
-        )?;
-        seen_events
-            .iter()
-            .filter_map(|e| e.transaction_hash.map(|h| format!("{h:#x}")))
-            .collect()
-    } else {
-        print_progress(
-            "Obtaining past transactions.",
+            params.event_topics.clone(),
             params.pc,
             params.progress_mode,
-        );
-        web3::get_all_txs_for_contract(
-            params.config,
-            params.address,
-            params.start_block_num,
-            params.end_block_num,
         )?
+    } else {
+        (params.tx_hashes.unwrap(), vec![])
     };
 
     print_progress("Getting storage snapshot.", params.pc, params.progress_mode);
@@ -225,25 +214,39 @@ pub fn discover_storage_and_events(
     let mut seen_transactions = HashSet::new();
     let mut missing_traces = false;
 
-    for tx_hash in &tx_hashes {
+    for (index, tx_hash) in tx_hashes.iter().enumerate() {
         if seen_transactions.contains(tx_hash) {
             continue;
         }
         seen_transactions.insert(tx_hash);
 
         info!("Getting trace for {}", tx_hash);
-        match web3::get_eth_debug_trace_sim(params.config, tx_hash) {
+        // Use cached trace if provided (inspect-tx), otherwise fetch
+        let fetched = if let Some(ref cached) = params.cached_traces {
+            debug!("Using cached trace at index {} of {}", index, cached.len());
+            Ok((
+                cached[index].clone(),
+                None::<DVFConfig>,
+                None::<AnvilInstance>,
+            ))
+        } else {
+            web3::get_eth_debug_trace_sim(params.config, tx_hash)
+        };
+        match fetched {
             Ok((trace, anvil_config, anvil_instance)) => {
-                let record_traces_config = match &anvil_config {
-                    Some(c) => c,
-                    None => params.config,
+                let record_traces_config: &DVFConfig = if params.cached_traces.is_some() {
+                    params.cached_anvil_config.unwrap_or(params.config)
+                } else {
+                    anvil_config.as_ref().unwrap_or(params.config)
                 };
                 if let Err(err) = contract_state.record_traces(record_traces_config, vec![trace]) {
                     missing_traces = true;
                     info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
                 }
-                if let Some(anvil_instance) = anvil_instance {
-                    stop_anvil_instance(anvil_instance);
+                if params.cached_traces.is_none() {
+                    if let Some(anvil_instance) = anvil_instance {
+                        stop_anvil_instance(anvil_instance);
+                    }
                 }
             }
             Err(err) => {
@@ -266,7 +269,22 @@ pub fn discover_storage_and_events(
             &storage_layout,
             &types,
             params.zerovalue,
+            params.config,
+            params.end_block_num,
         )?;
+
+    let mut unused_storage_var_table = Table::new();
+    let unused = snapshot.get_unused_nonzero_storage_slots();
+    unused_storage_var_table.set_titles(row!["Slot", "Offset", "Value"]);
+    for unused_part in unused {
+        let slot_hex = format!("0x{:x}", unused_part.slot);
+        let value_hex = format!("0x{}", hex::encode(&unused_part.value));
+        unused_storage_var_table.add_row(row![
+            slot_hex,
+            unused_part.offset,
+            wrap_by_length(&value_hex, 66, "\n"),
+        ]);
+    }
 
     let proxy_warning = critical_storage_variables
         .iter()
@@ -430,10 +448,58 @@ pub fn discover_storage_and_events(
         critical_storage_variables,
         critical_events,
         storage_var_table,
+        unused_storage_var_table,
         event_table,
         all_events,
         proxy_warning,
     })
+}
+
+pub fn wrap_by_length(s: &str, max_len: usize, delimiter: &str) -> String {
+    if max_len == 0 {
+        return s.to_string();
+    }
+    let mut out = String::with_capacity(s.len() + s.len() / max_len);
+    let mut count = 0;
+    for ch in s.chars() {
+        if count == max_len {
+            out.push_str(delimiter);
+            count = 0;
+        }
+        out.push(ch);
+        count += 1;
+    }
+    out
+}
+
+pub fn get_tx_hashes(
+    config: &DVFConfig,
+    address: &Address,
+    start_block_num: u64,
+    end_block_num: u64,
+    event_topics: Option<Vec<B256>>,
+    pc: &mut u64,
+    progress_mode: &ProgressMode,
+) -> Result<(Vec<String>, Vec<Log>), ValidationError> {
+    let mut seen_events: Vec<Log> = vec![];
+    let tx_hashes: Vec<String> = if let Some(event_topics) = &event_topics {
+        print_progress("Obtaining past events and transactions.", pc, progress_mode);
+        seen_events = web3::get_eth_events(
+            config,
+            address,
+            start_block_num,
+            end_block_num,
+            event_topics,
+        )?;
+        seen_events
+            .iter()
+            .filter_map(|e| e.transaction_hash.map(|h| format!("{h:#x}")))
+            .collect()
+    } else {
+        print_progress("Obtaining past transactions.", pc, progress_mode);
+        web3::get_all_txs_for_contract(config, address, start_block_num, end_block_num)?
+    };
+    Ok((tx_hashes, seen_events))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -444,7 +510,7 @@ pub fn create_discovery_params_for_init<'a>(
     init_block_num: u64,
     project: &'a PathBuf,
     artifacts: &'a str,
-    env: Environment,
+    env: &'a Environment,
     build_cache: Option<&'a String>,
     libraries: Option<Vec<String>>,
     zerovalue: bool,
@@ -461,21 +527,27 @@ pub fn create_discovery_params_for_init<'a>(
         end_block_num: init_block_num,
         project: Some(project),
         artifacts,
-        env,
+        env: *env,
         build_cache,
         libraries,
         implementation_name: sub_m
             .get_one::<String>("implementation")
             .map(|s| s.as_str()),
         implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
-        implementation_env: env,
-        implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+        implementation_env: Some(env),
+        implementation_artifacts: sub_m
+            .get_one::<String>("implementationartifacts")
+            .as_ref()
+            .map(|s| s.as_str()),
         implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
         zerovalue,
         event_topics,
         pc,
         progress_mode,
         use_storage_range: true,
+        tx_hashes: None,
+        cached_traces: None,
+        cached_anvil_config: None,
     }
 }
 
@@ -509,13 +581,19 @@ pub fn create_discovery_params_for_update<'a>(
             .get_one::<String>("implementation")
             .map(|s| s.as_str()),
         implementation_project: sub_m.get_one::<PathBuf>("implementationproject"),
-        implementation_env: *sub_m.get_one::<Environment>("implementationenv").unwrap(),
-        implementation_artifacts: sub_m.get_one::<String>("implementationartifacts").unwrap(),
+        implementation_env: sub_m.get_one::<Environment>("implementationenv"),
+        implementation_artifacts: sub_m
+            .get_one::<String>("implementationartifacts")
+            .as_ref()
+            .map(|s| s.as_str()),
         implementation_build_cache: sub_m.get_one::<String>("implementationbuildcache"),
         zerovalue,
         event_topics: None, // Update mode doesn't filter by event topics
         pc,
         progress_mode,
         use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
+        tx_hashes: None,
+        cached_traces: None,
+        cached_anvil_config: None,
     }
 }

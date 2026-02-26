@@ -115,6 +115,8 @@ fn gen_test(matches: &ArgMatches) -> Result<(), ValidationError> {
         &vec![],
         &HashMap::new(),
         true,
+        &config,
+        web3::get_eth_block_number(&config)? - 1,
     )?;
 
     let serialized_res = serde_json::to_string_pretty(&critical_vars)?;
