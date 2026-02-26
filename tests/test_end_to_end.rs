@@ -1507,7 +1507,7 @@ mod tests {
     }
 
     #[test]
-    fn test_pure_factory() {
+    fn test_e2e_pure_factory() {
         let port = 8553u16;
         let config_file = match DVFConfig::test_config_file(Some(port)) {
             Ok(config) => config,
