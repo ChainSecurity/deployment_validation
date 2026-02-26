@@ -779,7 +779,7 @@ mod tests {
 
     #[test]
     fn test_e2e_proxy_upgrade() {
-        let port = 8548u16;
+        let port = 8557u16;
         let config_file = match DVFConfig::test_config_file(Some(port)) {
             Ok(config) => config,
             Err(err) => {
@@ -1331,7 +1331,7 @@ mod tests {
 
     #[test]
     fn test_e2e_failing_validate_events() {
-        let port = 8551u16;
+        let port = 8558u16;
         let config_file = match DVFConfig::test_config_file(Some(port)) {
             Ok(config) => config,
             Err(err) => {
