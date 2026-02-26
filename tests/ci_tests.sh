@@ -24,6 +24,7 @@ pkill geth || true
 pkill anvil || true
 pkill cached_proxy || true
 rm -rf /tmp/uni-factory /tmp/usdc_implementation2
+cargo clean
 cargo build
 cargo clippy
 mkdir -p /tmp/dvfs

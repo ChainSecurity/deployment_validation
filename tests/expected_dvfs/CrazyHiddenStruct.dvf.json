@@ -1,6 +1,6 @@
 {
   "version": "0.9.1",
-  "id": "0x71f27bd042cf53e6783d03336d86171f7d728e61f867e60071ae32818de10da2",
+  "id": "0x294a145622ea4fa416a4fe6395b3a307e7d692e6956c2fd0e2192831c7e776fa",
   "contract_name": "CrazyHiddenStruct",
   "address": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   "chain_id": 1337,
@@ -484,7 +484,7 @@
     {
       "slot": "0xa83659c989cfe332581a2ed207e0e6d23d9199b0de773442a1e23a9b8c5138f0",
       "offset": 0,
-      "var_name": "CrazyHiddenStruct.[_setOwner].AddressSlot.value",
+      "var_name": "CrazyHiddenStruct._setOwner.AddressSlot.value",
       "var_type": "t_address",
       "value": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
       "comparison_operator": "Equal"

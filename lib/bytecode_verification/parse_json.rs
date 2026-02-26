@@ -324,12 +324,14 @@ impl ProjectInfo {
             );
             // add base type
             if base_identifier.starts_with("t_struct") {
-                let struct_slots: Vec<(u64, U256, Option<String>)> = vec![(
-                    type_name["baseType"]["referencedDeclaration"]
-                        .as_u64()
-                        .unwrap(),
+                let struct_slots_vec: Vec<(U256, (u64, Option<String>))> = vec![(
                     U256::from(0),
-                    None,
+                    (
+                        type_name["baseType"]["referencedDeclaration"]
+                            .as_u64()
+                            .unwrap(),
+                        None,
+                    ),
                 )];
                 // we only need the types, so we use a dummy storage vector
                 let mut storage: Vec<StateVariable> = vec![];
@@ -340,7 +342,7 @@ impl ProjectInfo {
                                 sources,
                                 node,
                                 type_defs,
-                                &struct_slots,
+                                &struct_slots_vec,
                                 types,
                                 &mut storage,
                             );
@@ -371,15 +373,17 @@ impl ProjectInfo {
                 .unwrap()
                 .to_string();
             if identifier.starts_with("t_struct") {
-                let struct_slots: Vec<(u64, U256, Option<String>)> = vec![(
-                    type_name
-                        .get("referencedDeclaration")
-                        .unwrap()
-                        .as_u64()
-                        .unwrap(),
+                let struct_slots_vec: Vec<(U256, (u64, Option<String>))> = Vec::from([(
                     U256::from_str("0x0").unwrap(), // this won't be used as we only have to add the types
-                    None,
-                )];
+                    (
+                        type_name
+                            .get("referencedDeclaration")
+                            .unwrap()
+                            .as_u64()
+                            .unwrap(),
+                        None,
+                    ),
+                )]);
                 let mut storage: Vec<StateVariable> = vec![]; // this won't be used as we only have to add the types
                 for source in sources.values() {
                     if let Some(ast) = source.ast.clone() {
@@ -388,7 +392,7 @@ impl ProjectInfo {
                                 sources,
                                 top_node,
                                 type_defs,
-                                &struct_slots,
+                                &struct_slots_vec,
                                 types,
                                 &mut storage,
                             );
@@ -485,14 +489,14 @@ impl ProjectInfo {
         sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         type_defs: &Types,
-        struct_slots: &Vec<(u64, U256, Option<String>)>,
+        struct_slots: &Vec<(U256, (u64, Option<String>))>,
         types: &mut HashMap<String, TypeDescription>,
         storage: &mut Vec<StateVariable>,
     ) {
         if node.node_type == NodeType::StructDefinition && node.id.is_some() {
             let mut storage_var_id: Option<usize> = None;
             // parse all struct definitions for each struct -> slot pair.
-            for (struct_id, slot, name) in struct_slots {
+            for (slot, (struct_id, name)) in struct_slots {
                 let struct_id = *struct_id;
                 let node_id = node.id.unwrap() as u64;
                 if node_id == struct_id {
@@ -638,7 +642,7 @@ impl ProjectInfo {
         types: &mut HashMap<String, TypeDescription>,
     ) {
         // Tuple: (struct AST ID, slot, name of variable containing the slot)
-        let mut struct_slots: Vec<(u64, U256, Option<String>)> = vec![];
+        let mut struct_slots: HashMap<U256, (u64, Option<String>)> = HashMap::new();
         // find pairs (storage slot => struct AST ID)
         for source in sources.values() {
             if let Some(ast) = source.ast.clone() {
@@ -647,6 +651,12 @@ impl ProjectInfo {
                 }
             }
         }
+
+        // Order struct_slots by key for deterministic results
+        let mut struct_slots_vec: Vec<(U256, (u64, Option<String>))> =
+            struct_slots.iter().map(|(k, v)| (*k, v.clone())).collect();
+        struct_slots_vec.sort_by(|a, b| a.0.cmp(&b.0));
+
         // parse the struct members + types
         for source in sources.values() {
             if let Some(ast) = source.ast.clone() {
@@ -655,7 +665,7 @@ impl ProjectInfo {
                         sources,
                         node,
                         type_defs,
-                        &struct_slots,
+                        &struct_slots_vec,
                         types,
                         storage,
                     );
@@ -671,7 +681,7 @@ impl ProjectInfo {
         sources: &BTreeMap<PathBuf, SourceFile>,
         node: &EAstNode,
         exported_ids: &Vec<usize>,
-        struct_slots: &mut Vec<(u64, U256, Option<String>)>,
+        struct_slots: &mut HashMap<U256, (u64, Option<String>)>,
     ) {
         if node.node_type == NodeType::ContractDefinition
             && node.id.is_some()
@@ -745,7 +755,7 @@ impl ProjectInfo {
                                                                                                 top_node,
                                                                                                 stmt_ref["declaration"].as_u64().unwrap()
                                                                                             ) {
-                                                                                                struct_slots.push((struct_id, var_slot, Some(var_name)));
+                                                                                                struct_slots.insert(var_slot, (struct_id, Some(var_name)));
                                                                                             // if no variable declaration can be found, try to find 
                                                                                             // functions with the variable as parameter.
                                                                                         } else if let Some((_, _, function_id, param_id))
@@ -799,9 +809,7 @@ impl ProjectInfo {
                                                                                                                     top_node,
                                                                                                                     var_ref_id.as_u64().unwrap()
                                                                                                                 ) {
-                                                                                                                    if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
-                                                                                                                        struct_slots.push((struct_id, var_slot, Some(var_name)));
-                                                                                                                    }
+                                                                                                                    struct_slots.entry(var_slot).or_insert((struct_id, Some(var_name)));
                                                                                                             }
                                                                                                         }
                                                                                                     } else if let Some(slot_value) = arg[param_id].get("value") {
@@ -809,15 +817,7 @@ impl ProjectInfo {
                                                                                                         // as we have no associated variable for the slot,
                                                                                                         // we use the name of the outer function.
                                                                                                         let var_slot = U256::from_str(slot_value.as_str().unwrap()).unwrap();
-                                                                                                        if !struct_slots.iter().any(|(_, slot, _)| slot.eq(&var_slot)) {
-                                                                                                            struct_slots.push(
-                                                                                                                (
-                                                                                                                    struct_id,
-                                                                                                                    var_slot,
-                                                                                                                    Some(format!("[{}]", outer_function))
-                                                                                                                )
-                                                                                                            );
-                                                                                                        }
+                                                                                                        struct_slots.entry(var_slot).or_insert((struct_id, Some(outer_function)));
                                                                                                     }
                                                                                                 }
                                                                                             }
@@ -855,16 +855,18 @@ impl ProjectInfo {
                                                                     } else {
                                                                         function_name = None;
                                                                     }
-                                                                    struct_slots.push((
-                                                                        struct_id,
-                                                                        U256::from_str(
-                                                                            slot_value
-                                                                                .as_str()
-                                                                                .unwrap(),
-                                                                        )
-                                                                        .unwrap(),
-                                                                        function_name,
-                                                                    ));
+                                                                    let var_slot = U256::from_str(
+                                                                        slot_value
+                                                                            .as_str()
+                                                                            .unwrap(),
+                                                                    )
+                                                                    .unwrap();
+                                                                    struct_slots
+                                                                        .entry(var_slot)
+                                                                        .or_insert((
+                                                                            struct_id,
+                                                                            function_name,
+                                                                        ));
                                                                 }
                                                             }
                                                         }

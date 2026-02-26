@@ -174,7 +174,15 @@ pub fn discover_storage_and_events(
         );
         contract_state.add_forge_inspect(&fi_impl_layout, &fi_impl_ir);
 
-        storage_layout.extend(tmp_project_info.storage.clone());
+        // Extend storage with implementation storage variables, ensuring unique slots
+        for storage_var in &tmp_project_info.storage {
+            if !storage_layout
+                .iter()
+                .any(|existing| existing.slot == storage_var.slot)
+            {
+                storage_layout.push(storage_var.clone());
+            }
+        }
         types.extend(tmp_project_info.types.clone());
         imp_project_info = Some(tmp_project_info);
     }

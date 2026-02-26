@@ -7,7 +7,7 @@
   "deployment_block_num": 2,
   "init_block_num": 3,
   "deployment_tx": "0x42d75b67073ebd107239df89b1f512be1972205d5bc728bcafeb3dc5675d0d15",
-  "codehash": "0x0d737bb1623f9f2c92d870330a5e6e657949fc96c0cd7b09d93be7565d352580",
+  "codehash": "0x2f5330b21d5be1ae2b7e5e526f3a309b0bb64480c1cf0d9f6be0794a5a7f6ce4",
   "insecure": false,
   "immutables": [
     {
