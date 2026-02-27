@@ -836,12 +836,16 @@ mod streaming_trace {
 }
 
 /// Send a JSON-RPC POST and return the raw response (not deserialized).
+/// Uses a fixed 120-second per-read timeout (via `.timeout()`) instead of
+/// the user-configured `web3_timeout`, so that arbitrarily large streaming
+/// responses can be consumed while still detecting server stalls promptly.
 fn send_blocking_web3_post_raw(
     config: &DVFConfig,
     request_body: &serde_json::Value,
 ) -> Result<reqwest::blocking::Response, ValidationError> {
     let client = Client::builder()
-        .timeout(Duration::from_millis(config.web3_timeout))
+        .connect_timeout(Duration::from_millis(config.web3_timeout))
+        .timeout(Duration::from_secs(120))
         .build()
         .unwrap();
 
