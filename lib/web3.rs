@@ -132,11 +132,12 @@ impl<'a> StorageSnapshotProcessor<'a> {
     pub fn new(
         snapshot: &'a mut HashMap<U256, [u8; 32]>,
         address: Address,
+        tx_to_address: Address,
         config: &'a DVFConfig,
         tx_id: String,
     ) -> Self {
         let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
-        depth_to_address.insert(1, address);
+        depth_to_address.insert(1, tx_to_address);
         StorageSnapshotProcessor {
             snapshot,
             address,
@@ -201,10 +202,21 @@ impl<'a> StructLogProcessor for StorageSnapshotProcessor<'a> {
         }
 
         if log.op == "STOP" || log.op == "RETURN" {
-            commit_storage_to_snapshot(&self.last_storage, log.depth, self.snapshot);
+            // Propagate committed storage to parent depth instead of writing
+            // directly to the snapshot. This ensures that if a parent depth
+            // later REVERTs, the child's storage changes are correctly rolled
+            // back (the parent's storage, including propagated values, is
+            // discarded on depth-decrease cleanup). It also handles reentrancy
+            // naturally: child values override parent values for the same slots.
+            if let Some(committed) = self.last_storage.remove(&log.depth) {
+                let parent = self.last_storage.entry(log.depth - 1).or_default();
+                for (slot, value) in committed {
+                    parent.insert(slot, value);
+                }
+            }
         }
         if log.depth < self.last_depth {
-            for depth in log.depth..self.last_depth + 1 {
+            for depth in (log.depth + 1)..=self.last_depth {
                 self.last_storage.remove(&depth);
             }
         }
@@ -873,7 +885,6 @@ pub fn stream_debug_trace<P: StructLogProcessor>(
         "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
         "id": 1
     });
-    println!("a {:?}", request_body);
 
     let response = send_blocking_web3_post_raw(config, &request_body)?;
     let metadata = streaming_trace::stream_trace_response(response, processor)?;
@@ -905,7 +916,6 @@ pub fn stream_eth_debug_trace_sim<P: StructLogProcessor>(
         "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
         "id": 1
     });
-    println!("b {:?}", request_body);
 
     // Try direct streaming first
     match send_blocking_web3_post_raw(config, &request_body) {
@@ -1599,20 +1609,32 @@ pub fn get_all_txs_for_contract(
     start_block: u64,
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
-    if let Ok(all_txs) =
-        get_all_txs_for_contract_from_blockscout(config, address, start_block, end_block)
-    {
-        return Ok(all_txs);
-    } else if end_block - start_block <= 100 {
+    // For manageable ranges, prefer trace-based approaches: they capture ALL
+    // internal calls to the contract, whereas blockscout may miss some.
+    // Parity traces: 1 RPC call per block.
+    if end_block - start_block <= 500 {
         if let Ok(all_txs) =
             get_all_txs_for_contract_from_parity_traces(config, address, start_block, end_block)
         {
-            return Ok(all_txs);
-        } else if let Ok(all_txs) =
-            get_all_txs_for_contract_from_geth_traces(config, address, start_block, end_block)
-        {
+            debug!("Found {} txs via parity traces", all_txs.len());
             return Ok(all_txs);
         }
+    }
+    // Geth traces: 1 RPC call per transaction (only feasible for small ranges).
+    if end_block - start_block <= 100 {
+        if let Ok(all_txs) =
+            get_all_txs_for_contract_from_geth_traces(config, address, start_block, end_block)
+        {
+            debug!("Found {} txs via geth traces", all_txs.len());
+            return Ok(all_txs);
+        }
+    }
+    // Fallback: blockscout API (fast but may miss internal-call-only transactions).
+    if let Ok(all_txs) =
+        get_all_txs_for_contract_from_blockscout(config, address, start_block, end_block)
+    {
+        debug!("Found {} txs via blockscout", all_txs.len());
+        return Ok(all_txs);
     }
     Err(ValidationError::from(format!(
         "Could not find transactions for {:?} from {} to {}.",
@@ -2277,8 +2299,14 @@ impl StorageSnapshot {
         debug!("Constructing snapshot from TX Ids (streaming).");
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for tx_hash in tx_hashes {
-            let mut processor =
-                StorageSnapshotProcessor::new(&mut snapshot, *address, config, tx_hash.clone());
+            let tx_to_address = get_receipt_address(config, tx_hash)?;
+            let mut processor = StorageSnapshotProcessor::new(
+                &mut snapshot,
+                *address,
+                tx_to_address,
+                config,
+                tx_hash.clone(),
+            );
             let (metadata, _) = stream_debug_trace(config, tx_hash, &mut processor)?;
             if metadata.failed {
                 processor.trace_failed();
@@ -2365,16 +2393,19 @@ impl StorageSnapshot {
                 // );
             }
 
-            // Save upon successful return
+            // Propagate committed storage to parent depth on successful return
             if log.op == "STOP" || log.op == "RETURN" {
-                commit_storage_to_snapshot(&last_storage, log.depth, snapshot);
+                if let Some(committed) = last_storage.remove(&log.depth) {
+                    let parent = last_storage.entry(log.depth - 1).or_default();
+                    for (slot, value) in committed {
+                        parent.insert(slot, value);
+                    }
+                }
             }
             // Clean failed storages
             if log.depth < last_depth {
-                for depth in log.depth..last_depth + 1 {
-                    if last_storage.contains_key(&depth) {
-                        last_storage.remove(&depth);
-                    }
+                for depth in (log.depth + 1)..=last_depth {
+                    last_storage.remove(&depth);
                 }
             }
         }
