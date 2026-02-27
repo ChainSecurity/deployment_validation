@@ -19,10 +19,10 @@ use crate::state::forge_inspect;
 use crate::utils::pretty::PrettyPrinter;
 use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
+use crate::state::contract_state::MappingUsages;
 use crate::web3;
 use crate::web3::stop_anvil_instance;
-use crate::web3::TraceWithAddress;
-use alloy_node_bindings::AnvilInstance;
+
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
@@ -46,9 +46,8 @@ pub struct DiscoveryParams<'a> {
     pub progress_mode: &'a ProgressMode,
     pub use_storage_range: bool,
     pub tx_hashes: Option<Vec<String>>,
-    // Optional cache (used by inspect-tx): reuse an already computed trace and config
-    pub cached_traces: Option<Vec<TraceWithAddress>>,
-    pub cached_anvil_config: Option<&'a DVFConfig>,
+    // Optional cache (used by inspect-tx): reuse pre-computed mapping usages
+    pub cached_mapping_usages: Option<MappingUsages>,
 }
 
 pub struct DiscoveryResult {
@@ -211,47 +210,48 @@ pub fn discover_storage_and_events(
     )?;
 
     print_progress("Getting relevant traces.", params.pc, params.progress_mode);
-    let mut seen_transactions = HashSet::new();
     let mut missing_traces = false;
 
-    for (index, tx_hash) in tx_hashes.iter().enumerate() {
-        if seen_transactions.contains(tx_hash) {
-            continue;
-        }
-        seen_transactions.insert(tx_hash);
+    if let Some(cached_usages) = params.cached_mapping_usages {
+        // Inject pre-computed mapping usages directly (from inspect-tx)
+        debug!("Using cached mapping usages");
+        contract_state.inject_mapping_usages(cached_usages);
+    } else {
+        // Stream traces to collect mapping usages
+        let mut seen_transactions = HashSet::new();
+        for tx_hash in tx_hashes.iter() {
+            if seen_transactions.contains(tx_hash) {
+                continue;
+            }
+            seen_transactions.insert(tx_hash);
 
-        info!("Getting trace for {}", tx_hash);
-        // Use cached trace if provided (inspect-tx), otherwise fetch
-        let fetched = if let Some(ref cached) = params.cached_traces {
-            debug!("Using cached trace at index {} of {}", index, cached.len());
-            Ok((
-                cached[index].clone(),
-                None::<DVFConfig>,
-                None::<AnvilInstance>,
-            ))
-        } else {
-            web3::get_eth_debug_trace_sim(params.config, tx_hash)
-        };
-        match fetched {
-            Ok((trace, anvil_config, anvil_instance)) => {
-                let record_traces_config: &DVFConfig = if params.cached_traces.is_some() {
-                    params.cached_anvil_config.unwrap_or(params.config)
-                } else {
-                    anvil_config.as_ref().unwrap_or(params.config)
-                };
-                if let Err(err) = contract_state.record_traces(record_traces_config, vec![trace]) {
+            info!("Getting trace for {}", tx_hash);
+            let trace_address = match web3::get_receipt_address(params.config, tx_hash) {
+                Ok(addr) => addr,
+                Err(err) => {
                     missing_traces = true;
                     info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                    continue;
                 }
-                if params.cached_traces.is_none() {
+            };
+            let mut processor = crate::state::contract_state::MappingUsageProcessor::new(
+                *params.address,
+                trace_address,
+                params.config,
+                tx_hash.clone(),
+                true,
+            );
+            match web3::stream_eth_debug_trace_sim(params.config, tx_hash, &mut processor) {
+                Ok((_metadata, _address, _anvil_config, anvil_instance)) => {
+                    contract_state.inject_mapping_usages(processor.mapping_usages);
                     if let Some(anvil_instance) = anvil_instance {
                         stop_anvil_instance(anvil_instance);
                     }
                 }
-            }
-            Err(err) => {
-                missing_traces = true;
-                info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                Err(err) => {
+                    missing_traces = true;
+                    info!("Warning. The trace for {tx_hash} cannot be obtained. Some mapping slots might not be decodable. You can try to increase the timeout in the config. Error: {}", err);
+                }
             }
         }
     }
@@ -546,8 +546,7 @@ pub fn create_discovery_params_for_init<'a>(
         progress_mode,
         use_storage_range: true,
         tx_hashes: None,
-        cached_traces: None,
-        cached_anvil_config: None,
+        cached_mapping_usages: None,
     }
 }
 
@@ -593,7 +592,6 @@ pub fn create_discovery_params_for_update<'a>(
         progress_mode,
         use_storage_range: false, // cannot use storage range here as we are only trying to get a subset of the state
         tx_hashes: None,
-        cached_traces: None,
-        cached_anvil_config: None,
+        cached_mapping_usages: None,
     }
 }

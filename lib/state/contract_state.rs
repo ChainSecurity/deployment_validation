@@ -17,7 +17,9 @@ use crate::state::forge_inspect::{
     ForgeInspectIrOptimized, ForgeInspectLayoutStorage, StateVariable, TypeDescription,
 };
 use crate::utils::pretty::PrettyPrinter;
-use crate::web3::{get_internal_create_addresses, StorageSnapshot, TraceWithAddress};
+use crate::web3::{
+    get_internal_create_addresses, StorageSnapshot, StructLogProcessor, TraceWithAddress,
+};
 
 fn hash_u256(u: &U256) -> B256 {
     keccak256(u.to_be_bytes::<32>())
@@ -386,6 +388,16 @@ impl<'a> ContractState<'a> {
             first_trace = false;
         }
         Ok(())
+    }
+
+    /// Inject pre-computed mapping usages directly, skipping trace processing.
+    pub fn inject_mapping_usages(&mut self, usages: HashMap<U256, HashSet<(String, U256)>>) {
+        for (index, entries) in usages {
+            self.mapping_usages
+                .entry(index)
+                .or_default()
+                .extend(entries);
+        }
     }
 
     fn add_to_table(storage_entry: &parse::DVFStorageEntry, table: &mut Table) {
@@ -929,5 +941,228 @@ impl<'a> ContractState<'a> {
 
     pub fn is_user_defined_type(var_type: &str) -> bool {
         var_type.starts_with("t_userDefinedValueType")
+    }
+}
+
+/// Type alias for mapping usages: storage index -> set of (key, derived_slot).
+pub type MappingUsages = HashMap<U256, HashSet<(String, U256)>>;
+
+/// Helper: extract mapping key from memory at a SHA3/KECCAK256 opcode.
+/// Returns `Some((key_hex, storage_index))` if the input looks like a mapping hash.
+fn extract_mapping_key_from_sha3(
+    stack: &[U256],
+    memory: &[String],
+) -> Option<(String, U256)> {
+    let length_in_bytes = stack[stack.len() - 2];
+    if length_in_bytes < U256::from(32_u64) || length_in_bytes >= U256::from(usize::MAX / 2) {
+        return None;
+    }
+    let mem_str: String = memory.iter().cloned().collect();
+    let start_idx = stack[stack.len() - 1].to::<usize>() * 2;
+    let length = length_in_bytes.to::<usize>() * 2;
+    let sha3_input = format!("0x{}", &mem_str[start_idx..(start_idx + length)]);
+
+    let usize_str_length = length_in_bytes.to::<usize>() * 2 + 2;
+    assert!(sha3_input.len() == usize_str_length);
+    let key = sha3_input[2..usize_str_length - 64].to_string();
+    let index = U256::from_str_radix(&sha3_input[usize_str_length - 64..], 16).ok()?;
+    Some((key, index))
+}
+
+/// Processor that collects mapping usages for a single address from trace logs.
+/// Extracted from `ContractState::record_traces()`.
+pub struct MappingUsageProcessor<'a> {
+    address: Address,
+    config: &'a DVFConfig,
+    tx_id: String,
+    is_first_trace: bool,
+    depth_to_address: HashMap<u64, Address>,
+    create_addresses: Option<Vec<Address>>,
+    key: Option<String>,
+    index: U256,
+    pub mapping_usages: MappingUsages,
+    failed: bool,
+}
+
+impl<'a> MappingUsageProcessor<'a> {
+    pub fn new(
+        address: Address,
+        trace_address: Address,
+        config: &'a DVFConfig,
+        tx_id: String,
+        is_first_trace: bool,
+    ) -> Self {
+        let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
+        depth_to_address.insert(1, trace_address);
+        MappingUsageProcessor {
+            address,
+            config,
+            tx_id,
+            is_first_trace,
+            depth_to_address,
+            create_addresses: None,
+            key: None,
+            index: U256::from(1),
+            mapping_usages: HashMap::new(),
+            failed: false,
+        }
+    }
+}
+
+impl<'a> StructLogProcessor for MappingUsageProcessor<'a> {
+    fn process_log(&mut self, log: alloy_rpc_types_trace::geth::StructLog) -> Result<(), crate::dvf::parse::ValidationError> {
+        if log.stack.is_none() {
+            return Ok(());
+        }
+        let stack = log.stack.unwrap();
+
+        if log.op == "CREATE" || log.op == "CREATE2" {
+            if self.is_first_trace {
+                if self.create_addresses.is_none() {
+                    self.create_addresses =
+                        Some(get_internal_create_addresses(self.config, &self.tx_id)?);
+                }
+                if let Some(ref mut create_ref) = self.create_addresses {
+                    self.depth_to_address
+                        .insert(log.depth + 1, create_ref.remove(0));
+                }
+            } else {
+                self.depth_to_address
+                    .insert(log.depth + 1, Address::from([0; 20]));
+            }
+        }
+
+        if log.op == "CALL" || log.op == "STATICCALL" {
+            let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+            let a = Address::from_slice(&address_bytes[12..]);
+            self.depth_to_address.insert(log.depth + 1, a);
+        }
+
+        if log.op == "DELEGATECALL" || log.op == "CALLCODE" {
+            self.depth_to_address
+                .insert(log.depth + 1, self.depth_to_address[&log.depth]);
+        }
+
+        if self.depth_to_address[&log.depth] == self.address {
+            if let Some(key_in) = self.key.take() {
+                let target_slot = &stack[stack.len() - 1];
+                self.mapping_usages
+                    .entry(self.index)
+                    .or_default()
+                    .insert((key_in, *target_slot));
+            }
+
+            if log.op == "KECCAK256" || log.op == "SHA3" {
+                if let Some(memory) = &log.memory {
+                    if let Some((key, index)) = extract_mapping_key_from_sha3(&stack, memory) {
+                        debug!("Found key {} for index {}.", key, index);
+                        self.key = Some(key);
+                        self.index = index;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn trace_failed(&mut self) {
+        self.failed = true;
+        self.mapping_usages.clear();
+    }
+}
+
+/// Processor that collects mapping usages for ALL addresses encountered in a trace.
+/// Used by `inspect-tx` to process the trace once for all contracts.
+pub struct MultiAddressMappingProcessor<'a> {
+    config: &'a DVFConfig,
+    tx_id: String,
+    depth_to_address: HashMap<u64, Address>,
+    create_addresses: Option<Vec<Address>>,
+    key: Option<String>,
+    index: U256,
+    /// Per-address mapping usages.
+    pub all_mapping_usages: HashMap<Address, MappingUsages>,
+    failed: bool,
+}
+
+impl<'a> MultiAddressMappingProcessor<'a> {
+    pub fn new(
+        trace_address: Address,
+        config: &'a DVFConfig,
+        tx_id: String,
+    ) -> Self {
+        let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
+        depth_to_address.insert(1, trace_address);
+        MultiAddressMappingProcessor {
+            config,
+            tx_id,
+            depth_to_address,
+            create_addresses: None,
+            key: None,
+            index: U256::from(1),
+            all_mapping_usages: HashMap::new(),
+            failed: false,
+        }
+    }
+}
+
+impl<'a> StructLogProcessor for MultiAddressMappingProcessor<'a> {
+    fn process_log(&mut self, log: alloy_rpc_types_trace::geth::StructLog) -> Result<(), crate::dvf::parse::ValidationError> {
+        if log.stack.is_none() {
+            return Ok(());
+        }
+        let stack = log.stack.unwrap();
+
+        if log.op == "CREATE" || log.op == "CREATE2" {
+            if self.create_addresses.is_none() {
+                self.create_addresses =
+                    Some(get_internal_create_addresses(self.config, &self.tx_id)?);
+            }
+            if let Some(ref mut create_ref) = self.create_addresses {
+                self.depth_to_address
+                    .insert(log.depth + 1, create_ref.remove(0));
+            }
+        }
+
+        if log.op == "CALL" || log.op == "STATICCALL" {
+            let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+            let a = Address::from_slice(&address_bytes[12..]);
+            self.depth_to_address.insert(log.depth + 1, a);
+        }
+
+        if log.op == "DELEGATECALL" || log.op == "CALLCODE" {
+            self.depth_to_address
+                .insert(log.depth + 1, self.depth_to_address[&log.depth]);
+        }
+
+        let current_address = self.depth_to_address[&log.depth];
+
+        if let Some(key_in) = self.key.take() {
+            let target_slot = &stack[stack.len() - 1];
+            self.all_mapping_usages
+                .entry(current_address)
+                .or_default()
+                .entry(self.index)
+                .or_default()
+                .insert((key_in, *target_slot));
+        }
+
+        if log.op == "KECCAK256" || log.op == "SHA3" {
+            if let Some(memory) = &log.memory {
+                if let Some((key, index)) = extract_mapping_key_from_sha3(&stack, memory) {
+                    debug!("Found key {} for index {}.", key, index);
+                    self.key = Some(key);
+                    self.index = index;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn trace_failed(&mut self) {
+        self.failed = true;
+        self.all_mapping_usages.clear();
     }
 }

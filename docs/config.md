@@ -23,7 +23,7 @@ When running the `dvf` command, the default configuration file is expected at `$
 | - - `api_url` | Chain-specific Blockscout API URL |
 | - - `api_key` | Chain-specific Blockscout API Key |
 | `max_blocks_per_event_query` | Number of blocks that can be queried at once in `getLogs`, optional, defaults to 9999 |
-| `web3_timeout` | Timeout in seconds for web3 RPC queries, optional, defaults to 5000 |
+| `web3_timeout` | Timeout in milliseconds for web3 RPC queries, optional, defaults to 5000 |
 | `signer` | Configuration on how to sign, optional |
 | - `wallet_address` | Address which is used to sign |
 | - `wallet_type` | Can have different structure |

@@ -98,6 +98,126 @@ pub struct TraceWithAddress {
     pub tx_id: String,
 }
 
+/// Metadata from a debug trace (everything except structLogs).
+#[derive(Debug, Clone)]
+pub struct TraceMetadata {
+    pub failed: bool,
+    pub gas: u64,
+    pub return_value: Bytes,
+}
+
+/// Trait for processing StructLog entries one at a time during streaming deserialization.
+pub trait StructLogProcessor {
+    fn process_log(&mut self, log: StructLog) -> Result<(), ValidationError>;
+    /// Called after all logs have been processed if the trace's `failed` flag is true.
+    /// Allows the processor to discard results from a failed trace.
+    fn trace_failed(&mut self);
+}
+
+/// Processor that builds a storage snapshot from trace logs.
+/// Extracted from `StorageSnapshot::add_trace()`.
+pub struct StorageSnapshotProcessor<'a> {
+    snapshot: &'a mut HashMap<U256, [u8; 32]>,
+    address: Address,
+    config: &'a DVFConfig,
+    tx_id: String,
+    depth_to_address: HashMap<u64, Address>,
+    last_storage: HashMap<u64, HashMap<U256, U256>>,
+    last_depth: u64,
+    create_addresses: Option<Vec<Address>>,
+    failed: bool,
+}
+
+impl<'a> StorageSnapshotProcessor<'a> {
+    pub fn new(
+        snapshot: &'a mut HashMap<U256, [u8; 32]>,
+        address: Address,
+        config: &'a DVFConfig,
+        tx_id: String,
+    ) -> Self {
+        let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
+        depth_to_address.insert(1, address);
+        StorageSnapshotProcessor {
+            snapshot,
+            address,
+            config,
+            tx_id,
+            depth_to_address,
+            last_storage: HashMap::new(),
+            last_depth: 1,
+            create_addresses: None,
+            failed: false,
+        }
+    }
+
+    /// Finalize: commit depth-1 storage (we know depth 1 succeeded if trace didn't fail).
+    pub fn finalize(self) -> Result<(), ValidationError> {
+        if self.failed {
+            return Ok(());
+        }
+        commit_storage_to_snapshot(&self.last_storage, 0u64, self.snapshot);
+        // Check that we used all addresses
+        if let Some(addrs) = self.create_addresses {
+            assert_eq!(addrs.len(), 0);
+        }
+        Ok(())
+    }
+}
+
+impl<'a> StructLogProcessor for StorageSnapshotProcessor<'a> {
+    fn process_log(&mut self, log: StructLog) -> Result<(), ValidationError> {
+        if log.stack.is_none() {
+            return Ok(());
+        }
+        let stack = log.stack.unwrap();
+
+        if log.op == "CREATE" || log.op == "CREATE2" {
+            if self.create_addresses.is_none() {
+                self.create_addresses =
+                    Some(get_internal_create_addresses(self.config, &self.tx_id)?);
+            }
+            if let Some(ref mut create_ref) = self.create_addresses {
+                self.depth_to_address
+                    .insert(log.depth + 1, create_ref.remove(0));
+            }
+        }
+
+        if log.op == "CALL" || log.op == "STATICCALL" {
+            let address_bytes = stack[stack.len() - 2].to_be_bytes::<32>();
+            let a = Address::from_slice(&address_bytes[12..]);
+            self.depth_to_address.insert(log.depth + 1, a);
+        }
+
+        if log.op == "DELEGATECALL" || log.op == "CALLCODE" {
+            self.depth_to_address
+                .insert(log.depth + 1, self.depth_to_address[&log.depth]);
+        }
+
+        if &self.depth_to_address[&log.depth] == &self.address && log.op == "SSTORE" {
+            let last_store = self.last_storage.entry(log.depth).or_default();
+            let value = stack[stack.len() - 2];
+            let slot = stack[stack.len() - 1];
+            last_store.insert(slot, value);
+        }
+
+        if log.op == "STOP" || log.op == "RETURN" {
+            commit_storage_to_snapshot(&self.last_storage, log.depth, self.snapshot);
+        }
+        if log.depth < self.last_depth {
+            for depth in log.depth..self.last_depth + 1 {
+                self.last_storage.remove(&depth);
+            }
+        }
+        self.last_depth = log.depth;
+
+        Ok(())
+    }
+
+    fn trace_failed(&mut self) {
+        self.failed = true;
+    }
+}
+
 pub fn get_block_traces(
     config: &DVFConfig,
     block_num: u64,
@@ -296,6 +416,37 @@ fn create_trace_with_address(
     }
 }
 
+/// Get the target address for a transaction from its receipt.
+/// Extracted from `create_trace_with_address()` for reuse with streaming.
+pub fn get_receipt_address(
+    config: &DVFConfig,
+    tx_id: &str,
+) -> Result<Address, ValidationError> {
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_getTransactionReceipt",
+        "params": [tx_id],
+        "id": 1
+    });
+    let result = send_blocking_web3_post(config, &request_body)?;
+    let receipt: TransactionReceipt = serde_json::from_value(result)?;
+
+    if let Some(address) = receipt.to {
+        Ok(address)
+    } else if let Some(address) = receipt.contract_address {
+        Ok(address)
+    } else {
+        println!(
+            "[DEBUG] get_receipt_address: No address found in receipt: {:?}",
+            receipt
+        );
+        Err(ValidationError::from(format!(
+            "Found no address for tx {}",
+            tx_id
+        )))
+    }
+}
+
 pub fn get_eth_debug_trace(
     config: &DVFConfig,
     tx_id: &str,
@@ -472,6 +623,405 @@ pub fn get_eth_debug_trace_sim(
             };
 
             Ok((result, Some(anvil_config), Some(anvil_instance)))
+        }
+    }
+}
+
+/// Module for streaming deserialization of debug_traceTransaction responses.
+/// Instead of materializing the entire `structLogs` array, we deserialize and process
+/// one `StructLog` at a time, keeping memory usage bounded.
+mod streaming_trace {
+    use super::*;
+    use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
+    use std::fmt;
+
+
+    /// Seed that drives streaming: navigates the JSON-RPC envelope and processes structLogs
+    /// one element at a time via the provided `StructLogProcessor`.
+    struct ResultFieldSeed<'a, P> {
+        processor: &'a mut P,
+        metadata: &'a mut TraceMetadata,
+    }
+
+    /// Visitor for the `result` object inside JSON-RPC response.
+    /// Handles fields: `failed`, `gas`, `returnValue`, `structLogs`.
+    struct ResultObjectVisitor<'a, P> {
+        processor: &'a mut P,
+        metadata: &'a mut TraceMetadata,
+    }
+
+    impl<'de, P: StructLogProcessor> Visitor<'de> for ResultObjectVisitor<'_, P> {
+        type Value = ();
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a trace result object with structLogs")
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+            let mut got_struct_logs = false;
+            while let Some(key) = map.next_key::<String>()? {
+                match key.as_str() {
+                    "failed" => {
+                        self.metadata.failed = map.next_value()?;
+                    }
+                    "gas" => {
+                        // Handle both integer and hex string (pathological RPC)
+                        let value: serde_json::Value = map.next_value()?;
+                        self.metadata.gas = match value {
+                            serde_json::Value::Number(n) => n
+                                .as_u64()
+                                .ok_or_else(|| de::Error::custom("Invalid gas number"))?,
+                            serde_json::Value::String(s) => {
+                                u64::from_str_radix(s.trim_start_matches("0x"), 16)
+                                    .map_err(de::Error::custom)?
+                            }
+                            _ => return Err(de::Error::custom("Expected gas as hex string or integer")),
+                        };
+                    }
+                    "returnValue" => {
+                        self.metadata.return_value = map.next_value()?;
+                    }
+                    "structLogs" => {
+                        // Stream the array: deserialize each StructLog and hand to processor
+                        map.next_value_seed(StructLogArraySeed {
+                            processor: self.processor,
+                        })?;
+                        got_struct_logs = true;
+                    }
+                    _ => {
+                        // Skip unknown fields
+                        let _ = map.next_value::<serde_json::Value>()?;
+                    }
+                }
+            }
+            if !got_struct_logs {
+                return Err(de::Error::custom("missing structLogs field in trace result"));
+            }
+            // If `failed` was encountered after `structLogs`, notify the processor
+            if self.metadata.failed {
+                self.processor.trace_failed();
+            }
+            Ok(())
+        }
+    }
+
+    impl<'de, P: StructLogProcessor> DeserializeSeed<'de> for ResultFieldSeed<'_, P> {
+        type Value = ();
+
+        fn deserialize<D: serde::Deserializer<'de>>(self, deserializer: D) -> Result<(), D::Error> {
+            deserializer.deserialize_map(ResultObjectVisitor {
+                processor: self.processor,
+                metadata: self.metadata,
+            })
+        }
+    }
+
+    /// Seed for streaming deserialization of the `structLogs` array.
+    struct StructLogArraySeed<'a, P> {
+        processor: &'a mut P,
+    }
+
+    struct StructLogArrayVisitor<'a, P> {
+        processor: &'a mut P,
+    }
+
+    impl<'de, P: StructLogProcessor> Visitor<'de> for StructLogArrayVisitor<'_, P> {
+        type Value = ();
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("an array of StructLog entries")
+        }
+
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
+            while let Some(log) = seq.next_element::<StructLog>()? {
+                self.processor
+                    .process_log(log)
+                    .map_err(de::Error::custom)?;
+            }
+            Ok(())
+        }
+    }
+
+    impl<'de, P: StructLogProcessor> DeserializeSeed<'de> for StructLogArraySeed<'_, P> {
+        type Value = ();
+
+        fn deserialize<D: serde::Deserializer<'de>>(self, deserializer: D) -> Result<(), D::Error> {
+            deserializer.deserialize_seq(StructLogArrayVisitor {
+                processor: self.processor,
+            })
+        }
+    }
+
+    /// Visitor for the top-level JSON-RPC response envelope.
+    struct RpcEnvelopeVisitor<'a, P> {
+        processor: &'a mut P,
+        metadata: &'a mut TraceMetadata,
+    }
+
+    impl<'de, P: StructLogProcessor> Visitor<'de> for RpcEnvelopeVisitor<'_, P> {
+        type Value = ();
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a JSON-RPC response object")
+        }
+
+        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
+            let mut got_result = false;
+            while let Some(key) = map.next_key::<String>()? {
+                match key.as_str() {
+                    "result" => {
+                        map.next_value_seed(ResultFieldSeed {
+                            processor: self.processor,
+                            metadata: self.metadata,
+                        })?;
+                        got_result = true;
+                    }
+                    "error" => {
+                        let error: serde_json::Value = map.next_value()?;
+                        return Err(de::Error::custom(format!("Web3Error: {:?}", error)));
+                    }
+                    _ => {
+                        // Skip jsonrpc, id, etc.
+                        let _ = map.next_value::<serde_json::Value>()?;
+                    }
+                }
+            }
+            if !got_result {
+                return Err(de::Error::custom("No result field in JSON-RPC response"));
+            }
+            Ok(())
+        }
+    }
+
+    struct RpcEnvelopeSeed<'a, P> {
+        processor: &'a mut P,
+        metadata: &'a mut TraceMetadata,
+    }
+
+    impl<'de, P: StructLogProcessor> DeserializeSeed<'de> for RpcEnvelopeSeed<'_, P> {
+        type Value = ();
+
+        fn deserialize<D: serde::Deserializer<'de>>(self, deserializer: D) -> Result<(), D::Error> {
+            deserializer.deserialize_map(RpcEnvelopeVisitor {
+                processor: self.processor,
+                metadata: self.metadata,
+            })
+        }
+    }
+
+    /// Stream a debug_traceTransaction response, processing each StructLog via the processor.
+    /// Returns TraceMetadata (failed, gas, returnValue) without materializing the full array.
+    pub fn stream_trace_response<P: StructLogProcessor>(
+        response: reqwest::blocking::Response,
+        processor: &mut P,
+    ) -> Result<TraceMetadata, ValidationError> {
+        let mut metadata = TraceMetadata {
+            failed: false,
+            gas: 0,
+            return_value: Bytes::new(),
+        };
+
+        let reader = std::io::BufReader::new(response);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+
+        RpcEnvelopeSeed {
+            processor,
+            metadata: &mut metadata,
+        }
+        .deserialize(&mut deserializer)
+        .map_err(|e| ValidationError::from(format!("Streaming trace deserialization error: {}", e)))?;
+
+        Ok(metadata)
+    }
+}
+
+/// Send a JSON-RPC POST and return the raw response (not deserialized).
+fn send_blocking_web3_post_raw(
+    config: &DVFConfig,
+    request_body: &serde_json::Value,
+) -> Result<reqwest::blocking::Response, ValidationError> {
+    let client = Client::builder()
+        .timeout(Duration::from_millis(config.web3_timeout))
+        .build()
+        .unwrap();
+
+    let node_url = config.get_rpc_url()?;
+
+    debug!("Web3 request_body (streaming): {:?}", request_body);
+    let response = client.post(node_url).json(&request_body).send()?;
+
+    Ok(response)
+}
+
+/// Stream a debug_traceTransaction RPC call, processing each StructLog one at a time.
+/// Returns (TraceMetadata, target_address).
+pub fn stream_debug_trace<P: StructLogProcessor>(
+    config: &DVFConfig,
+    tx_id: &str,
+    processor: &mut P,
+) -> Result<(TraceMetadata, Address), ValidationError> {
+    debug!("Streaming debug trace for {}", tx_id);
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
+        "id": 1
+    });
+    println!("a {:?}", request_body);
+
+    let response = send_blocking_web3_post_raw(config, &request_body)?;
+    let metadata = streaming_trace::stream_trace_response(response, processor)?;
+    let address = get_receipt_address(config, tx_id)?;
+
+    Ok((metadata, address))
+}
+
+/// Streaming variant of `get_eth_debug_trace_sim()` with Anvil fallback.
+/// Returns (TraceMetadata, target_address, Option<DVFConfig>, Option<AnvilInstance>).
+pub fn stream_eth_debug_trace_sim<P: StructLogProcessor>(
+    config: &DVFConfig,
+    tx_id: &str,
+    processor: &mut P,
+) -> Result<(TraceMetadata, Address, Option<DVFConfig>, Option<AnvilInstance>), ValidationError> {
+    debug!("Streaming debug trace (with sim fallback).");
+
+    let request_body = json!({
+        "jsonrpc": "2.0",
+        "method": "debug_traceTransaction",
+        "params": [tx_id, {"enableMemory": true, "enableStorage": true, "enableReturnData": false}],
+        "id": 1
+    });
+    println!("b {:?}", request_body);
+
+    // Try direct streaming first
+    match send_blocking_web3_post_raw(config, &request_body) {
+        Ok(response) => {
+            match streaming_trace::stream_trace_response(response, processor) {
+                Ok(metadata) => {
+                    let address = get_receipt_address(config, tx_id)?;
+                    return Ok((metadata, address, None, None));
+                }
+                Err(e) => {
+                    info!("Direct streaming trace failed, trying fallback with anvil: {}", e);
+                }
+            }
+        }
+        Err(_) => {
+            info!("Initial debug_traceTransaction request failed, trying fallback with anvil");
+        }
+    }
+
+    // Fallback: replay via Anvil, then stream from Anvil
+    let (block_num, tx_index, tx_result) = get_transaction_details(config, tx_id)?;
+    let rpc_url = config.get_rpc_url()?;
+
+    let (fork_transaction_hash, fork_block_number) =
+        match get_previous_transaction_in_block(config, block_num, tx_index)? {
+            Some(prev_tx_hash) => (Some(prev_tx_hash), None),
+            None => (None, Some(block_num - 1)),
+        };
+
+    let anvil_instance = start_anvil(
+        &rpc_url,
+        fork_transaction_hash.as_deref(),
+        fork_block_number,
+        get_eth_block_timestamp(config, block_num)?,
+    )?;
+
+    let mut anvil_config = DVFConfig::default();
+    anvil_config
+        .rpc_urls
+        .insert(config.active_chain_id.unwrap(), anvil_instance.endpoint());
+    anvil_config.active_chain_id = config.active_chain_id;
+    anvil_config.web3_timeout = config.web3_timeout;
+
+    let from = tx_result["from"].as_str().unwrap();
+    let to = tx_result["to"].as_str().unwrap_or("null");
+    let value = tx_result["value"].as_str().unwrap();
+    let data = tx_result["input"].as_str().unwrap();
+    let gas = tx_result["gas"].as_str().unwrap();
+    let gas_price = tx_result["gasPrice"].as_str().unwrap();
+
+    let impersonate_body = json!({
+        "jsonrpc": "2.0",
+        "method": "anvil_impersonateAccount",
+        "params": [from],
+        "id": 1
+    });
+    let _ = send_blocking_web3_post(&anvil_config, &impersonate_body);
+
+    let balance_body = json!({
+        "jsonrpc": "2.0",
+        "method": "anvil_setBalance",
+        "params": [from, "0x56bc75e2d63100000"],
+        "id": 1
+    });
+    let _ = send_blocking_web3_post(&anvil_config, &balance_body);
+
+    let send_tx_body = json!({
+        "jsonrpc": "2.0",
+        "method": "eth_sendTransaction",
+        "params": [
+            {
+                "from": from,
+                "to": if to == "null" { serde_json::Value::Null } else { json!(to) },
+                "value": value,
+                "input": data,
+                "gas": gas,
+                "gasPrice": gas_price
+            }
+        ],
+        "id": 1
+    });
+
+    let anvil_tx_result = match send_blocking_web3_post(&anvil_config, &send_tx_body) {
+        Ok(result) => result,
+        Err(_) => {
+            let send_tx_body_wo_gas = json!({
+                "jsonrpc": "2.0",
+                "method": "eth_sendTransaction",
+                "params": [
+                    {
+                        "from": from,
+                        "to": if to == "null" { serde_json::Value::Null } else { json!(to) },
+                        "value": value,
+                        "input": data,
+                    }
+                ],
+                "id": 1
+            });
+            match send_blocking_web3_post(&anvil_config, &send_tx_body_wo_gas) {
+                Ok(result) => result,
+                Err(e) => {
+                    stop_anvil_instance(anvil_instance);
+                    return Err(e);
+                }
+            }
+        }
+    };
+
+    let ts_body = json!({
+        "jsonrpc": "2.0",
+        "method": "evm_setNextBlockTimestamp",
+        "params": [get_eth_block_timestamp(config, block_num)?],
+        "id": 1
+    });
+    let _ = send_blocking_web3_post(&anvil_config, &ts_body);
+
+    let mine_body = json!({
+        "jsonrpc": "2.0",
+        "method": "evm_mine",
+        "params": [],
+        "id": 1
+    });
+    let _ = send_blocking_web3_post(&anvil_config, &mine_body);
+
+    let anvil_tx_id = anvil_tx_result.as_str().unwrap();
+    match stream_debug_trace(&anvil_config, anvil_tx_id, processor) {
+        Ok((metadata, address)) => Ok((metadata, address, Some(anvil_config), Some(anvil_instance))),
+        Err(e) => {
+            stop_anvil_instance(anvil_instance);
+            Err(e)
         }
     }
 }
@@ -1707,11 +2257,20 @@ impl StorageSnapshot {
         address: &Address,
         tx_hashes: &Vec<String>,
     ) -> Result<HashMap<U256, [u8; 32]>, ValidationError> {
-        debug!("Constructing snapshot from TX Ids.");
+        debug!("Constructing snapshot from TX Ids (streaming).");
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for tx_hash in tx_hashes {
-            let trace_w_a = get_eth_debug_trace(config, tx_hash)?;
-            Self::add_trace(&mut snapshot, config, address, &trace_w_a)?;
+            let mut processor = StorageSnapshotProcessor::new(
+                &mut snapshot,
+                *address,
+                config,
+                tx_hash.clone(),
+            );
+            let (metadata, _) = stream_debug_trace(config, tx_hash, &mut processor)?;
+            if metadata.failed {
+                processor.trace_failed();
+            }
+            processor.finalize()?;
         }
         Ok(snapshot)
     }
