@@ -1659,7 +1659,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             for address in &call_addresses {
                 println!("- {}", address);
             }
-            if create_addresses.len() > 0 {
+            if !create_addresses.is_empty() {
                 println!("The transaction created the following contracts:");
                 for address in &create_addresses {
                     println!("- {}", address);
@@ -1712,8 +1712,8 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     usages_for_address,
                 )?;
             }
-    
-            if create_addresses.len() == 0 {
+
+            if create_addresses.is_empty() {
                 println!("No contracts created during transaction - skipping")
             }
 

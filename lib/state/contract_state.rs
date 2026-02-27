@@ -949,10 +949,7 @@ pub type MappingUsages = HashMap<U256, HashSet<(String, U256)>>;
 
 /// Helper: extract mapping key from memory at a SHA3/KECCAK256 opcode.
 /// Returns `Some((key_hex, storage_index))` if the input looks like a mapping hash.
-fn extract_mapping_key_from_sha3(
-    stack: &[U256],
-    memory: &[String],
-) -> Option<(String, U256)> {
+fn extract_mapping_key_from_sha3(stack: &[U256], memory: &[String]) -> Option<(String, U256)> {
     let length_in_bytes = stack[stack.len() - 2];
     if length_in_bytes < U256::from(32_u64) || length_in_bytes >= U256::from(usize::MAX / 2) {
         return None;
@@ -1010,7 +1007,10 @@ impl<'a> MappingUsageProcessor<'a> {
 }
 
 impl<'a> StructLogProcessor for MappingUsageProcessor<'a> {
-    fn process_log(&mut self, log: alloy_rpc_types_trace::geth::StructLog) -> Result<(), crate::dvf::parse::ValidationError> {
+    fn process_log(
+        &mut self,
+        log: alloy_rpc_types_trace::geth::StructLog,
+    ) -> Result<(), crate::dvf::parse::ValidationError> {
         if log.stack.is_none() {
             return Ok(());
         }
@@ -1087,11 +1087,7 @@ pub struct MultiAddressMappingProcessor<'a> {
 }
 
 impl<'a> MultiAddressMappingProcessor<'a> {
-    pub fn new(
-        trace_address: Address,
-        config: &'a DVFConfig,
-        tx_id: String,
-    ) -> Self {
+    pub fn new(trace_address: Address, config: &'a DVFConfig, tx_id: String) -> Self {
         let mut depth_to_address: HashMap<u64, Address> = HashMap::new();
         depth_to_address.insert(1, trace_address);
         MultiAddressMappingProcessor {
@@ -1108,7 +1104,10 @@ impl<'a> MultiAddressMappingProcessor<'a> {
 }
 
 impl<'a> StructLogProcessor for MultiAddressMappingProcessor<'a> {
-    fn process_log(&mut self, log: alloy_rpc_types_trace::geth::StructLog) -> Result<(), crate::dvf::parse::ValidationError> {
+    fn process_log(
+        &mut self,
+        log: alloy_rpc_types_trace::geth::StructLog,
+    ) -> Result<(), crate::dvf::parse::ValidationError> {
         if log.stack.is_none() {
             return Ok(());
         }

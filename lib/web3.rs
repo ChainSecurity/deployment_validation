@@ -193,7 +193,7 @@ impl<'a> StructLogProcessor for StorageSnapshotProcessor<'a> {
                 .insert(log.depth + 1, self.depth_to_address[&log.depth]);
         }
 
-        if &self.depth_to_address[&log.depth] == &self.address && log.op == "SSTORE" {
+        if self.depth_to_address[&log.depth] == self.address && log.op == "SSTORE" {
             let last_store = self.last_storage.entry(log.depth).or_default();
             let value = stack[stack.len() - 2];
             let slot = stack[stack.len() - 1];
@@ -418,10 +418,7 @@ fn create_trace_with_address(
 
 /// Get the target address for a transaction from its receipt.
 /// Extracted from `create_trace_with_address()` for reuse with streaming.
-pub fn get_receipt_address(
-    config: &DVFConfig,
-    tx_id: &str,
-) -> Result<Address, ValidationError> {
+pub fn get_receipt_address(config: &DVFConfig, tx_id: &str) -> Result<Address, ValidationError> {
     let request_body = json!({
         "jsonrpc": "2.0",
         "method": "eth_getTransactionReceipt",
@@ -635,7 +632,6 @@ mod streaming_trace {
     use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
     use std::fmt;
 
-
     /// Seed that drives streaming: navigates the JSON-RPC envelope and processes structLogs
     /// one element at a time via the provided `StructLogProcessor`.
     struct ResultFieldSeed<'a, P> {
@@ -675,7 +671,11 @@ mod streaming_trace {
                                 u64::from_str_radix(s.trim_start_matches("0x"), 16)
                                     .map_err(de::Error::custom)?
                             }
-                            _ => return Err(de::Error::custom("Expected gas as hex string or integer")),
+                            _ => {
+                                return Err(de::Error::custom(
+                                    "Expected gas as hex string or integer",
+                                ))
+                            }
                         };
                     }
                     "returnValue" => {
@@ -695,7 +695,9 @@ mod streaming_trace {
                 }
             }
             if !got_struct_logs {
-                return Err(de::Error::custom("missing structLogs field in trace result"));
+                return Err(de::Error::custom(
+                    "missing structLogs field in trace result",
+                ));
             }
             // If `failed` was encountered after `structLogs`, notify the processor
             if self.metadata.failed {
@@ -734,9 +736,7 @@ mod streaming_trace {
 
         fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
             while let Some(log) = seq.next_element::<StructLog>()? {
-                self.processor
-                    .process_log(log)
-                    .map_err(de::Error::custom)?;
+                self.processor.process_log(log).map_err(de::Error::custom)?;
             }
             Ok(())
         }
@@ -829,7 +829,9 @@ mod streaming_trace {
             metadata: &mut metadata,
         }
         .deserialize(&mut deserializer)
-        .map_err(|e| ValidationError::from(format!("Streaming trace deserialization error: {}", e)))?;
+        .map_err(|e| {
+            ValidationError::from(format!("Streaming trace deserialization error: {}", e))
+        })?;
 
         Ok(metadata)
     }
@@ -886,7 +888,15 @@ pub fn stream_eth_debug_trace_sim<P: StructLogProcessor>(
     config: &DVFConfig,
     tx_id: &str,
     processor: &mut P,
-) -> Result<(TraceMetadata, Address, Option<DVFConfig>, Option<AnvilInstance>), ValidationError> {
+) -> Result<
+    (
+        TraceMetadata,
+        Address,
+        Option<DVFConfig>,
+        Option<AnvilInstance>,
+    ),
+    ValidationError,
+> {
     debug!("Streaming debug trace (with sim fallback).");
 
     let request_body = json!({
@@ -899,17 +909,18 @@ pub fn stream_eth_debug_trace_sim<P: StructLogProcessor>(
 
     // Try direct streaming first
     match send_blocking_web3_post_raw(config, &request_body) {
-        Ok(response) => {
-            match streaming_trace::stream_trace_response(response, processor) {
-                Ok(metadata) => {
-                    let address = get_receipt_address(config, tx_id)?;
-                    return Ok((metadata, address, None, None));
-                }
-                Err(e) => {
-                    info!("Direct streaming trace failed, trying fallback with anvil: {}", e);
-                }
+        Ok(response) => match streaming_trace::stream_trace_response(response, processor) {
+            Ok(metadata) => {
+                let address = get_receipt_address(config, tx_id)?;
+                return Ok((metadata, address, None, None));
             }
-        }
+            Err(e) => {
+                info!(
+                    "Direct streaming trace failed, trying fallback with anvil: {}",
+                    e
+                );
+            }
+        },
         Err(_) => {
             info!("Initial debug_traceTransaction request failed, trying fallback with anvil");
         }
@@ -1022,7 +1033,9 @@ pub fn stream_eth_debug_trace_sim<P: StructLogProcessor>(
 
     let anvil_tx_id = anvil_tx_result.as_str().unwrap();
     match stream_debug_trace(&anvil_config, anvil_tx_id, processor) {
-        Ok((metadata, address)) => Ok((metadata, address, Some(anvil_config), Some(anvil_instance))),
+        Ok((metadata, address)) => {
+            Ok((metadata, address, Some(anvil_config), Some(anvil_instance)))
+        }
         Err(e) => {
             stop_anvil_instance(anvil_instance);
             Err(e)
@@ -2264,12 +2277,8 @@ impl StorageSnapshot {
         debug!("Constructing snapshot from TX Ids (streaming).");
         let mut snapshot: HashMap<U256, [u8; 32]> = HashMap::new();
         for tx_hash in tx_hashes {
-            let mut processor = StorageSnapshotProcessor::new(
-                &mut snapshot,
-                *address,
-                config,
-                tx_hash.clone(),
-            );
+            let mut processor =
+                StorageSnapshotProcessor::new(&mut snapshot, *address, config, tx_hash.clone());
             let (metadata, _) = stream_debug_trace(config, tx_hash, &mut processor)?;
             if metadata.failed {
                 processor.trace_failed();

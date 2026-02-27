@@ -15,14 +15,13 @@ use crate::dvf::config::DVFConfig;
 use crate::dvf::parse::{self, ValidationError};
 use crate::dvf::registry;
 use crate::state::contract_state::ContractState;
+use crate::state::contract_state::MappingUsages;
 use crate::state::forge_inspect;
 use crate::utils::pretty::PrettyPrinter;
 use crate::utils::progress::{print_progress, ProgressMode};
 use crate::utils::read_write_file::get_project_paths;
-use crate::state::contract_state::MappingUsages;
 use crate::web3;
 use crate::web3::stop_anvil_instance;
-
 
 pub struct DiscoveryParams<'a> {
     pub config: &'a DVFConfig,
