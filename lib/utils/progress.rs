@@ -23,7 +23,7 @@ pub fn print_progress(s: &str, i: &mut u64, pm: &ProgressMode) {
         ProgressMode::BytecodeCheck => 3,
         ProgressMode::GenerateBuildCache => 1,
         ProgressMode::ListEvents => 1,
-        ProgressMode::InspectTx => 10,
+        ProgressMode::InspectTx => 3,
         ProgressMode::InspectTxSub => 10,
         ProgressMode::InspectTxSubNoconf => 4,
     };

@@ -1659,21 +1659,34 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             for address in &call_addresses {
                 println!("- {}", address);
             }
-            println!("The transaction created the following contracts:");
-            for address in &create_addresses {
-                println!("- {}", address);
+            if !create_addresses.is_empty() {
+                println!("The transaction created the following contracts:");
+                for address in &create_addresses {
+                    println!("- {}", address);
+                }
             }
 
             let registry = registry::Registry::from_config(&config)?;
             let pretty_printer = PrettyPrinter::new(&config, Some(&registry));
 
-            // Fetch and cache debug trace once; keep anvil alive until end
-            let (cached_trace, cached_anvil_config, cached_anvil_instance) =
-                web3::get_eth_debug_trace_sim(&config, tx_hash)?;
+            // Stream the trace once, collecting mapping usages for ALL addresses
+            let trace_address = web3::get_receipt_address(&config, tx_hash)?;
+            let mut multi_processor =
+                dvf_libs::state::contract_state::MultiAddressMappingProcessor::new(
+                    trace_address,
+                    &config,
+                    tx_hash.clone(),
+                );
+            let (_metadata, _address, _anvil_config, anvil_instance) =
+                web3::stream_eth_debug_trace_sim(&config, tx_hash, &mut multi_processor)?;
+
+            // Cache the tiny per-address mapping usages (not the raw trace)
+            let all_mapping_usages = multi_processor.all_mapping_usages;
 
             print_progress("Checking called contracts.", &mut pc, &progress_mode);
             for address in &call_addresses {
                 println!("Checking contract: {}", address);
+                let usages_for_address = all_mapping_usages.get(address).cloned();
                 inspect_called_contract(
                     &config,
                     chain_id,
@@ -1681,16 +1694,14 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     block_num,
                     tx_hash,
                     &pretty_printer,
-                    &mut pc,
-                    &progress_mode,
-                    Some(vec![cached_trace.clone()]),
-                    cached_anvil_config.as_ref(),
+                    usages_for_address,
                 )?;
             }
 
             print_progress("Checking created contracts.", &mut pc, &progress_mode);
             for address in &create_addresses {
                 println!("Checking contract: {}", address);
+                let usages_for_address = all_mapping_usages.get(address).cloned();
                 inspect_called_contract(
                     &config,
                     chain_id,
@@ -1698,15 +1709,16 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
                     block_num,
                     tx_hash,
                     &pretty_printer,
-                    &mut pc,
-                    &progress_mode,
-                    Some(vec![cached_trace.clone()]),
-                    cached_anvil_config.as_ref(),
+                    usages_for_address,
                 )?;
             }
 
+            if create_addresses.is_empty() {
+                println!("No contracts created during transaction - skipping")
+            }
+
             // After all inspections, stop cached anvil instance if present
-            if let Some(anvil_instance) = cached_anvil_instance {
+            if let Some(anvil_instance) = anvil_instance {
                 web3::stop_anvil_instance(anvil_instance);
             }
 
@@ -1823,10 +1835,7 @@ fn inspect_called_contract(
     block_num: u64,
     tx_hash: &String,
     pretty_printer: &PrettyPrinter,
-    pc: &mut u64,
-    progress_mode: &ProgressMode,
-    cached_traces: Option<Vec<web3::TraceWithAddress>>,
-    cached_anvil_config: Option<&DVFConfig>,
+    cached_mapping_usages: Option<dvf_libs::state::contract_state::MappingUsages>,
 ) -> Result<(), ValidationError> {
     let project_config = config.get_project_config(address, chain_id);
     if let Some(project_config) = project_config {
@@ -1869,7 +1878,7 @@ fn inspect_called_contract(
             None => "Compiling local code.",
             Some(_) => "Loading build cache.",
         };
-        print_progress(compile_output, pc, progress_mode);
+        print_progress(compile_output, &mut pc_sub, &progress_mode_sub);
         let mut project_info = ProjectInfo::new(
             &project_config.contract_name,
             Path::new(&project_config.project_path),
@@ -1950,8 +1959,7 @@ fn inspect_called_contract(
             progress_mode: &progress_mode_sub,
             use_storage_range: false,
             tx_hashes: Some(vec![tx_hash.clone()]),
-            cached_traces,
-            cached_anvil_config,
+            cached_mapping_usages,
         })?;
 
         dumped.critical_storage_variables = critical_storage_variables;
