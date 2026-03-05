@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "Bash(git stash:*)",
+      "Bash(cargo clippy:*)",
+      "WebFetch(domain:docs.blockscout.com)",
+      "WebFetch(domain:dev.blockscout.com)",
+      "WebFetch(domain:blockscout.github.io)"
+    ]
+  }
+}

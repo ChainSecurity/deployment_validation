@@ -19,7 +19,6 @@ use alloy_signer_ledger::{HDPath, LedgerSigner};
 
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tempfile::{tempdir, NamedTempFile};
 use tracing::debug;
 
@@ -36,8 +35,6 @@ pub const DEFAULT_CONFIG_LOCATION: &str = "~/.dv_config.json";
 const DEFAULT_FALLBACK_CONFIG_LOCATION: &str = "dv_config.json";
 const RPC_URLS_REPOSITORY: &str =
     "https://raw.githubusercontent.com/ethereum-lists/chains/master/_data/chains";
-// Can be obtained from https://github.com/blockscout/chainscout/blob/main/data/chains.json
-const BLOCKSCOUT_URLS: &str = include_str!("../../addresses/blockscout_chains.json");
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -112,8 +109,6 @@ pub struct DVFConfig {
     pub etherscan_chain_configs: BTreeMap<u64, EtherscanConfig>,
     #[serde(default)]
     pub blockscout_global: Option<BlockscoutConfig>,
-    #[serde(default)]
-    pub blockscout_chain_configs: BTreeMap<u64, BlockscoutConfig>,
     #[serde(default = "default_max_blocks")]
     pub max_blocks_per_event_query: u64,
     #[serde(default = "default_web3_timeout")]
@@ -193,7 +188,7 @@ fn default_artifacts_path() -> String {
 
 impl DVFConfig {
     const DEFAULT_ETHERSCAN_API_URL: &str = "https://api.etherscan.io/v2/api";
-    const DEFAULT_BLOCKSCOUT_API_URL: &str = "https://eth.blockscout.com/api";
+    const DEFAULT_BLOCKSCOUT_API_URL: &str = "https://api.blockscout.com";
 
     pub fn from_matches(matches: &ArgMatches) -> Result<Self, ValidationError> {
         if let Some(("generate-config", _)) = matches.subcommand() {
@@ -257,7 +252,6 @@ impl DVFConfig {
             etherscan_global,
             etherscan_chain_configs: BTreeMap::new(),
             blockscout_global,
-            blockscout_chain_configs: BTreeMap::new(),
             max_blocks_per_event_query: default_max_blocks(),
             web3_timeout: default_web3_timeout(),
             signer: Some(DVFSignerConfig {
@@ -536,9 +530,8 @@ impl DVFConfig {
 
         println!();
         println!("{}", "STEP 4".green());
-        println!("In this step, you can configure Etherscan and Blockscout settings.");
-        println!("You can set global configurations that will be used as fallbacks,");
-        println!("and/or chain-specific configurations that will override the global settings.");
+        println!("In this step, you can configure Etherscan and Blockscout Pro API settings.");
+        println!("You can set global configurations that will be used for all chains.");
         println!();
 
         // Global Etherscan config
@@ -638,13 +631,12 @@ impl DVFConfig {
             });
         }
 
-        // Chain-specific configs
+        // Chain-specific Etherscan configs
         let mut etherscan_chain_configs = BTreeMap::new();
-        let mut blockscout_chain_configs = BTreeMap::new();
 
         println!();
         println!(
-            "Would you like to set chain-specific Etherscan / Blockscout configurations? (y/n)"
+            "Would you like to set chain-specific Etherscan configurations? (y/n)"
         );
         print!("> ");
         let _ = std::io::Write::flush(&mut std::io::stdout());
@@ -700,60 +692,6 @@ impl DVFConfig {
                     etherscan_chain_configs.insert(
                         *chain_id,
                         EtherscanConfig {
-                            api_url: if api_url.is_empty() {
-                                None
-                            } else {
-                                Some(api_url)
-                            },
-                            api_key,
-                        },
-                    );
-                }
-
-                // Blockscout config for this chain
-                println!("Would you like to set a Blockscout configuration for this chain? (y/n)");
-                print!("> ");
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
-                if input.trim().eq_ignore_ascii_case("y") {
-                    let mut api_key = String::new();
-                    loop {
-                        println!(
-                            "Please enter your Blockscout API key for chain {}:",
-                            chain_id
-                        );
-                        print!("> ");
-                        let _ = std::io::Write::flush(&mut std::io::stdout());
-                        io::stdin().read_line(&mut api_key).unwrap();
-                        api_key = api_key.trim().to_string();
-                        if !api_key.is_empty() {
-                            break;
-                        }
-                        println!("{}", "API key cannot be empty.".yellow());
-                    }
-
-                    let mut api_url = String::new();
-                    println!(
-                        "Please enter the Blockscout API URL for chain {}:",
-                        chain_id
-                    );
-                    println!(
-                        "Hit {} to use default value: {}",
-                        "<Enter>".green(),
-                        &default_blockscout_api_url.green()
-                    );
-                    print!("> ");
-                    let _ = std::io::Write::flush(&mut std::io::stdout());
-                    io::stdin().read_line(&mut api_url).unwrap();
-                    api_url = api_url.trim().to_string();
-                    if api_url.is_empty() {
-                        api_url = default_blockscout_api_url.clone();
-                    }
-
-                    blockscout_chain_configs.insert(
-                        *chain_id,
-                        BlockscoutConfig {
                             api_url: if api_url.is_empty() {
                                 None
                             } else {
@@ -1190,7 +1128,6 @@ impl DVFConfig {
             etherscan_global,
             etherscan_chain_configs,
             blockscout_global,
-            blockscout_chain_configs,
             max_blocks_per_event_query,
             web3_timeout,
             signer,
@@ -1252,23 +1189,12 @@ impl DVFConfig {
     }
 
     pub fn get_blockscout_api_key(&self) -> Result<String, ValidationError> {
-        match self.active_chain_id {
-            None => Err(ValidationError::Error("No chain id chosen.".to_string())),
-            Some(chain_id) => {
-                // First try chain-specific config
-                if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
-                    return Ok(chain_config.api_key.clone());
-                }
-                // Then try global config
-                if let Some(global_config) = &self.blockscout_global {
-                    return Ok(global_config.api_key.clone());
-                }
-                Err(ValidationError::Error(format!(
-                    "No Blockscout API Key found in config for chain id {}.",
-                    chain_id
-                )))
-            }
+        if let Some(global_config) = &self.blockscout_global {
+            return Ok(global_config.api_key.clone());
         }
+        Err(ValidationError::Error(
+            "No Blockscout API Key found in config.".to_string(),
+        ))
     }
 
     pub fn get_etherscan_api_key(&self) -> Result<String, ValidationError> {
@@ -1371,38 +1297,15 @@ impl DVFConfig {
                     )));
                 }
 
-                // First try chain-specific config
-                if let Some(chain_config) = self.blockscout_chain_configs.get(&chain_id) {
-                    if let Some(api_url) = &chain_config.api_url {
-                        return Ok(api_url.clone());
-                    }
-                }
-                // Then try global config
-                if let Some(global_config) = &self.blockscout_global {
-                    if let Some(api_url) = &global_config.api_url {
-                        return Ok(api_url.clone());
-                    }
-                }
-                // Finally fall back to chain-specific URL
-                let urls: Value = serde_json::from_str(BLOCKSCOUT_URLS)?;
+                // Use custom base URL if set (for testing/proxy), otherwise default Pro API base
+                let base_url = self
+                    .blockscout_global
+                    .as_ref()
+                    .and_then(|g| g.api_url.clone())
+                    .unwrap_or_else(|| String::from(Self::DEFAULT_BLOCKSCOUT_API_URL));
 
-                let opt_url = urls
-                    .get(chain_id.to_string())
-                    .and_then(|c| c.get("explorers"))
-                    .and_then(Value::as_array)
-                    .and_then(|arr| arr.first())
-                    .and_then(|e| e.get("url"))
-                    .and_then(Value::as_str)
-                    .map(|s| s.to_string());
-
-                if let Some(url) = opt_url {
-                    Ok(format!("{url}api"))
-                } else {
-                    Err(ValidationError::from(format!(
-                        "No blockscout URL found for given chain id: {:?}.",
-                        self.active_chain_id
-                    )))
-                }
+                let base_url = base_url.trim_end_matches('/');
+                Ok(format!("{}/{}/api", base_url, chain_id))
             }
             None => Err(ValidationError::from(
                 "No active chain. Cannot chose Blockscout API.",
@@ -1487,14 +1390,14 @@ mod tests {
     #[test]
     fn test_get_blockscout_url() {
         let mut empty_config = DVFConfig::default();
-        empty_config.set_chain_id(1).unwrap();
+        empty_config.active_chain_id = Some(1);
         assert_eq!(
-            "https://eth.blockscout.com/api".to_string(),
+            "https://api.blockscout.com/1/api".to_string(),
             empty_config.get_blockscout_api_url().unwrap()
         );
-        empty_config.set_chain_id(10).unwrap();
+        empty_config.active_chain_id = Some(10);
         assert_eq!(
-            "https://optimism.blockscout.com/api".to_string(),
+            "https://api.blockscout.com/10/api".to_string(),
             empty_config.get_blockscout_api_url().unwrap()
         );
     }
