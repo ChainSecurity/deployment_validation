@@ -1,0 +1,29 @@
+{
+  "../../examples/frxETH-public": {
+    "rev": "9594abe8eaba4ea27960a3f49c3f6210aced750a"
+  },
+  "../../examples/permit2": {
+    "rev": "cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
+  },
+  "../../examples/tokenized-aave-v3/lib/forge-std": {
+    "rev": "07263d193d621c4b2b0ce8b4d54af58f6957d97d"
+  },
+  "../../examples/tokenized-aave-v3/lib/openzeppelin-contracts": {
+    "rev": "05f218fb6617932e56bf5388c3b389c3028a7b73"
+  },
+  "../../examples/tokenized-aave-v3/lib/tokenized-strategy": {
+    "rev": "cf791a6f2d360e5c33866c9f0de10e83085920e9"
+  },
+  "../../examples/tokenized-aave-v3/lib/tokenized-strategy-periphery": {
+    "rev": "6ce8d29b1e107a89754dd9f17337582734989b4d"
+  },
+  "../Contracts/lib/forge-std": {
+    "rev": "07263d193d621c4b2b0ce8b4d54af58f6957d97d"
+  },
+  "../Contracts/lib/openzeppelin-contracts": {
+    "rev": "dbb6104ce834628e473d2173bbc9d47f81a9eec3"
+  },
+  "lib/forge-std": {
+    "rev": "07263d193d621c4b2b0ce8b4d54af58f6957d97d"
+  }
+}

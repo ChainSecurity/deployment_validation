@@ -18,6 +18,11 @@ compare_files() {
     fi
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../.env" ]; then
+    set -a && source "$SCRIPT_DIR/../.env" && set +a
+fi
+
 # Can use env with "set -a && source .env && set +a" for testing
 #export RUSTFLAGS='-D warnings'   # This flag makes pipeline fail on warnings
 pkill geth || true
@@ -30,7 +35,7 @@ cargo clippy
 mkdir -p /tmp/dvfs
 if [ "$REBUILD_CACHE" = "1" ]; then
     echo "Rebuilding Cache"
-    cargo run --bin cached_proxy -- -d tests/cachedrpc -u $RPC_MAINNET &
+    cargo run --bin cached_proxy -- -d tests/cachedrpc -u $MAINNET_RPC &
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5001 -u "https://api.blockscout.com" &
     cargo run --bin cached_proxy -- -d tests/cachedrpc -p 5002 -u "https://api.etherscan.io/v2/api" &
 else
@@ -44,10 +49,25 @@ cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
 cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
 
-RUST_BACKTRACE=1 cargo test 
+if [ "$REBUILD_CACHE" = "1" ]; then
+    ORIG_MAINNET_RPC="$MAINNET_RPC"
+    ORIG_ETHERSCAN_TEST_API_URL="$ETHERSCAN_TEST_API_URL"
+    ORIG_BLOCKSCOUT_TEST_API_URL="$BLOCKSCOUT_TEST_API_URL"
+    export MAINNET_RPC="http://127.0.0.1:5000"
+    export ETHERSCAN_TEST_API_URL="http://127.0.0.1:5002"
+    export BLOCKSCOUT_TEST_API_URL="http://127.0.0.1:5001"
+fi
 
-envsubst < tests/config.json > /tmp/eval_config.json
-envsubst < tests/config_localsim.json > /tmp/eval_localsim_config.json
+RUST_BACKTRACE=1 cargo test
+
+if [ "$REBUILD_CACHE" = "1" ]; then
+    export MAINNET_RPC="$ORIG_MAINNET_RPC"
+    export ETHERSCAN_TEST_API_URL="$ORIG_ETHERSCAN_TEST_API_URL"
+    export BLOCKSCOUT_TEST_API_URL="$ORIG_BLOCKSCOUT_TEST_API_URL"
+fi
+
+envsubst < "$SCRIPT_DIR/config.json" > /tmp/eval_config.json
+envsubst < "$SCRIPT_DIR/config_localsim.json" > /tmp/eval_localsim_config.json
 
 cargo run --bin fetch-from-etherscan -- -c  /tmp/eval_config.json --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory
 cargo run --bin dv --  --config  /tmp/eval_config.json init --address 0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f --project /tmp/uni-factory --chainid 1 --factory --zerovalue --contractname UniswapV2Factory --initblock 10008355 UniswapV2Factory_0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f.dvf.json
