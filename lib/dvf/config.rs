@@ -635,9 +635,7 @@ impl DVFConfig {
         let mut etherscan_chain_configs = BTreeMap::new();
 
         println!();
-        println!(
-            "Would you like to set chain-specific Etherscan configurations? (y/n)"
-        );
+        println!("Would you like to set chain-specific Etherscan configurations? (y/n)");
         print!("> ");
         let _ = std::io::Write::flush(&mut std::io::stdout());
         let mut input = String::new();

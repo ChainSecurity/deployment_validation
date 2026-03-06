@@ -150,7 +150,12 @@ async fn generic_path_function<T: AsRef<str> + std::fmt::Display>(
         }
     }
 
-    let fname = get_fname_with_path(&data, req.query_string().as_bytes(), path_str.as_bytes(), &cachedir);
+    let fname = get_fname_with_path(
+        &data,
+        req.query_string().as_bytes(),
+        path_str.as_bytes(),
+        &cachedir,
+    );
     if Path::new(&fname).exists() {
         if verbose > 0 {
             println!("Served {:?} from cache: {}", data, fname);
