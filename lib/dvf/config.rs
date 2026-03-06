@@ -113,6 +113,8 @@ pub struct DVFConfig {
     pub max_blocks_per_event_query: u64,
     #[serde(default = "default_web3_timeout")]
     pub web3_timeout: u64,
+    #[serde(default = "default_trace_filter_max_range")]
+    pub trace_filter_max_range: u64,
     pub signer: Option<DVFSignerConfig>,
     #[serde(default)]
     pub projects: Vec<DVFProjectConfig>,
@@ -176,6 +178,10 @@ fn default_max_blocks() -> u64 {
 
 fn default_web3_timeout() -> u64 {
     5000
+}
+
+fn default_trace_filter_max_range() -> u64 {
+    10000
 }
 
 fn default_environment() -> Environment {
@@ -254,6 +260,7 @@ impl DVFConfig {
             blockscout_global,
             max_blocks_per_event_query: default_max_blocks(),
             web3_timeout: default_web3_timeout(),
+            trace_filter_max_range: default_trace_filter_max_range(),
             signer: Some(DVFSignerConfig {
                 wallet_address: Address::from_str(env::var("SIGNER_ADDRESS")?.as_str())?,
                 wallet_type: DVFWalletType::SecretKey(DVFSecretKeyConfig {
@@ -1128,6 +1135,7 @@ impl DVFConfig {
             blockscout_global,
             max_blocks_per_event_query,
             web3_timeout,
+            trace_filter_max_range: default_trace_filter_max_range(),
             signer,
             //projects,
             projects: Vec::new(),

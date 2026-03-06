@@ -1109,34 +1109,44 @@ fn get_all_txs_for_contract_from_geth_traces(
 }
 
 // Inclusive for start_block and end_block
-// Uses trace_filter RPC to efficiently find all transactions touching an address
+// Uses trace_filter RPC to efficiently find all transactions touching an address.
+// Splits the range into chunks of `config.trace_filter_max_range` blocks to stay
+// within provider limits.
 fn get_all_txs_for_contract_from_trace_filter(
     config: &DVFConfig,
     address: &Address,
     start_block: u64,
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
-    let request_body = json!({
-        "jsonrpc": "2.0",
-        "method": "trace_filter",
-        "params": [{
-            "fromBlock": format!("{:#x}", start_block),
-            "toBlock": format!("{:#x}", end_block),
-            "toAddress": [address],
-        }],
-        "id": 1
-    });
-    let result = send_blocking_web3_post(config, &request_body)?;
-    let traces: Vec<LocalizedTransactionTrace> = serde_json::from_value(result)?;
-
+    let max_range = config.trace_filter_max_range;
     let mut res: Vec<B256> = Vec::new();
-    for trace in traces {
-        if let Some(tx_hash) = trace.transaction_hash {
-            if !res.contains(&tx_hash) {
-                res.push(tx_hash);
+    let mut chunk_start = start_block;
+
+    while chunk_start <= end_block {
+        let chunk_end = std::cmp::min(chunk_start + max_range - 1, end_block);
+        let request_body = json!({
+            "jsonrpc": "2.0",
+            "method": "trace_filter",
+            "params": [{
+                "fromBlock": format!("{:#x}", chunk_start),
+                "toBlock": format!("{:#x}", chunk_end),
+                "toAddress": [address],
+            }],
+            "id": 1
+        });
+        let result = send_blocking_web3_post(config, &request_body)?;
+        let traces: Vec<LocalizedTransactionTrace> = serde_json::from_value(result)?;
+
+        for trace in traces {
+            if let Some(tx_hash) = trace.transaction_hash {
+                if !res.contains(&tx_hash) {
+                    res.push(tx_hash);
+                }
             }
         }
+        chunk_start = chunk_end + 1;
     }
+
     Ok(res.iter().map(|tx| format!("{:?}", tx)).collect())
 }
 
