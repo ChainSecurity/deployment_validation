@@ -46,8 +46,7 @@ else
 fi
 cd tests/Contracts && forge build && cd -
 cd tests/with_metadata && forge build && cd -
-cd tests/hardhat && yarn install -y && npx hardhat compile && cd -
-cd tests/hardhat_2_0 && yarn install -y && npx hardhat compile && cd -
+cd tests/hardhat && yarn install && npx hardhat compile && cd -
 
 if [ "$REBUILD_CACHE" = "1" ]; then
     ORIG_MAINNET_RPC="$MAINNET_RPC"
