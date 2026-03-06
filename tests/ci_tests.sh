@@ -49,21 +49,12 @@ cd tests/with_metadata && forge build && cd -
 cd tests/hardhat && yarn install && npx hardhat compile && cd -
 
 if [ "$REBUILD_CACHE" = "1" ]; then
-    ORIG_MAINNET_RPC="$MAINNET_RPC"
-    ORIG_ETHERSCAN_TEST_API_URL="$ETHERSCAN_TEST_API_URL"
-    ORIG_BLOCKSCOUT_TEST_API_URL="$BLOCKSCOUT_TEST_API_URL"
     export MAINNET_RPC="http://127.0.0.1:5000"
     export ETHERSCAN_TEST_API_URL="http://127.0.0.1:5002"
     export BLOCKSCOUT_TEST_API_URL="http://127.0.0.1:5001"
 fi
 
 RUST_BACKTRACE=1 cargo test
-
-if [ "$REBUILD_CACHE" = "1" ]; then
-    export MAINNET_RPC="$ORIG_MAINNET_RPC"
-    export ETHERSCAN_TEST_API_URL="$ORIG_ETHERSCAN_TEST_API_URL"
-    export BLOCKSCOUT_TEST_API_URL="$ORIG_BLOCKSCOUT_TEST_API_URL"
-fi
 
 envsubst < "$SCRIPT_DIR/config.json" > /tmp/eval_config.json
 envsubst < "$SCRIPT_DIR/config_localsim.json" > /tmp/eval_localsim_config.json
