@@ -72,15 +72,20 @@ Once you have it installed you can continue to [validate](#validate-dvf).
 To successfully create DVFs for on-chain smart contracts, you need access to the following APIs:
 
 1. An RPC archive node for the desired chain ID.
-2. (Optional) A [Blockscout](https://blockscout.com/) API key.
+2. (Optional) A [Blockscout](https://blockscout.com/) Pro API key.
 3. (Optional) An [Etherscan](https://etherscan.io/apis) API key.
 
 **Please note the following restrictions/requirements**:
 
-1. The Blockscout API is required to fetch the transaction hashes of a contract. This API can only be omitted if you fetch transactions based on events.
-2. The Etherscan API is optional but can be used instead of Blockscout to fetch the deployment transaction of a contract.
-3. Your RPC node **must** support either `debug_traceTransaction` or `trace_transaction`.
-4. For faster execution, your RPC node **may** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` will locally re-execute all transactions which might increase execution time.
+1. Etherscan and Blockscout API keys are optional for fetching the deployment transaction of a contract automatically.
+2. Your RPC node **must** support either `debug_traceTransaction` or `trace_transaction`.
+3. For fetching transactions, one of the following conditions must be met:
+
+   - Recommended: Your RPC supports the `trace_filter` endpoint.
+   - Recommended if contract emits events in all state-changing functions: You are fetching transactions based on events (see [Initialization by event topics](#initialization-by-event-topics)).
+   - Not recommended: You added a valid Blockscout Pro API key to your config (please be aware that Blockscout might not fetch all internal transactions of a contract).
+
+4. For faster execution, your RPC node **may** support `debug_traceTransaction` with [opcode logger](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers#struct-opcode-logger) enabled. Otherwise, `dv` will locally re-execute all transactions which might increase execution time and can cause a crash when not enough memory is available.
 5. For faster execution, your RPC node **may** support `debug_storageRangeAt`.
 
 To run `dv`, you can either [build from source](#building-from-source) it or use the pre-configured [Docker](#using-docker) image.
@@ -539,10 +544,10 @@ Please note that Foundry's `forge clone` provides similar functionality but is c
 
 ### Initialization by event topics
 
-`dv` gets the transactions a contract has been involved in from third party APIs (namely, Blockscout). There are certain cases, in which this is not preferable:
+`dv` gets the transactions a contract has been involved in from the `trace_filter` endpoint of your RPC or third party APIs (namely, Blockscout). This might not work in the following cases:
 
-- You don't trust the Blockscout API of the chain you are trying to validate a contract on (this will be solved with a future update).
-- You are working on a chain that does not have a Blockscout API or its Blockscout API does not work as intended.
+- The `trace_filter`endpoint is unavailable.
+- You don't trust the Blockscout API to deliver all existing transactions or Blockscout is unavailable for a certain chain.
 - Retrieving all transactions of a contract is too much and you are not interested in certain transactions (think of, e.g., ERC-20 transfers of the USDT contract).
 
 If the contract you are validating emits events every time a security-relevant storage variable is written, you can use the `--eventtopics` argument if the `init` command to specify that only transactions in which the given events have been emitted are evaluated:
@@ -620,7 +625,6 @@ This section will be updated soon.
 - Only projects with `solc` version starting from `0.5.13` are supported due to the lack of generated storage layout in older versions (see [solc release 0.5.13](https://github.com/ethereum/solidity/releases/tag/v0.5.13)).
 - The RPC endpoints automatically parsed in `dv generate-config` are not guaranteed to be compatible.
 - As detailed [above](#dvf-creation), many public RPCs are not or only partially supported for DVF creation.
-- Finding the deployment transaction of a contract currently requires either Blockscout or Etherscan API keys to collect all relevant information.
 - Contracts performing `delegatecall` to more than one other contract are currently not supported.
 - Multiple contracts with the same name compiled with different compiler versions in one project are not supported.
 - Multi-dimensional mappings with static keys (e.g., `mapping[1][2]`) can currently not be decoded.

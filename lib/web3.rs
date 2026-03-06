@@ -1032,11 +1032,20 @@ pub fn get_all_txs_for_contract(
     start_block: u64,
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
+    // Try trace_filter first — most complete source for all txs touching an address
+    if let Ok(all_txs) =
+        get_all_txs_for_contract_from_trace_filter(config, address, start_block, end_block)
+    {
+        return Ok(all_txs);
+    }
+    // Fall back to Blockscout (fast but may miss some internal transactions)
     if let Ok(all_txs) =
         get_all_txs_for_contract_from_blockscout(config, address, start_block, end_block)
     {
         return Ok(all_txs);
-    } else if end_block - start_block <= 100 {
+    }
+    // Fall back to per-block traces for small ranges
+    if end_block - start_block <= 100 {
         if let Ok(all_txs) =
             get_all_txs_for_contract_from_parity_traces(config, address, start_block, end_block)
         {
@@ -1100,6 +1109,48 @@ fn get_all_txs_for_contract_from_geth_traces(
 }
 
 // Inclusive for start_block and end_block
+// Uses trace_filter RPC to efficiently find all transactions touching an address.
+// Splits the range into chunks of `config.trace_filter_max_range` blocks to stay
+// within provider limits.
+fn get_all_txs_for_contract_from_trace_filter(
+    config: &DVFConfig,
+    address: &Address,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Vec<String>, ValidationError> {
+    let max_range = config.trace_filter_max_range;
+    let mut res: Vec<B256> = Vec::new();
+    let mut chunk_start = start_block;
+
+    while chunk_start <= end_block {
+        let chunk_end = std::cmp::min(chunk_start + max_range - 1, end_block);
+        let request_body = json!({
+            "jsonrpc": "2.0",
+            "method": "trace_filter",
+            "params": [{
+                "fromBlock": format!("{:#x}", chunk_start),
+                "toBlock": format!("{:#x}", chunk_end),
+                "toAddress": [address],
+            }],
+            "id": 1
+        });
+        let result = send_blocking_web3_post(config, &request_body)?;
+        let traces: Vec<LocalizedTransactionTrace> = serde_json::from_value(result)?;
+
+        for trace in traces {
+            if let Some(tx_hash) = trace.transaction_hash {
+                if !res.contains(&tx_hash) {
+                    res.push(tx_hash);
+                }
+            }
+        }
+        chunk_start = chunk_end + 1;
+    }
+
+    Ok(res.iter().map(|tx| format!("{:?}", tx)).collect())
+}
+
+// Inclusive for start_block and end_block
 fn get_all_txs_for_contract_from_parity_traces(
     config: &DVFConfig,
     address: &Address,
@@ -1107,7 +1158,6 @@ fn get_all_txs_for_contract_from_parity_traces(
     end_block: u64,
 ) -> Result<Vec<String>, ValidationError> {
     let mut res: Vec<B256> = Vec::new();
-    // TODO: Use trace_filter
     for block_num in start_block..end_block + 1 {
         let block_traces = get_block_traces(config, block_num)?;
         // Search for relevant traces

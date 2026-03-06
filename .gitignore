@@ -10,3 +10,4 @@ on_chain_bytecode.txt
 .env
 tests/hardhat/package-lock.json
 .dv_config.json
+/.claude

@@ -150,8 +150,12 @@ async fn generic_path_function<T: AsRef<str> + std::fmt::Display>(
         }
     }
 
-    // TODO: Use the path here
-    let fname = get_fname(&data, req.query_string().as_bytes(), &cachedir);
+    let fname = get_fname_with_path(
+        &data,
+        req.query_string().as_bytes(),
+        path_str.as_bytes(),
+        &cachedir,
+    );
     if Path::new(&fname).exists() {
         if verbose > 0 {
             println!("Served {:?} from cache: {}", data, fname);
@@ -215,6 +219,14 @@ async fn generic_path_function<T: AsRef<str> + std::fmt::Display>(
     web::Json(response_json)
 }
 
+fn get_fname_with_path(data: &[u8], query: &[u8], path: &[u8], cachedir: &str) -> String {
+    let mut vec3: Vec<u8> = data.to_vec();
+    vec3.extend(query);
+    vec3.extend(path);
+    let res = keccak256(vec3);
+    format!("{}/{}", cachedir, hex::encode(res))
+}
+
 fn get_fname(data: &[u8], query: &[u8], cachedir: &str) -> String {
     let mut vec3: Vec<u8> = data.to_vec();
     vec3.extend(query);
@@ -275,7 +287,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(state.clone())
             .service(
-                web::resource("/{generic_path}")
+                web::resource("/{path:.*}")
                     .route(get().to(generic_path_function::<String>))
                     .route(post().to(generic_path_function::<String>)),
             )
