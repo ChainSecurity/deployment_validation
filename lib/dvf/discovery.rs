@@ -484,16 +484,21 @@ pub fn get_tx_hashes(
     let mut seen_events: Vec<Log> = vec![];
     let tx_hashes: Vec<String> = if let Some(event_topics) = &event_topics {
         print_progress("Obtaining past events and transactions.", pc, progress_mode);
-        seen_events = web3::get_eth_events(
-            config,
-            address,
-            start_block_num,
-            end_block_num,
-            event_topics,
-        )?;
+        for topic in event_topics {
+            let mut topic_events = web3::get_eth_events_paginated(
+                config,
+                address,
+                start_block_num,
+                end_block_num,
+                &vec![*topic],
+            )?;
+            seen_events.append(&mut topic_events);
+        }
+        let mut seen_hashes = HashSet::new();
         seen_events
             .iter()
             .filter_map(|e| e.transaction_hash.map(|h| format!("{h:#x}")))
+            .filter(|h| seen_hashes.insert(h.clone()))
             .collect()
     } else {
         print_progress("Obtaining past transactions.", pc, progress_mode);
@@ -506,7 +511,7 @@ pub fn get_tx_hashes(
 pub fn create_discovery_params_for_init<'a>(
     config: &'a DVFConfig,
     dumped: &'a parse::CompleteDVF,
-    deployment_block_num: u64,
+    start_block_num: u64,
     init_block_num: u64,
     project: &'a PathBuf,
     artifacts: &'a str,
@@ -523,7 +528,7 @@ pub fn create_discovery_params_for_init<'a>(
         config,
         contract_name: &dumped.contract_name,
         address: &dumped.address,
-        start_block_num: deployment_block_num,
+        start_block_num,
         end_block_num: init_block_num,
         project: Some(project),
         artifacts,

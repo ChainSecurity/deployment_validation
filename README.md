@@ -217,6 +217,14 @@ dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --ini
 
 Please note that `<B>` must be equal to or larger than the deployment block of the contract. Additionally, it is recommended to use only block numbers of **finalized blocks** in order to prevent the DVF containing wrong data due to possible re-orgs in the future.
 
+By default, `dv` looks at all transactions starting from the deployment block. If you want to restrict the transaction lookup to a later starting block (e.g., to skip transactions before a contract upgrade), you can pass the desired block number with `--startblock`:
+
+```
+dv init --project <PROJECT_PATH> --address <ADDRESS> --contractname <NAME> --startblock <S> new.dvf.json
+```
+
+`<S>` must be equal to or larger than the deployment block and equal to or smaller than the init block.
+
 Sometimes, you might want to know when a storage variable has been initialized before but then reset back to zero. You can add such variables to the DVF with the `--zerovalue` flag:
 
 ```

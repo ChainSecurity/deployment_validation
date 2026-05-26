@@ -409,6 +409,11 @@ fn main() {
                         .value_parser(is_valid_blocknum),
                 )
                 .arg(
+                    arg!(--startblock <BLOCK>)
+                        .help("The first block to look at for transactions (defaults to deployment block).")
+                        .value_parser(is_valid_blocknum),
+                )
+                .arg(
                     arg!(--project <PATH>)
                         .help("Path to the root folder of the source code project")
                         .required(true)
@@ -763,6 +768,12 @@ fn main() {
                         .help("Folder containing the artifacts")
                         .default_value("artifacts"),
                 )
+                .arg(
+                    arg!(--libraries <LIBRARY> ...)
+                        .help("Library specifiers in the form Path:Name:Address. Accepts comma-separated values or repeated flags")
+                        .value_delimiter(',')
+                        .action(clap::ArgAction::Append),
+                )
                 .arg(arg!(--buildcache <PATH>).help("Folder containing build-info files")),
         )
         .subcommand(
@@ -932,9 +943,28 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             dumped.deployment_block_num = deployment_block_num;
             dumped.deployment_tx = deployment_tx;
 
+            let start_block_num = *sub_m
+                .get_one::<u64>("startblock")
+                .unwrap_or(&deployment_block_num);
+            if start_block_num < deployment_block_num {
+                return Err(ValidationError::from(
+                    "Start block must be greater than or equal to the deployment block.",
+                ));
+            }
+
+            let default_init_block = if sub_m.contains_id("startblock") {
+                start_block_num
+            } else {
+                deployment_block_num + 1
+            };
             let init_block_num = *sub_m
                 .get_one::<u64>("initblock")
-                .unwrap_or(&(deployment_block_num + 1));
+                .unwrap_or(&default_init_block);
+            if init_block_num < start_block_num {
+                return Err(ValidationError::from(
+                    "Init block must be greater than or equal to the start block.",
+                ));
+            }
             dumped.init_block_num = init_block_num;
 
             let mut pc = 1_u64;
@@ -1030,7 +1060,7 @@ fn process(matches: ArgMatches) -> Result<(), ValidationError> {
             } = discover_storage_and_events(create_discovery_params_for_init(
                 &config,
                 &dumped,
-                deployment_block_num,
+                start_block_num,
                 init_block_num,
                 project,
                 artifacts,
