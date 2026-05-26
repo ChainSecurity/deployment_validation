@@ -263,7 +263,7 @@ impl<'a> ContractState<'a> {
     fn memory_as_string(memory: &Vec<String>) -> String {
         let mut mem_string = String::new();
         for mem in memory {
-            // Some RPC nodes (e.g. Anvil) return memory chunks with a "0x" prefix;
+            // Some RPC nodes (e.g., Anvil) return memory chunks with a "0x" prefix;
             // strip it so the concatenated string is pure hex.
             mem_string += mem.strip_prefix("0x").unwrap_or(mem);
         }
