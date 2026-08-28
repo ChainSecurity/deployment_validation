@@ -106,7 +106,7 @@ To install `dv`, clone this repository and build:
 
 ```
 git clone https://github.com/ChainSecurity/deployment_validation
-cd deployment-validation
+cd deployment_validation
 cargo install --path . --locked
 ```
 
