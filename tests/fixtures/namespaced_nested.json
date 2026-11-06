@@ -1,0 +1,412 @@
+{
+  "contracts": {
+    "NamespacedNested.sol": {
+      "NamespacedNested": {
+        "storageLayout": {
+          "storage": [
+            {
+              "astId": 14,
+              "contract": "NamespacedNested.sol:NamespacedNested",
+              "label": "compilerReference",
+              "offset": 0,
+              "slot": "0",
+              "type": "t_struct(Layout)11_storage"
+            }
+          ],
+          "types": {
+            "t_array(t_uint256)dyn_storage": {
+              "base": "t_uint256",
+              "encoding": "dynamic_array",
+              "label": "uint256[]",
+              "numberOfBytes": "32"
+            },
+            "t_struct(Inner)5_storage": {
+              "encoding": "inplace",
+              "label": "struct NamespacedNested.Inner",
+              "members": [
+                {
+                  "astId": 4,
+                  "contract": "NamespacedNested.sol:NamespacedNested",
+                  "label": "values",
+                  "offset": 0,
+                  "slot": "0",
+                  "type": "t_array(t_uint256)dyn_storage"
+                }
+              ],
+              "numberOfBytes": "32"
+            },
+            "t_struct(Layout)11_storage": {
+              "encoding": "inplace",
+              "label": "struct NamespacedNested.Layout",
+              "members": [
+                {
+                  "astId": 8,
+                  "contract": "NamespacedNested.sol:NamespacedNested",
+                  "label": "inner",
+                  "offset": 0,
+                  "slot": "0",
+                  "type": "t_struct(Inner)5_storage"
+                },
+                {
+                  "astId": 10,
+                  "contract": "NamespacedNested.sol:NamespacedNested",
+                  "label": "marker",
+                  "offset": 0,
+                  "slot": "1",
+                  "type": "t_uint256"
+                }
+              ],
+              "numberOfBytes": "64"
+            },
+            "t_uint256": {
+              "encoding": "inplace",
+              "label": "uint256",
+              "numberOfBytes": "32"
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "component": "general",
+      "errorCode": "6335",
+      "formattedMessage": "Warning: \"layout\" will be promoted to keyword in the future and will not be allowed as an identifier anymore.\n --> NamespacedNested.sol:7:5:\n  |\n7 |     function layout() internal pure returns (Layout storage s) {\n  |     ^ (Relevant source part starts here and spans across multiple lines).\n\n",
+      "message": "\"layout\" will be promoted to keyword in the future and will not be allowed as an identifier anymore.",
+      "severity": "warning",
+      "sourceLocation": {
+        "end": 315,
+        "file": "NamespacedNested.sol",
+        "start": 216
+      },
+      "type": "Warning"
+    }
+  ],
+  "sources": {
+    "NamespacedNested.sol": {
+      "ast": {
+        "absolutePath": "NamespacedNested.sol",
+        "exportedSymbols": {
+          "NamespacedNested": [
+            23
+          ]
+        },
+        "id": 24,
+        "license": "MIT",
+        "nodeType": "SourceUnit",
+        "nodes": [
+          {
+            "id": 1,
+            "literals": [
+              "solidity",
+              "0.8",
+              ".35"
+            ],
+            "nodeType": "PragmaDirective",
+            "src": "32:23:0"
+          },
+          {
+            "abstract": false,
+            "baseContracts": [],
+            "canonicalName": "NamespacedNested",
+            "contractDependencies": [],
+            "contractKind": "contract",
+            "fullyImplemented": true,
+            "id": 23,
+            "linearizedBaseContracts": [
+              23
+            ],
+            "name": "NamespacedNested",
+            "nameLocation": "65:16:0",
+            "nodeType": "ContractDefinition",
+            "nodes": [
+              {
+                "canonicalName": "NamespacedNested.Inner",
+                "id": 5,
+                "members": [
+                  {
+                    "constant": false,
+                    "id": 4,
+                    "mutability": "mutable",
+                    "name": "values",
+                    "nameLocation": "113:6:0",
+                    "nodeType": "VariableDeclaration",
+                    "scope": 5,
+                    "src": "103:16:0",
+                    "stateVariable": false,
+                    "storageLocation": "default",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                      "typeString": "uint256[]"
+                    },
+                    "typeName": {
+                      "baseType": {
+                        "id": 2,
+                        "name": "uint256",
+                        "nodeType": "ElementaryTypeName",
+                        "src": "103:7:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_uint256",
+                          "typeString": "uint256"
+                        }
+                      },
+                      "id": 3,
+                      "nodeType": "ArrayTypeName",
+                      "src": "103:9:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_array$_t_uint256_$dyn_storage_ptr",
+                        "typeString": "uint256[]"
+                      }
+                    },
+                    "visibility": "internal"
+                  }
+                ],
+                "name": "Inner",
+                "nameLocation": "95:5:0",
+                "nodeType": "StructDefinition",
+                "scope": 23,
+                "src": "88:34:0",
+                "visibility": "public"
+              },
+              {
+                "canonicalName": "NamespacedNested.Layout",
+                "id": 11,
+                "members": [
+                  {
+                    "constant": false,
+                    "id": 8,
+                    "mutability": "mutable",
+                    "name": "inner",
+                    "nameLocation": "149:5:0",
+                    "nodeType": "VariableDeclaration",
+                    "scope": 11,
+                    "src": "143:11:0",
+                    "stateVariable": false,
+                    "storageLocation": "default",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_struct$_Inner_$5_storage_ptr",
+                      "typeString": "struct NamespacedNested.Inner"
+                    },
+                    "typeName": {
+                      "id": 7,
+                      "nodeType": "UserDefinedTypeName",
+                      "pathNode": {
+                        "id": 6,
+                        "name": "Inner",
+                        "nameLocations": [
+                          "143:5:0"
+                        ],
+                        "nodeType": "IdentifierPath",
+                        "referencedDeclaration": 5,
+                        "src": "143:5:0"
+                      },
+                      "referencedDeclaration": 5,
+                      "src": "143:5:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Inner_$5_storage_ptr",
+                        "typeString": "struct NamespacedNested.Inner"
+                      }
+                    },
+                    "visibility": "internal"
+                  },
+                  {
+                    "constant": false,
+                    "id": 10,
+                    "mutability": "mutable",
+                    "name": "marker",
+                    "nameLocation": "164:6:0",
+                    "nodeType": "VariableDeclaration",
+                    "scope": 11,
+                    "src": "156:14:0",
+                    "stateVariable": false,
+                    "storageLocation": "default",
+                    "typeDescriptions": {
+                      "typeIdentifier": "t_uint256",
+                      "typeString": "uint256"
+                    },
+                    "typeName": {
+                      "id": 9,
+                      "name": "uint256",
+                      "nodeType": "ElementaryTypeName",
+                      "src": "156:7:0",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_uint256",
+                        "typeString": "uint256"
+                      }
+                    },
+                    "visibility": "internal"
+                  }
+                ],
+                "name": "Layout",
+                "nameLocation": "134:6:0",
+                "nodeType": "StructDefinition",
+                "scope": 23,
+                "src": "127:46:0",
+                "visibility": "public"
+              },
+              {
+                "constant": false,
+                "id": 14,
+                "mutability": "mutable",
+                "name": "compilerReference",
+                "nameLocation": "193:17:0",
+                "nodeType": "VariableDeclaration",
+                "scope": 23,
+                "src": "178:32:0",
+                "stateVariable": true,
+                "storageLocation": "default",
+                "typeDescriptions": {
+                  "typeIdentifier": "t_struct$_Layout_$11_storage",
+                  "typeString": "struct NamespacedNested.Layout"
+                },
+                "typeName": {
+                  "id": 13,
+                  "nodeType": "UserDefinedTypeName",
+                  "pathNode": {
+                    "id": 12,
+                    "name": "Layout",
+                    "nameLocations": [
+                      "178:6:0"
+                    ],
+                    "nodeType": "IdentifierPath",
+                    "referencedDeclaration": 11,
+                    "src": "178:6:0"
+                  },
+                  "referencedDeclaration": 11,
+                  "src": "178:6:0",
+                  "typeDescriptions": {
+                    "typeIdentifier": "t_struct$_Layout_$11_storage_ptr",
+                    "typeString": "struct NamespacedNested.Layout"
+                  }
+                },
+                "visibility": "private"
+              },
+              {
+                "body": {
+                  "id": 21,
+                  "nodeType": "Block",
+                  "src": "275:40:0",
+                  "statements": [
+                    {
+                      "AST": {
+                        "nativeSrc": "294:15:0",
+                        "nodeType": "YulBlock",
+                        "src": "294:15:0",
+                        "statements": [
+                          {
+                            "nativeSrc": "296:11:0",
+                            "nodeType": "YulAssignment",
+                            "src": "296:11:0",
+                            "value": {
+                              "kind": "number",
+                              "nativeSrc": "306:1:0",
+                              "nodeType": "YulLiteral",
+                              "src": "306:1:0",
+                              "type": "",
+                              "value": "0"
+                            },
+                            "variableNames": [
+                              {
+                                "name": "s.slot",
+                                "nativeSrc": "296:6:0",
+                                "nodeType": "YulIdentifier",
+                                "src": "296:6:0"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      "evmVersion": "osaka",
+                      "externalReferences": [
+                        {
+                          "declaration": 18,
+                          "isOffset": false,
+                          "isSlot": true,
+                          "src": "296:6:0",
+                          "suffix": "slot",
+                          "valueSize": 1
+                        }
+                      ],
+                      "id": 20,
+                      "nodeType": "InlineAssembly",
+                      "src": "285:24:0"
+                    }
+                  ]
+                },
+                "id": 22,
+                "implemented": true,
+                "kind": "function",
+                "modifiers": [],
+                "name": "layout",
+                "nameLocation": "225:6:0",
+                "nodeType": "FunctionDefinition",
+                "parameters": {
+                  "id": 15,
+                  "nodeType": "ParameterList",
+                  "parameters": [],
+                  "src": "231:2:0"
+                },
+                "returnParameters": {
+                  "id": 19,
+                  "nodeType": "ParameterList",
+                  "parameters": [
+                    {
+                      "constant": false,
+                      "id": 18,
+                      "mutability": "mutable",
+                      "name": "s",
+                      "nameLocation": "272:1:0",
+                      "nodeType": "VariableDeclaration",
+                      "scope": 22,
+                      "src": "257:16:0",
+                      "stateVariable": false,
+                      "storageLocation": "storage",
+                      "typeDescriptions": {
+                        "typeIdentifier": "t_struct$_Layout_$11_storage_ptr",
+                        "typeString": "struct NamespacedNested.Layout"
+                      },
+                      "typeName": {
+                        "id": 17,
+                        "nodeType": "UserDefinedTypeName",
+                        "pathNode": {
+                          "id": 16,
+                          "name": "Layout",
+                          "nameLocations": [
+                            "257:6:0"
+                          ],
+                          "nodeType": "IdentifierPath",
+                          "referencedDeclaration": 11,
+                          "src": "257:6:0"
+                        },
+                        "referencedDeclaration": 11,
+                        "src": "257:6:0",
+                        "typeDescriptions": {
+                          "typeIdentifier": "t_struct$_Layout_$11_storage_ptr",
+                          "typeString": "struct NamespacedNested.Layout"
+                        }
+                      },
+                      "visibility": "internal"
+                    }
+                  ],
+                  "src": "256:18:0"
+                },
+                "scope": 23,
+                "src": "216:99:0",
+                "stateMutability": "pure",
+                "virtual": false,
+                "visibility": "internal"
+              }
+            ],
+            "scope": 24,
+            "src": "56:261:0",
+            "usedErrors": [],
+            "usedEvents": []
+          }
+        ],
+        "src": "32:286:0"
+      },
+      "id": 0
+    }
+  }
+}

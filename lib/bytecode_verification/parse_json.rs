@@ -598,7 +598,7 @@ impl ProjectInfo {
                             TypeDescription {
                                 encoding: String::from("inplace"),
                                 label: node.other["canonicalName"].as_str().unwrap().to_string(),
-                                number_of_bytes: (slots + 1) * 32,
+                                number_of_bytes: (slots + usize::from(current_offset != 0)) * 32,
                                 base: None,
                                 key: None,
                                 value: None,
@@ -1754,5 +1754,53 @@ impl std::fmt::Display for Environment {
             .expect("no values are skipped")
             .get_name()
             .fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::forge_inspect::ForgeInspectLayoutStorage;
+
+    #[test]
+    fn nested_storage_struct_matches_compiler_layout() {
+        let output: Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/namespaced_nested.json"))
+                .unwrap();
+        let sources: BTreeMap<PathBuf, SourceFile> =
+            serde_json::from_value(output["sources"].clone()).unwrap();
+        let expected: ForgeInspectLayoutStorage = serde_json::from_value(
+            output["contracts"]["NamespacedNested.sol"]["NamespacedNested"]["storageLayout"]
+                .clone(),
+        )
+        .unwrap();
+        let mut exported_ids = vec![];
+        ProjectInfo::find_exported_ids(
+            &sources,
+            &"NamespacedNested".to_string(),
+            &mut exported_ids,
+        );
+        let mut storage = vec![];
+        let mut types = HashMap::new();
+        ProjectInfo::find_storage_structs(
+            &sources,
+            &Types::new(),
+            &exported_ids,
+            &mut storage,
+            &mut types,
+        );
+
+        assert_eq!(storage.len(), 1);
+        let actual = &types[&storage[0].var_type];
+        let expected = &expected.types[&expected.storage[0].var_type];
+        assert_eq!(actual.number_of_bytes, expected.number_of_bytes);
+        let actual_members = actual.members.as_ref().unwrap();
+        let expected_members = expected.members.as_ref().unwrap();
+        assert_eq!(actual_members.len(), expected_members.len());
+        for (actual, expected) in actual_members.iter().zip(expected_members) {
+            assert_eq!(actual.label, expected.label);
+            assert_eq!(actual.slot, expected.slot);
+            assert_eq!(actual.offset, expected.offset);
+        }
     }
 }
